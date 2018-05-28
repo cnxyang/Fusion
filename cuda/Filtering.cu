@@ -107,21 +107,6 @@ void PyrDownGaussian(const DeviceArray2D<uchar>& src, DeviceArray2D<uchar>& dst)
 }
 
 __global__ void
-ComputeDerivativeImage_device(PtrStepSz<uchar> src, PtrStep<short> dIx, PtrStep<short> dIy) {
-
-}
-
-void ComputeDerivativeImage(const DeviceArray2D<uchar>& src, DeviceArray2D<short>& dIx, DeviceArray2D<short>& dIy) {
-	dim3 block(8, 8);
-	dim3 grid(cv::divUp(src.cols(), block.x), cv::divUp(src.rows(), block.y));
-
-	ComputeDerivativeImage_device<<<grid, block>>>(src, dIx, dIy);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-}
-
-__global__ void
 ColourImageToIntensity_device(PtrStepSz<uchar3> src, PtrStep<uchar> dst) {
 	 int x = blockIdx.x * blockDim.x + threadIdx.x;
 	 int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -138,6 +123,48 @@ void ColourImageToIntensity(const DeviceArray2D<uchar3>& src, DeviceArray2D<ucha
 	dim3 grid(cv::divUp(src.cols(), block.x), cv::divUp(src.rows(), block.y));
 
 	ColourImageToIntensity_device<<<grid, block>>>(src, dst);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
+}
+
+
+__constant__ int sobely[9] = { 1, 2, 1, 0, 0, 0, -1, -2, -1 };
+__constant__ int sobelx[9] = { 1, 0, -1, 2, 0, -2, 1, 0, -1 };
+
+__global__ void
+ComputeDerivativeImage_device(PtrStepSz<uchar> src, PtrStep<float> dIx, PtrStep<float> dIy) {
+	 int x = blockIdx.x * blockDim.x + threadIdx.x;
+	 int y = blockIdx.y * blockDim.y + threadIdx.y;
+	 if (x >= src.cols || y >= src.rows)
+		 return;
+
+	 if (x > 0 && y > 0 && x < src.cols - 1 && y < src.rows - 1) {
+
+		 int dx = 0;
+		 int dy = 0;
+		 int id = 8;
+		 for(int i = -1; i < 2; ++i)
+			 for(int j = -1; j < 2; ++j) {
+				 int val = src.ptr(y + i)[x + j];
+				 dx += val * sobelx[id];
+				 dy += val * sobely[id];
+				 --id;
+			 }
+		 dIx.ptr(y)[x] = (float)dx / 6;
+		 dIy.ptr(y)[x] = (float)dy / 6;
+	 }
+	 else {
+		 dIx.ptr(y)[x] = 0;
+		 dIy.ptr(y)[x] = 0;
+	 }
+}
+
+void ComputeDerivativeImage(const DeviceArray2D<uchar>& src, DeviceArray2D<float>& dx, DeviceArray2D<float>& dy) {
+	dim3 block(8, 8);
+	dim3 grid(cv::divUp(src.cols(), block.x), cv::divUp(src.rows(), block.y));
+
+	ComputeDerivativeImage_device<<<grid, block>>>(src, dx, dy);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());

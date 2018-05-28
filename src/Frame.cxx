@@ -18,6 +18,8 @@ Frame::Frame(const Frame& other) {
 		other.mGray[i].copyTo(mGray[i]);
 		other.mVMap[i].copyTo(mVMap[i]);
 		other.mNMap[i].copyTo(mNMap[i]);
+		other.mdIx[i].copyTo(mdIx[i]);
+		other.mdIy[i].copyTo(mdIy[i]);
 	}
 
 	mRcw = other.mRcw.clone();
@@ -48,6 +50,8 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K) {
 	rawRGB.upload((void*)imRGB.data, imRGB.step, mPyrRes[0].first, mPyrRes[0].second);
 	rawDepth.upload((void*)imD.data, imD.step, mPyrRes[0].first, mPyrRes[0].second);
 	for(int i = 0; i < numPyrs; ++i) {
+		mdIx[i].create(mPyrRes[i].first, mPyrRes[i].second);
+		mdIy[i].create(mPyrRes[i].first, mPyrRes[i].second);
 		mGray[i].create(mPyrRes[i].first, mPyrRes[i].second);
 		mVMap[i].create(mPyrRes[i].first, mPyrRes[i].second);
 		mNMap[i].create(mPyrRes[i].first, mPyrRes[i].second);
@@ -67,6 +71,7 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K) {
 		float cy = mK[i].at<float>(1, 2);
 		BackProjectPoints(mDepth[i], mVMap[i], mDepthCutoff, fx, fy, cx, cy);
 		ComputeNormalMap(mVMap[i], mNMap[i]);
+		ComputeDerivativeImage(mGray[i], mdIx[i], mdIy[i]);
 	}
 
 	cv::cuda::GpuMat GrayTemp, Descriptor;
@@ -84,13 +89,60 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K) {
 	mtcw = cv::Mat::zeros(3, 1, CV_32FC1);
 	mRwc = mRcw.t();
 
-	cv::Mat test(mNMap[0].rows(), mNMap[0].cols(), CV_32FC3);
-	mNMap[0].download((void*)test.data, test.step);
+	cv::Mat test(mdIx[0].rows(), mdIx[0].cols(), CV_32FC1);
+	mdIx[0].download((void*)test.data, test.step);
 	cv::imshow("test", test);
 }
 
-void Frame::ApplyIncrementTransform(cv::Mat& dRot, cv::Mat& dtrans) {
-	mRcw = dRot * mRcw;
-	mtcw = dRot * mtcw + dtrans;
-	mRwc = mRcw.t();
+void Frame::SetPose(const Frame& frame) {
+	mRcw = frame.mRcw.clone();
+	mRwc = frame.mRwc.clone();
+	mtcw = frame.mtcw.clone();
+}
+
+void Frame::release() {
+	for(int i = 0; i < numPyrs; ++i) {
+		mdIx[i].release();
+		mdIy[i].release();
+		mGray[i].release();
+		mVMap[i].release();
+		mNMap[i].release();
+		mDepth[i].release();
+		mDescriptors.release();
+	}
+}
+
+float Frame::fx(int pyr) {
+	assert(pyr >= 0 && pyr <= numPyrs);
+	return mK[pyr].at<float>(0, 0);
+}
+
+float Frame::fy(int pyr) {
+	assert(pyr >= 0 && pyr <= numPyrs);
+	return mK[pyr].at<float>(1, 1);
+}
+
+float Frame::cx(int pyr) {
+	assert(pyr >= 0 && pyr <= numPyrs);
+	return mK[pyr].at<float>(0, 2);
+}
+
+float Frame::cy(int pyr) {
+	assert(pyr >= 0 && pyr <= numPyrs);
+	return mK[pyr].at<float>(1, 2);
+}
+
+int Frame::cols(int pyr) {
+	assert(pyr >= 0 && pyr <= numPyrs);
+	return mPyrRes[pyr].first;
+}
+
+int Frame::rows(int pyr) {
+	assert(pyr >= 0 && pyr <= numPyrs);
+	return mPyrRes[pyr].second;
+}
+
+int Frame::pixels(int pyr) {
+	assert(pyr >= 0 && pyr <= numPyrs);
+	return N[pyr];
 }

@@ -88,17 +88,14 @@ WarpGrayScaleImage_device(PtrStepSz<float4> src, PtrStep<uchar> gray,
 
 	int u = __float2int_rd(fx * dst.x / dst.z + cx + 0.5);
 	int v = __float2int_rd(fy * dst.y / dst.z + cy + 0.5);
-	if(u < 0 || v < 0 || u >= src.cols || v >= src.rows)
-		return;
-
-	diff.ptr(v)[u] = gray.ptr(y)[x];
+	if(u >= 0 && v >= 0 && u < src.cols && v < src.rows)
+		diff.ptr(v)[u] = gray.ptr(y)[x];
 }
 
 void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2, DeviceArray2D<uchar>& diff) {
 	dim3 block(8, 8);
 	dim3 grid(cv::divUp(diff.cols(), block.x), cv::divUp(diff.rows(), block.y));
 
-	diff.zero();
 	float3 t1 = Converter::CvMatToFloat3(frame1.mtcw);
 	float3 t2 = Converter::CvMatToFloat3(frame2.mtcw);
 
@@ -106,6 +103,29 @@ void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2, DeviceArray2D<
 
 	WarpGrayScaleImage_device<<<grid, block>>>(frame1.mVMap[pyrlvl], frame1.mGray[pyrlvl], frame1.mRcw, frame2.mRwc, t1, t2,
 											   Frame::fx(pyrlvl), Frame::fy(pyrlvl), Frame::cx(pyrlvl), Frame::cy(pyrlvl), diff);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
+}
+
+__global__ void
+ComputeResidualImage_device(PtrStep<uchar> src, PtrStep<uchar> dst, PtrStep<uchar> residual) {
+
+	const int x = blockDim.x * blockIdx.x + threadIdx.x;
+	const int y = blockDim.y * blockIdx.y + threadIdx.y;
+	if(x >= src.cols || y >= src.rows)
+		return;
+
+	residual.ptr(y)[x] = abs(src.ptr(y)[x] - dst.ptr(y)[x]);
+}
+
+void ComputeResidualImage(const DeviceArray2D<uchar>& src, const Frame& frame, DeviceArray2D<uchar>& residual) {
+	dim3 block(8, 8);
+	dim3 grid(cv::divUp(residual.cols(), block.x), cv::divUp(residual.rows(), block.y));
+
+	const int pyrlvl = 0;
+
+	ComputeResidualImage_device<<<grid, block>>>(src, frame.mGray[pyrlvl], residual);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());

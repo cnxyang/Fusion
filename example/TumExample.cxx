@@ -8,16 +8,18 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
 
+#include "Converter.h"
 #include "Tracking.h"
 
+void SaveTrajectoryTUM(const std::string& filename, Tracking* pTracker, std::vector<double>& vdTimeList);
 void LoadDatasetTUM(std::string & sRootPath,
 					std::vector<std::string> & vsDList,
 					std::vector<std::string> & vsRGBList,
 					std::vector<double> & vdTimeStamp);
 
 int main(int argc, char ** argv) {
-	std::cout << std::fixed;
-	std::cout << std::setprecision(4);
+//	std::cout << std::fixed;
+//	std::cout << std::setprecision(4);
 
 	if(argc != 2) {
 		std::cout << "Wrong Parameters.\n"
@@ -60,7 +62,7 @@ int main(int argc, char ** argv) {
 	std::cout << "Save Trajectories? (Y/N)." << std::endl;
 	int key = cv::waitKey(15 * 1000);
 	if(key == 'y' || key == 'Y') {
-		std::cout << "Trajectories saved." << std::endl;
+		SaveTrajectoryTUM("./1.txt", &Tracker, vdTimeList);
 	}
 	std::cout << "Program finished, exiting." << std::endl;
 }
@@ -97,4 +99,34 @@ void LoadDatasetTUM(std::string & sRootPath,
 		vsRGBList.push_back(sRootPath + sR);
 		if(dfile.eof() || rfile.eof()) return;
 	}
+}
+
+void SaveTrajectoryTUM(const std::string& filename, Tracking* pTracker, std::vector<double>& vdTimeList) {
+
+	std::cout << std::endl << "Saving camera trajectory to " << filename << " ..." << std::endl;
+    std::vector<cv::Mat>& Poses = pTracker->GetPoses();
+    std::ofstream f;
+    f.open(filename.c_str());
+    f << std::fixed;
+
+    std::vector<double>::iterator lT = vdTimeList.begin();
+    for(std::vector<cv::Mat>::iterator lit = Poses.begin(), lend = Poses.end(); lit != lend ;lit++, lT++) {
+        cv::Mat Rwc = (*lit);
+        cv::Mat twc = (*++lit);
+        std::cout << Rwc << std::endl << twc << std::endl;
+
+        std::vector<float> q = Converter::toQuaternion(Rwc);
+
+        f << std::setprecision(6) << *lT << " "
+        		                  <<  std::setprecision(9) << twc.at<float>(0) << " "
+        		                  << twc.at<float>(1) << " "
+        		                  << twc.at<float>(2) << " "
+        		                  << q[0] << " "
+        		                  << q[1] << " "
+        		                  << q[2] << " "
+        		                  << q[3] << std::endl;
+    }
+
+    f.close();
+    std::cout << std::endl << "trajectory saved!" << std::endl;
 }

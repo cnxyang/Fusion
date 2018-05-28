@@ -45,15 +45,21 @@ void Tracking::Track() {
 
 bool Tracking::InitTracking() {
 	mNextState = OK;
+	Poses.push_back(mNextFrame.mRcw);
+	Poses.push_back(mNextFrame.mtcw);
 	return true;
 }
 
 void Tracking::VisualiseTrackingResult() {
 
+	DeviceArray2D<uchar> result(640, 480);
 	DeviceArray2D<uchar> diff(640, 480);
+	result.zero();
+	diff.zero();
 	WarpGrayScaleImage(mNextFrame, mLastFrame, diff);
+	ComputeResidualImage(diff, mLastFrame, result);
 	cv::Mat cvdiff(480, 640, CV_8UC1);
-	diff.download((void*)cvdiff.data, cvdiff.step);
+	result.download((void*)cvdiff.data, cvdiff.step);
 	cv::imshow("diff", cvdiff);
 
 	cv::Mat lastgray(480, 640, CV_8UC1);
@@ -69,34 +75,37 @@ bool Tracking::TrackLastFrame() {
 	Eigen::Matrix<double, 6, 1> result;
 	Eigen::Matrix<float, 6, 6> host_a;
 	Eigen::Matrix<float, 6, 1> host_b;
+	mNextFrame.SetPose(mLastFrame);
+	float cost = 0, lastcost = 0;
 
-	mNextFrame.mRcw = mLastFrame.mRcw.clone();
-	mNextFrame.mRwc = mLastFrame.mRwc.clone();
-	mNextFrame.mtcw = mLastFrame.mtcw.clone();
-
-	int iter[3] = { 10, 5, 3 };
+	int iter[3] = { 10, 6, 4 };
 	for(int i = 2; i >= 0; --i)
 		for(int j = 0; j < iter[i]; j++) {
 
-			ICPReduceSum(mNextFrame, mLastFrame, i, host_a.data(), host_b.data());
+			lastcost = cost;
+			ICPReduceSum(mNextFrame, mLastFrame, i, host_a.data(), host_b.data(), cost);
 
 			Eigen::Matrix<double, 6, 6, Eigen::RowMajor> dA_icp = host_a.cast<double>();
 			Eigen::Matrix<double, 6, 1> db_icp = host_b.cast<double>();
 
 			result = dA_icp.ldlt().solve(db_icp);
-
-			auto e = Sophus::SE3f::exp(-result.cast<float>());
-			std::cout << result << std::endl;
+//			std::cout << "result:\n" << result << std::endl;
+			auto e = Sophus::SE3f::exp(result.cast<float>());
 			auto dT = e.matrix();
 
 			Eigen::Matrix<float, 4, 4> T = Converter::TransformToEigen(mNextFrame.mRcw, mNextFrame.mtcw);
-			std::cout << T << std::endl << "--------------\n";
-			std::cout << dT << std::endl;
+			std::cout << "T:\n" << T << std::endl << "--------------\n";
+//			std::cout << "dT:\n" << dT << std::endl;
 			T = dT * T;
 
 			Converter::TransformToCv(T, mNextFrame.mRcw, mNextFrame.mtcw);
 			mNextFrame.mRwc = mNextFrame.mRcw.t();
+//			std::cout << "cost:\n" << cost << std::endl;
 //			VisualiseTrackingResult();
 	}
+
+	Poses.push_back(mNextFrame.mRcw);
+	Poses.push_back(mNextFrame.mtcw);
+//	mvFrames.push_back(mNextFrame);
 	return true;
 }

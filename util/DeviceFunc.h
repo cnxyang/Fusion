@@ -11,11 +11,13 @@ void PyrDownGaussian(const DeviceArray2D<float>& src, DeviceArray2D<float>& dst)
 void PyrDownGaussian(const DeviceArray2D<uchar>& src, DeviceArray2D<uchar>& dst);
 void BilateralFiltering(const DeviceArray2D<ushort>& src, DeviceArray2D<float>& dst, float scale);
 void ColourImageToIntensity(const DeviceArray2D<uchar3>& src, DeviceArray2D<uchar>& dst);
+void ComputeDerivativeImage(const DeviceArray2D<uchar>& src, DeviceArray2D<float>& dx, DeviceArray2D<float>& dy);
 
 void BackProjectPoints(const DeviceArray2D<float>& src, DeviceArray2D<float4>& dst, float depthCutoff, float fx, float fy, float cx, float cy);
 void ComputeNormalMap(const DeviceArray2D<float4>& src, DeviceArray2D<float3>& dst);
-void WarpGrayScaleImage(const Frame& src1, const Frame& src2, DeviceArray2D<uchar>& diff);
+void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2, DeviceArray2D<uchar>& diff);
+void ComputeResidualImage(const DeviceArray2D<uchar>& src, const Frame& frame, DeviceArray2D<uchar>& residual);
 
-void ICPReduceSum(Frame& NextFrame, Frame& LastFrame, int PyrLevel, float* host_a, float* host_b);
+void ICPReduceSum(Frame& NextFrame, Frame& LastFrame, int PyrLevel, float* host_a, float* host_b, float& cost);
 
 #endif

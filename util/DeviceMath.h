@@ -461,20 +461,32 @@ struct Matrix3f {
 		return id;
 	}
 
-	__host__  __device__  inline float3 operator*(float3 vec) {
+	__host__ __device__  inline float3 operator*(float3 vec) {
 		return make_float3(rowx * vec, rowy * vec, rowz * vec);
 	}
 
-	__host__  __device__  inline float3 operator*(float3 vec) const {
+	__host__ __device__  inline float3 operator*(float3 vec) const {
 		return make_float3(rowx * vec, rowy * vec, rowz * vec);
 	}
 
-	__host__  __device__  inline float4 operator*(float4 vec) {
+	__host__ __device__  inline float4 operator*(float4 vec) {
 		return make_float4(rowx * vec, rowy * vec, rowz * vec, vec.w);
 	}
 
-	__host__  __device__  inline float4 operator*(float4 vec) const {
+	__host__ __device__  inline float4 operator*(float4 vec) const {
 		return make_float4(rowx * vec, rowy * vec, rowz * vec, vec.w);
+	}
+
+	__host__ __device__ inline float3 coloumx() const {
+		return make_float3(rowx.x, rowy.x, rowz.x);
+	}
+
+	__host__ __device__ inline float3 coloumy() const {
+		return make_float3(rowx.y, rowy.y, rowz.y);
+	}
+
+	__host__ __device__ inline float3 coloumz() const {
+		return make_float3(rowx.z, rowy.z, rowz.z);
 	}
 
 	float3 rowx;

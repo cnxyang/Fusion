@@ -5,22 +5,6 @@ float3 Converter::CvMatToFloat3(const cv::Mat& mat) {
 }
 
 #ifndef __CUDACC__
-cv::Mat Converter::EigenToCvMat(Sophus::Matrix3<double> rot) {
-	cv::Mat rotd = cv::Mat::eye(3, 3, CV_64FC1);
-	cv::Mat rotf = cv::Mat::eye(3, 3, CV_32FC1);
-	rotd.at<double>(0, 0) = rot(0, 0);
-	rotd.at<double>(0, 1) = rot(0, 1);
-	rotd.at<double>(0, 2) = rot(0, 2);
-	rotd.at<double>(1, 0) = rot(1, 0);
-	rotd.at<double>(1, 1) = rot(1, 1);
-	rotd.at<double>(1, 2) = rot(1, 2);
-	rotd.at<double>(2, 0) = rot(2, 0);
-	rotd.at<double>(2, 1) = rot(2, 1);
-	rotd.at<double>(2, 2) = rot(2, 2);
-	rotd.convertTo(rotf, CV_32FC1);
-	return rotf;
-}
-
 Eigen::Matrix<float, 4, 4> Converter::TransformToEigen(cv::Mat& r, cv::Mat& t) {
 	Eigen::Matrix<float, 4, 4> T = Eigen::Matrix<float, 4, 4>::Identity();
 	T(0, 0) = r.at<float>(0, 0);
@@ -53,6 +37,31 @@ void Converter::TransformToCv(Eigen::Matrix<float, 4, 4>& T, cv::Mat& r, cv::Mat
 	t.at<float>(0) = T(0, 3);
 	t.at<float>(1) = T(1, 3);
 	t.at<float>(2) = T(2, 3);
+}
+
+Eigen::Matrix<double,3,3> toMatrix3d(const cv::Mat &cvMat3)
+{
+    Eigen::Matrix<double,3,3> M;
+
+    M << cvMat3.at<float>(0,0), cvMat3.at<float>(0,1), cvMat3.at<float>(0,2),
+         cvMat3.at<float>(1,0), cvMat3.at<float>(1,1), cvMat3.at<float>(1,2),
+         cvMat3.at<float>(2,0), cvMat3.at<float>(2,1), cvMat3.at<float>(2,2);
+
+    return M;
+}
+
+std::vector<float> Converter::toQuaternion(const cv::Mat &M)
+{
+    Eigen::Matrix<double,3,3> eigMat = toMatrix3d(M);
+    Eigen::Quaterniond q(eigMat);
+
+    std::vector<float> v(4);
+    v[0] = q.x();
+    v[1] = q.y();
+    v[2] = q.z();
+    v[3] = q.w();
+
+    return v;
 }
 
 #endif
