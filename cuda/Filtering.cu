@@ -35,7 +35,7 @@ void BilateralFiltering(const DeviceArray2D<ushort>& src, DeviceArray2D<float>& 
 	dim3 grid(cv::divUp(src.cols(), block.x), cv::divUp(src.rows(), block.y));
 
 	float SigmaSpace = 0.5 / (4 * 4);
-	float SigmaRange = 0.5 / (0.5 * 0.5);
+	float SigmaRange = 0.5 / (2 * 2);
 	BilateralFiltering_device<ushort, float, 5><<<grid, block>>>(src, dst, SigmaSpace, SigmaRange, 1.0 / scale);
 
 	SafeCall(cudaDeviceSynchronize());
@@ -151,8 +151,8 @@ ComputeDerivativeImage_device(PtrStepSz<uchar> src, PtrStep<float> dIx, PtrStep<
 				 dy += val * sobely[id];
 				 --id;
 			 }
-		 dIx.ptr(y)[x] = (float)dx / 6;
-		 dIy.ptr(y)[x] = (float)dy / 6;
+		 dIx.ptr(y)[x] = (float)dx / 8;
+		 dIy.ptr(y)[x] = (float)dy / 8;
 	 }
 	 else {
 		 dIx.ptr(y)[x] = 0;

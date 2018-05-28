@@ -62,6 +62,7 @@ void ReduceSum(PtrStep<T> in, T* out, int N) {
 struct ICPReduce {
 
 	bool ICPOnly;
+	float icpW;
 	Matrix3f Rcurr;
 	Matrix3f Rlast;
 	Matrix3f invRlast;
@@ -117,7 +118,17 @@ struct ICPReduce {
 
 		float dx = dIx.ptr(v)[u];
 		float dy = dIy.ptr(v)[u];
-		if((dx == 0 || dy == 0) || vcp.z < 1e-2 || vcp.z > 3.0)
+
+		bool valid = true;
+		const int r = 2;
+		for(int i = max(0, u - r ); i < min(u + r + 1, cols); ++i)
+			for(int j = max(0, v - r ); j < min(v + r + 1, rows); ++j)
+				valid = (GrayLast.ptr(j)[i] > 0) && (GrayCurr.ptr(j)[i] > 0) && valid;
+
+		if(!valid)
+			return false;
+
+		if(sqrt(dx * dx + dy * dy) < 5)
 			return false;
 
 		float3 rcx = -invRlast.coloumx();
@@ -173,19 +184,18 @@ struct ICPReduce {
 #pragma unroll
 			for(int i = 0; i < 7; ++i)
 #pragma unroll
-				for(int j = i; j < 7; ++j) {
+				for(int j = i; j < 7; ++j)
 					sum[count++] = row[i] * row[j];
-				}
+//					sum[count++] = row_rgb[i] * row_rgb[j];
 		}
 		else {
 #pragma unroll
 			for(int i = 0; i < 7; ++i)
 #pragma unroll
-				for(int j = i; j < 7; ++j) {
-					sum[count++] = 0.1 * (row[i] * row[j]) + 0.9 * (row_rgb[i] * row_rgb[j]);
+				for(int j = i; j < 7; ++j)
+					sum[count++] = icpW * row[i] * row[j] + (1 - icpW) * row_rgb[i] * row_rgb[j];
 //					sum[count++] = row_rgb[i] * row_rgb[j];
 //					sum[count++] = row[i] * row[j];
-				}
 		}
 		sum[count] = (float)bCorresp;
 	}
@@ -260,6 +270,7 @@ void ICPReduceSum(Frame& NextFrame, Frame& LastFrame, int pyrnum,
 	icp.tlast = Converter::CvMatToFloat3(LastFrame.mtcw);
 	icp.angleThresh = 0.6;
 	icp.distThresh = 0.1;
+	icp.icpW = 0.2;
 	icp.ICPOnly = false;
 	icp.fx = Frame::fx(pyrnum);
 	icp.fy = Frame::fy(pyrnum);

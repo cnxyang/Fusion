@@ -6,6 +6,7 @@
 __global__ void
 BackProjectPoints_device(const PtrStepSz<float> src, PtrStepSz<float4> dst,
 		float depthCutoff, float invfx, float invfy, float cx, float cy) {
+
 	const int x = blockDim.x * blockIdx.x + threadIdx.x;
 	const int y = blockDim.y * blockIdx.y + threadIdx.y;
 	if(x >= src.cols || y >= src.rows)
@@ -37,6 +38,7 @@ void BackProjectPoints(const DeviceArray2D<float>& src, DeviceArray2D<float4>& d
 
 __global__ void
 ComputeNormalMap_device(const PtrStepSz<float4> src, PtrStepSz<float3> dst) {
+
 	const int x = blockDim.x * blockIdx.x + threadIdx.x;
 	const int y = blockDim.y * blockIdx.y + threadIdx.y;
 	if(x >= src.cols || y >= src.rows)
@@ -80,6 +82,8 @@ WarpGrayScaleImage_device(PtrStepSz<float4> src, PtrStep<uchar> gray,
 	if(x >= src.cols || y >= src.rows)
 		return;
 
+	diff.ptr(y)[x] = 0;
+
 	float3 srcp = make_float3(src.ptr(y)[x]);
 	if(isnan(srcp.x) || srcp.z < 1e-6)
 		return;
@@ -89,7 +93,7 @@ WarpGrayScaleImage_device(PtrStepSz<float4> src, PtrStep<uchar> gray,
 	int u = __float2int_rd(fx * dst.x / dst.z + cx + 0.5);
 	int v = __float2int_rd(fy * dst.y / dst.z + cy + 0.5);
 	if(u >= 0 && v >= 0 && u < src.cols && v < src.rows)
-		diff.ptr(v)[u] = gray.ptr(y)[x];
+		diff.ptr(y)[x] = gray.ptr(v)[u];
 }
 
 void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2, DeviceArray2D<uchar>& diff) {
@@ -101,7 +105,7 @@ void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2, DeviceArray2D<
 
 	const int pyrlvl = 0;
 
-	WarpGrayScaleImage_device<<<grid, block>>>(frame1.mVMap[pyrlvl], frame1.mGray[pyrlvl], frame1.mRcw, frame2.mRwc, t1, t2,
+	WarpGrayScaleImage_device<<<grid, block>>>(frame1.mVMap[pyrlvl], frame2.mGray[pyrlvl], frame1.mRcw, frame2.mRwc, t1, t2,
 											   Frame::fx(pyrlvl), Frame::fy(pyrlvl), Frame::cx(pyrlvl), Frame::cy(pyrlvl), diff);
 
 	SafeCall(cudaDeviceSynchronize());

@@ -26,7 +26,9 @@ private:
 
 	Frame mLastFrame;
 	Frame mNextFrame;
+	Frame mTargetFrame;
 	State mNextState;
+	int mNoFrames;
 
 	cv::Mat mK;
 };

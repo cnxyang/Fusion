@@ -13,6 +13,7 @@ Tracking::Tracking() {
 	mK.at<float>(1, 1) = 528;
 	mK.at<float>(0, 2) = 320;
 	mK.at<float>(1, 2) = 240;
+	mNoFrames = 0;
 }
 
 void Tracking::GrabImageRGBD(cv::Mat& imRGB, cv::Mat& imD) {
@@ -45,6 +46,7 @@ void Tracking::Track() {
 
 bool Tracking::InitTracking() {
 	mNextState = OK;
+	mNoFrames++;
 	Poses.push_back(mNextFrame.mRcw);
 	Poses.push_back(mNextFrame.mtcw);
 	return true;
@@ -56,8 +58,8 @@ void Tracking::VisualiseTrackingResult() {
 	DeviceArray2D<uchar> diff(640, 480);
 	result.zero();
 	diff.zero();
-	WarpGrayScaleImage(mNextFrame, mLastFrame, diff);
-	ComputeResidualImage(diff, mLastFrame, result);
+	WarpGrayScaleImage(mNextFrame, mTargetFrame, diff);
+	ComputeResidualImage(diff, mNextFrame, result);
 	cv::Mat cvdiff(480, 640, CV_8UC1);
 	result.download((void*)cvdiff.data, cvdiff.step);
 	cv::imshow("diff", cvdiff);
@@ -65,12 +67,17 @@ void Tracking::VisualiseTrackingResult() {
 	cv::Mat lastgray(480, 640, CV_8UC1);
 	mLastFrame.mGray[0].download((void*)lastgray.data, lastgray.step);
 	cv::imshow("gray", lastgray);
-	int key = cv::waitKey(10);
+	int key = cv::waitKey(0);
 	if(key == 27)
 		exit(0);
 }
 
 bool Tracking::TrackLastFrame() {
+
+	mNoFrames++;
+	if(mNoFrames > 0)
+		if(mNoFrames == 2 || mNoFrames % 5 == 0)
+			mTargetFrame = Frame(mLastFrame);
 
 	Eigen::Matrix<double, 6, 1> result;
 	Eigen::Matrix<float, 6, 6> host_a;
@@ -89,23 +96,22 @@ bool Tracking::TrackLastFrame() {
 			Eigen::Matrix<double, 6, 1> db_icp = host_b.cast<double>();
 
 			result = dA_icp.ldlt().solve(db_icp);
-//			std::cout << "result:\n" << result << std::endl;
 			auto e = Sophus::SE3f::exp(result.cast<float>());
 			auto dT = e.matrix();
 
 			Eigen::Matrix<float, 4, 4> T = Converter::TransformToEigen(mNextFrame.mRcw, mNextFrame.mtcw);
-			std::cout << "T:\n" << T << std::endl << "--------------\n";
-//			std::cout << "dT:\n" << dT << std::endl;
+			std::cout << "T:\n" << T << std::endl
+					  << "-----------------------" << std::endl
+					  << "dT:\n" << dT << std::endl;
 			T = dT * T;
 
 			Converter::TransformToCv(T, mNextFrame.mRcw, mNextFrame.mtcw);
 			mNextFrame.mRwc = mNextFrame.mRcw.t();
-//			std::cout << "cost:\n" << cost << std::endl;
+			std::cout << "cost:\n" << cost << std::endl;
 //			VisualiseTrackingResult();
 	}
 
 	Poses.push_back(mNextFrame.mRcw);
-	Poses.push_back(mNextFrame.mtcw);
-//	mvFrames.push_back(mNextFrame);
+	Poses.push_back(-mNextFrame.mRwc * mNextFrame.mtcw);
 	return true;
 }
