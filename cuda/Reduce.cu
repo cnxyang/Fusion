@@ -70,17 +70,19 @@ struct ICPReduce {
 	float3 t;
 	float3 tcurr;
 	float3 tlast;
+	PtrStep<float> dIx, dIy;
 	PtrStep<float4> VMapCurr, VMapLast;
 	PtrStep<float3> NMapCurr, NMapLast;
-	PtrStep<float> dIx, dIy;
 	PtrStep<uchar> GrayCurr, GrayLast;
 	int cols, rows, N;
 	float fx, fy, cx, cy;
 	float angleThresh, distThresh;
+
+	mutable float w;
 	mutable PtrStepSz<float> out;
 
 	__device__ inline
-	bool SearchCorresp(int& x, int& y, int& u, int& v, float3& vcurr_g,
+	bool SearchCorresp(bool& view, int& x, int& y, int& u, int& v, float3& vcurr_g,
 					   float3& vlast_g, float3& nlast_g, float3& vcurr_p) const {
 
 		float3 vcurr_c = make_float3(VMapCurr.ptr(y)[x]);
@@ -96,6 +98,7 @@ struct ICPReduce {
 		if(u < 0 || v < 0 || u >= cols || v >= rows)
 			return false;
 
+		view = true;
 		float3 vlast_c = make_float3(VMapLast.ptr(v)[u]);
 		vlast_g = Rlast * vlast_c + tlast;
 
@@ -128,9 +131,6 @@ struct ICPReduce {
 		if(!valid)
 			return false;
 
-		if(sqrt(dx * dx + dy * dy) < 5)
-			return false;
-
 		float3 rcx = -invRlast.coloumx();
 		float3 rcy = -invRlast.coloumy();
 		float3 rcz = -invRlast.coloumz();
@@ -149,6 +149,7 @@ struct ICPReduce {
 		row[4] = dIdh * make_float3(r0xp.y, r1xp.y, r2xp.y);
 		row[5] = dIdh * make_float3(r0xp.z, r1xp.z, r2xp.z);
 		row[6] = -(GrayCurr.ptr(y)[x] - GrayLast.ptr(v)[u]);
+
 		return true;
 	}
 
@@ -159,8 +160,9 @@ struct ICPReduce {
 
 		int u = 0, v = 0;
 		bool bCorresp = false, bRGB = false;
+		bool bView = false;
 		float3 vcurr, vlast, nlast, vcurrp;
-		bCorresp = SearchCorresp(x, y, u, v, vcurr, vlast, nlast, vcurrp);
+		bCorresp = SearchCorresp(bView, x, y, u, v, vcurr, vlast, nlast, vcurrp);
 		float row[7] = { 0, 0, 0, 0, 0, 0, 0 };
 		float row_rgb[7] = { 0, 0, 0, 0, 0, 0, 0 };
 
@@ -173,11 +175,11 @@ struct ICPReduce {
             row[4] = nvcross.y;
             row[5] = nvcross.z;
             row[6] = -nlast * (vlast - vcurr);
-
-            if(bUseRGB) {
-            	bRGB = ComputeRGB(x, y, u, v, vcurr, vcurrp, row_rgb);
-            }
 		}
+
+        if(bView && bUseRGB) {
+        	bRGB = ComputeRGB(x, y, u, v, vcurr, vcurrp, row_rgb);
+        }
 
 		int count = 0;
 		if(!bUseRGB || !bRGB) {
@@ -185,8 +187,8 @@ struct ICPReduce {
 			for(int i = 0; i < 7; ++i)
 #pragma unroll
 				for(int j = i; j < 7; ++j)
-					sum[count++] = row[i] * row[j];
-//					sum[count++] = row_rgb[i] * row_rgb[j];
+//					sum[count++] = row[i] * row[j];
+					sum[count++] = row_rgb[i] * row_rgb[j];
 		}
 		else {
 #pragma unroll
@@ -270,7 +272,7 @@ void ICPReduceSum(Frame& NextFrame, Frame& LastFrame, int pyrnum,
 	icp.tlast = Converter::CvMatToFloat3(LastFrame.mtcw);
 	icp.angleThresh = 0.6;
 	icp.distThresh = 0.1;
-	icp.icpW = 0.2;
+	icp.icpW = 0.9;
 	icp.ICPOnly = false;
 	icp.fx = Frame::fx(pyrnum);
 	icp.fy = Frame::fy(pyrnum);
@@ -450,4 +452,147 @@ void ICPReduceSum(Frame& NextFrame, Frame& LastFrame, int pyrnum,
 //	result.download(host_data);
 //	CreateMatrix(host_data, host_a, host_b);
 //	cost = sqrt(host_data[27]) / host_data[28];
+//}
+
+//struct Residual {
+//	Matrix3f Rcurr;
+//	Matrix3f Rlast;
+//	Matrix3f invRlast;
+//	float3 tcurr;
+//	float3 tlast;
+//	PtrStep<float> dIx, dIy;
+//	PtrStep<uchar> GrayCurr, GrayLast;
+//	PtrStep<float4> VMapCurr, VMapLast;
+//	PtrStep<float3> NMapCurr, NMapLast;
+//	int cols, rows, N;
+//	float fx, fy, cx, cy;
+//	float angleThresh, distThresh;
+//	mutable PtrStep<Corresp> corresp;
+//
+//	__device__ inline
+//	bool SearchCorresp(int& x, int& y, int& u, int& v, float3& vcurr_g) const {
+//
+//		float3 vcurr_c = make_float3(VMapCurr.ptr(y)[x]);
+//		if(isnan(vcurr_c.x) || vcurr_c.z < 1e-3)
+//			return false;
+//
+//		vcurr_g = Rcurr * vcurr_c + tcurr;
+//		float3 vcurr_p = invRlast * (vcurr_g - tlast);
+//
+//		float invz = 1.0 / vcurr_p.z;
+//		u = __float2int_rd(vcurr_p.x * invz * fx + cx + 0.5);
+//		v = __float2int_rd(vcurr_p.y * invz * fy + cy + 0.5);
+//		if(u < 0 || v < 0 || u >= cols || v >= rows)
+//			return false;
+//
+//		return true;
+//	}
+//
+//	__device__ inline
+//	bool SearchICPCorresp(int& x, int& y, int& u, int& v,
+//						  float3& vcurr_g, float3& vlast_g, float3& nlast_g) const {
+//
+//		float3 vlast_c = make_float3(VMapLast.ptr(v)[u]);
+//		vlast_g = Rlast * vlast_c + tlast;
+//
+//		float3 ncurr_c = NMapCurr.ptr(y)[x];
+//		float3 ncurr_g = Rcurr * ncurr_c;
+//
+//		float3 nlast_c = NMapLast.ptr(v)[u];
+//		nlast_g = Rlast * nlast_c;
+//
+//		float dist = norm(vlast_g - vcurr_g);
+//		float sine = norm(cross(ncurr_g, nlast_g));
+//
+//		return (sine < angleThresh && dist <= distThresh && !isnan(ncurr_c.x) && !isnan(nlast_c.x));
+//	}
+//
+//	__device__ inline
+//	bool SearchRGBCorresp(int& x, int& y, int& u, int& v) const {
+//		float dx = dIx.ptr(v)[u];
+//		float dy = dIy.ptr(v)[u];
+//
+//		bool valid = true;
+//		const int r = 2;
+//		for (int i = max(0, u - r); i < min(u + r + 1, cols); ++i)
+//			for (int j = max(0, v - r); j < min(v + r + 1, rows); ++j)
+//				valid = (GrayLast.ptr(j)[i] > 0) && (GrayCurr.ptr(j)[i] > 0)
+//						&& valid;
+//
+//		if (!valid || sqrt(dx * dx + dy * dy) < 5)
+//			return false;
+//
+//		return true;
+//	}
+//
+//	__device__
+//	void operator()() const {
+//
+//		int x = blockDim.x * blockIdx.x + threadIdx.x;
+//		int y = blockDim.y * blockIdx.y + threadIdx.y;
+//		if(x >= cols || y >= rows)
+//			return;
+//
+//		bool bView = false;
+//		corresp.ptr(y)[x].bICP = false;
+//		corresp.ptr(y)[x].bRGB = false;
+//		int u = 0, v = 0;
+//		float3 vcurr, vlast, nlast;
+//		bView = SearchCorresp(x, y, u, v, vcurr);
+//		if(bView) {
+//			corresp.ptr(y)[x].bICP = SearchICPCorresp(x, y, u, v, vcurr, vlast, nlast);
+//			corresp.ptr(y)[x].bRGB = SearchRGBCorresp(x, y, u, v);
+//		}
+//
+//		if(corresp.ptr(y)[x].bICP) {
+//            corresp.ptr(y)[x].ICPres = nlast * (vlast - vcurr);
+//            corresp.ptr(y)[x].nlast = nlast;
+//            corresp.ptr(y)[x].nvcross = cross(nlast, vcurr);
+//		}
+//
+//		if(corresp.ptr(y)[x].bRGB) {
+//			corresp.ptr(y)[x].RGBres = GrayCurr.ptr(y)[x] - GrayLast.ptr(v)[u];
+//		}
+//	}
+//};
+//
+//__global__ void
+//ComputeResidual_device(const Residual res) {
+//	res();
+//}
+//
+//void ComputeResidual(Frame& NextFrame, Frame& LastFrame, DeviceArray2D<Corresp>& corresp, int pyrlvl) {
+//
+//	Residual res;
+//	res.GrayCurr = NextFrame.mGray[pyrlvl];
+//	res.VMapCurr = NextFrame.mVMap[pyrlvl];
+//	res.NMapCurr = NextFrame.mNMap[pyrlvl];
+//	res.GrayLast = LastFrame.mGray[pyrlvl];
+//	res.VMapLast = LastFrame.mVMap[pyrlvl];
+//	res.NMapLast = LastFrame.mNMap[pyrlvl];
+//	res.dIx = LastFrame.mdIx[pyrlvl];
+//	res.dIy = LastFrame.mdIy[pyrlvl];
+//	res.corresp = corresp;
+//	res.cols = Frame::cols(pyrlvl);
+//	res.rows = Frame::rows(pyrlvl);
+//	res.N = Frame::pixels(pyrlvl);
+//	res.Rcurr = NextFrame.mRcw;
+//	res.tcurr = Converter::CvMatToFloat3(NextFrame.mtcw);
+//	res.Rlast = LastFrame.mRcw;
+//	res.invRlast = LastFrame.mRwc;
+//	res.tlast = Converter::CvMatToFloat3(LastFrame.mtcw);
+//	res.angleThresh = 0.6;
+//	res.distThresh = 0.1;
+//	res.fx = Frame::fx(pyrlvl);
+//	res.fy = Frame::fy(pyrlvl);
+//	res.cx = Frame::cx(pyrlvl);
+//	res.cy = Frame::cy(pyrlvl);
+//
+//	dim3 block(8, 8);
+//	dim3 grid(cv::divUp(Frame::cols(pyrlvl), block.x), cv::divUp(Frame::rows(pyrlvl), block.y));
+//
+//	ComputeResidual_device<<<grid, block>>>(res);
+//
+//	SafeCall(cudaDeviceSynchronize());
+//	SafeCall(cudaGetLastError());
 //}

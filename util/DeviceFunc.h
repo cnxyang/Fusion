@@ -3,6 +3,7 @@
 
 #include "Frame.h"
 #include "DeviceArray.h"
+#include "DeviceStruct.h"
 
 #include <cuda_runtime.h>
 #include <opencv2/opencv.hpp>
@@ -19,5 +20,6 @@ void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2, DeviceArray2D<
 void ComputeResidualImage(const DeviceArray2D<uchar>& src, const Frame& frame, DeviceArray2D<uchar>& residual);
 
 void ICPReduceSum(Frame& NextFrame, Frame& LastFrame, int PyrLevel, float* host_a, float* host_b, float& cost);
+void ComputeResidual(Frame& NextFrame, Frame& LastFrame, DeviceArray2D<Corresp>& corresp, int PyrLevel);
 
 #endif

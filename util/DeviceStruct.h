@@ -1,3 +1,7 @@
+
+#ifndef __DEVICE_STRUCT_H__
+#define __DEVICE_STRUCT_H__
+
 #include "DeviceArray.h"
 
 struct HashEntry {
@@ -13,6 +17,13 @@ struct Voxel {
 	short rgbW;
 };
 
+struct Corresp {
+	int u, v;
+	bool bICP, bRGB;
+	float3 nlast, nvcross;
+	float ICPres, RGBres;
+};
+
 struct DeviceMap {
 	PtrSz<uint> memory;
 	PtrSz<uint> uesdMem;
@@ -22,3 +33,5 @@ struct DeviceMap {
 	PtrSz<HashEntry> visibleEntries;
 	PtrSz<Voxel> voxelBlocks;
 };
+
+#endif

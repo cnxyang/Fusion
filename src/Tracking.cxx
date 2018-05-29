@@ -1,5 +1,6 @@
 #include "Tracking.h"
 #include "DeviceFunc.h"
+#include "DeviceStruct.h"
 #include "eigen3/Eigen/Dense"
 #include "sophus/se3.hpp"
 #include "Converter.h"
@@ -76,7 +77,7 @@ bool Tracking::TrackLastFrame() {
 
 	mNoFrames++;
 	if(mNoFrames > 0)
-		if(mNoFrames == 2 || mNoFrames % 5 == 0)
+		if(mNoFrames == 2 || mNoFrames % 1 == 0)
 			mTargetFrame = Frame(mLastFrame);
 
 	Eigen::Matrix<double, 6, 1> result;
@@ -90,6 +91,7 @@ bool Tracking::TrackLastFrame() {
 		for(int j = 0; j < iter[i]; j++) {
 
 			lastcost = cost;
+
 			ICPReduceSum(mNextFrame, mLastFrame, i, host_a.data(), host_b.data(), cost);
 
 			Eigen::Matrix<double, 6, 6, Eigen::RowMajor> dA_icp = host_a.cast<double>();
@@ -108,10 +110,10 @@ bool Tracking::TrackLastFrame() {
 			Converter::TransformToCv(T, mNextFrame.mRcw, mNextFrame.mtcw);
 			mNextFrame.mRwc = mNextFrame.mRcw.t();
 			std::cout << "cost:\n" << cost << std::endl;
-//			VisualiseTrackingResult();
+			VisualiseTrackingResult();
 	}
 
 	Poses.push_back(mNextFrame.mRcw);
-	Poses.push_back(-mNextFrame.mRwc * mNextFrame.mtcw);
+	Poses.push_back(-mNextFrame.mRcw * mNextFrame.mtcw);
 	return true;
 }
