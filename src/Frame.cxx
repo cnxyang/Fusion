@@ -11,6 +11,8 @@ cv::Ptr<cv::cuda::ORB> Frame::mORB;
 
 Frame::Frame() {}
 
+Frame::~Frame() { release(); }
+
 Frame::Frame(const Frame& other) {
 
 	for(int i = 0; i < numPyrs; ++i) {
@@ -77,13 +79,13 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K) {
 	cv::cuda::GpuMat GrayTemp, Descriptor;
 	GrayTemp.create(mPyrRes[0].second, mPyrRes[0].first, CV_8UC1);
 	SafeCall(cudaMemcpy2D((void*)GrayTemp.data, GrayTemp.step,
-			(void*)mGray[0], mGray[0].step(), sizeof(char) * mGray[0].cols(),
-			mGray[0].rows(), cudaMemcpyDeviceToDevice));
+				          (void*)mGray[0], mGray[0].step(), sizeof(char) * mGray[0].cols(),
+				          mGray[0].rows(), cudaMemcpyDeviceToDevice));
 	mORB->detectAndCompute(GrayTemp, cv::cuda::GpuMat(), mKeyPoints, Descriptor);
 	mDescriptors.create(Descriptor.cols, Descriptor.rows);
 	SafeCall(cudaMemcpy2D((void*)mDescriptors, mDescriptors.step(),
-			(void*)Descriptor.data, Descriptor.step, sizeof(char) * Descriptor.cols,
-			Descriptor.rows, cudaMemcpyDeviceToDevice));
+						  (void*)Descriptor.data, Descriptor.step, sizeof(char) * Descriptor.cols,
+						  Descriptor.rows, cudaMemcpyDeviceToDevice));
 
 	mRcw = cv::Mat::eye(3, 3, CV_32FC1);
 	mtcw = cv::Mat::zeros(3, 1, CV_32FC1);

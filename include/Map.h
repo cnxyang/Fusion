@@ -6,6 +6,11 @@
 #include "DeviceStruct.h"
 
 class Map {
+public:
+	Map();
+	~Map();
+
+public:
 
 };
 

@@ -11,6 +11,22 @@
 #include "Converter.h"
 #include "Tracking.h"
 
+enum MemRepType {
+	Byte = 1,
+	KiloByte = 1024,
+	MegaByte = 1024 * 1024,
+	GigaByte = 1024 * 1024 * 1024
+};
+
+void CudaCheckMemory(float & free, float & total, const MemRepType factor) {
+	size_t freeByte ;
+    size_t totalByte ;
+    SafeCall(cudaMemGetInfo(&freeByte, &totalByte));
+    free = (float)freeByte / factor;
+    total = (float)totalByte / factor;
+}
+
+void PrintMemoryConsumption();
 void SaveTrajectoryTUM(const std::string& filename, Tracking* pTracker, std::vector<double>& vdTimeList);
 void LoadDatasetTUM(std::string & sRootPath,
 					std::vector<std::string> & vsDList,
@@ -18,8 +34,8 @@ void LoadDatasetTUM(std::string & sRootPath,
 					std::vector<double> & vdTimeStamp);
 
 int main(int argc, char ** argv) {
-//	std::cout << std::fixed;
-//	std::cout << std::setprecision(4);
+	std::cout << std::fixed;
+	std::cout << std::setprecision(4);
 
 	if(argc != 2) {
 		std::cout << "Wrong Parameters.\n"
@@ -48,10 +64,27 @@ int main(int argc, char ** argv) {
 		cv::Mat imD = cv::imread(vsDList[i], cv::IMREAD_UNCHANGED);
 		cv::Mat imRGB = cv::imread(vsRGBList[i], cv::IMREAD_UNCHANGED);
 
+		auto t1 = std::chrono::steady_clock::now();
 		Tracker.GrabImageRGBD(imRGB, imD);
+		auto t2 = std::chrono::steady_clock::now();
+
         int key = cv::waitKey(10);
 
 		switch(key) {
+
+		case 't':
+		case 'T':
+			std::cout << "----------------------------------------------\n"
+					  << "Frame Processed in : "
+					  << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count()
+					  << " microseconds" << std::endl;
+			break;
+
+		case 'm':
+		case 'M':
+			PrintMemoryConsumption();
+			break;
+
 		case 27: /* Escape */
 			std::cout << "User Requested Termination." << std::endl;
 			exit(0);
@@ -99,6 +132,15 @@ void LoadDatasetTUM(std::string & sRootPath,
 		vsRGBList.push_back(sRootPath + sR);
 		if(dfile.eof() || rfile.eof()) return;
 	}
+}
+
+void PrintMemoryConsumption() {
+	float free, total;
+	CudaCheckMemory(free, total, MemRepType::MegaByte);
+	std::cout << "----------------------------------------------\n"
+			  << "Device Memory Consumption:\n"
+			  << "Free  - " << free << "MB\n"
+			  << "Total - " << total << "MB" << std::endl;
 }
 
 void SaveTrajectoryTUM(const std::string& filename, Tracking* pTracker, std::vector<double>& vdTimeList) {

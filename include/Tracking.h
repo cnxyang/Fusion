@@ -12,9 +12,11 @@ public:
 
 private:
 	void Track();
+	void TrackMap();
+	void TrackICP();
 	bool InitTracking();
 	bool TrackLastFrame();
-	void VisualiseTrackingResult();
+	void ShowResiduals();
 
 	enum State {
 		NOT_INITIALISED,
@@ -26,9 +28,7 @@ private:
 
 	Frame mLastFrame;
 	Frame mNextFrame;
-	Frame mTargetFrame;
 	State mNextState;
-	int mNoFrames;
 
 	cv::Mat mK;
 };

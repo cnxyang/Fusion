@@ -2,10 +2,11 @@
 #define __MAP_POINT_H__
 
 #include <cuda_runtime.h>
+#include <opencv2/opencv.hpp>
 
 class MapPoint {
 public:
-	MapPoint(float3& pos, int& index);
+	MapPoint(cv::KeyPoint& kp, int& index);
 
 private:
 	int index;

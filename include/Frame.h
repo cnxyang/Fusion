@@ -11,6 +11,7 @@
 class Frame {
 public:
 	Frame();
+	~Frame();
 	Frame(const Frame& other);
 	Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K);
 
