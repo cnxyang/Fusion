@@ -79,11 +79,11 @@ public:
 
 	void release();
 
-	void copyTo(DeviceArray<T>& other);
+	void copyTo(DeviceArray<T>& other) const;
 
-	bool empty();
+	bool empty() const;
 
-	size_t size();
+	size_t size() const;
 
 	DeviceArray<T>& operator=(const DeviceArray<T>& other);
 
@@ -112,10 +112,6 @@ struct PtrStep {
 	__device__ const T* ptr(int y = 0) const;
 
 	T* data;
-
-	int cols;
-
-	int rows;
 
 	size_t step;
 };
@@ -149,7 +145,7 @@ public:
 
 	void upload(void* host_ptr, size_t host_step, int cols, int rows);
 
-	void download(void* host_ptr, size_t host_step);
+	void download(void* host_ptr, size_t host_step) const;
 
 	void zero();
 
@@ -261,7 +257,7 @@ DeviceArray<T>::release() {
 }
 
 template<class T> inline void
-DeviceArray<T>::copyTo(DeviceArray<T>& other) {
+DeviceArray<T>::copyTo(DeviceArray<T>& other) const {
 	if (empty()) {
 		other.release();
 		return;
@@ -271,12 +267,12 @@ DeviceArray<T>::copyTo(DeviceArray<T>& other) {
 }
 
 template<class T> inline bool
-DeviceArray<T>::empty() {
+DeviceArray<T>::empty() const {
 	return !mpData;
 }
 
 template<class T> inline size_t
-DeviceArray<T>::size() {
+DeviceArray<T>::size() const {
 	return mSize;
 }
 
@@ -284,7 +280,7 @@ template<class T> inline DeviceArray<T>&
 DeviceArray<T>::operator=(const DeviceArray<T>& other) {
 	if(this != &other) {
 		if(other.mpRef)
-			*other.mpRef++;
+			++*other.mpRef;
 		release();
 		mpRef = other.mpRef;
 		mSize = other.mSize;
@@ -388,7 +384,7 @@ DeviceArray2D<T>::zero() {
 }
 
 template<class T> inline void
-DeviceArray2D<T>::download(void* host_ptr, size_t host_step) {
+DeviceArray2D<T>::download(void* host_ptr, size_t host_step) const {
 	if(empty())
 		return;
 	SafeCall(cudaMemcpy2D(host_ptr, host_step, mpData, mStep, sizeof(T) * mCols, mRows, cudaMemcpyDeviceToHost));
@@ -462,8 +458,6 @@ DeviceArray2D<T>::operator PtrStep<T>() {
 	PtrStep<T> ps;
 	ps.data = (T*)mpData;
 	ps.step = mStep;
-	ps.cols = mCols;
-	ps.rows = mRows;
 	return ps;
 }
 
@@ -472,8 +466,6 @@ DeviceArray2D<T>::operator PtrStep<T>() const {
 	PtrStep<T> ps;
 	ps.data = (T*)mpData;
 	ps.step = mStep;
-	ps.cols = mCols;
-	ps.rows = mRows;
 	return ps;
 }
 

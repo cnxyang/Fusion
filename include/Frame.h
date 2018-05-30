@@ -2,11 +2,12 @@
 #define __FRAME_H__
 
 #include "DeviceArray.h"
+#include "DeviceStruct.h"
 
 #include <vector>
 #include <opencv2/opencv.hpp>
-#include "opencv2/features2d.hpp"
-#include "opencv2/cudaarithm.hpp"
+#include <opencv2/features2d.hpp>
+#include <opencv2/cudaarithm.hpp>
 
 class Frame {
 public:
@@ -32,6 +33,7 @@ public:
 	static int pixels(int pyr);
 
 public:
+
 	static bool mbFirstCall;
 	constexpr static const float mDepthScale = 5000.0f;
 	static float mDepthCutoff;
@@ -43,8 +45,8 @@ public:
 	DeviceArray2D<float3> mNMap[numPyrs];
 	DeviceArray2D<float> mdIx[numPyrs];
 	DeviceArray2D<float> mdIy[numPyrs];
+	DeviceArray<Point> mMapPoints;
 	DeviceArray2D<char> mDescriptors;
-	std::vector<cv::KeyPoint> mKeyPoints;
 	cv::Mat mRcw;
 	cv::Mat mRwc;
 	cv::Mat mtcw;

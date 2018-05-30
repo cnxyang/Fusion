@@ -46,7 +46,7 @@ template <class T, class U> __global__
 void PyrDownGaussian_device(const PtrStepSz<T> src, PtrStep<U> dst, float* kernel) {
 	const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	const int y = blockIdx.y * blockDim.y + threadIdx.y;
-	if(x >= dst.cols || y >= dst.rows)
+	if(x >= src.cols || y >= src.rows)
 		return;
 
 	const int D = 5;
@@ -110,7 +110,7 @@ __global__ void
 ColourImageToIntensity_device(PtrStepSz<uchar3> src, PtrStep<uchar> dst) {
 	 int x = blockIdx.x * blockDim.x + threadIdx.x;
 	 int y = blockIdx.y * blockDim.y + threadIdx.y;
-	 if (x >= dst.cols || y >= dst.rows)
+	 if (x >= src.cols || y >= src.rows)
 		 return;
 
 	 uchar3 val = src.ptr(y)[x];

@@ -431,6 +431,10 @@ __device__  inline float3 floor(float3 a) {
 	return make_float3(floor(a.x), floor(a.y), floor(a.z));
 }
 
+/*------------- *
+ *  interp(num) *
+ *------------- */
+
 #endif
 
 struct Matrix3f {

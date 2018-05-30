@@ -4,10 +4,6 @@
 #include "DeviceFunc.h"
 #include "DeviceArray.h"
 
-#define WarpSize 32
-#define MaxThread 1024
-#define ICPWeight 5
-
 template<typename T, int size> __device__
 inline void WarpReduceSum(T* val) {
 #pragma unroll

@@ -4,8 +4,10 @@
 #include "DeviceArray.h"
 
 __global__ void
-BackProjectPoints_device(const PtrStepSz<float> src, PtrStepSz<float4> dst,
-		float depthCutoff, float invfx, float invfy, float cx, float cy) {
+BackProjectPoints_device(const PtrStepSz<float> src,
+										   PtrStepSz<float4> dst,
+										   float depthCutoff, float invfx, float invfy,
+										   float cx, float cy) {
 
 	const int x = blockDim.x * blockIdx.x + threadIdx.x;
 	const int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -25,8 +27,10 @@ BackProjectPoints_device(const PtrStepSz<float> src, PtrStepSz<float4> dst,
 	dst.ptr(y)[x] = point;
 }
 
-void BackProjectPoints(const DeviceArray2D<float>& src, DeviceArray2D<float4>& dst,
-					   float depthCutoff, float fx, float fy, float cx, float cy) {
+void BackProjectPoints(const DeviceArray2D<float>& src,
+									   DeviceArray2D<float4>& dst, float depthCutoff,
+									   float fx, float fy, float cx, float cy) {
+
 	dim3 block(8, 8);
 	dim3 grid(cv::divUp(src.cols(), block.x), cv::divUp(src.rows(), block.y));
 
@@ -58,10 +62,10 @@ ComputeNormalMap_device(const PtrStepSz<float4> src, PtrStepSz<float3> dst) {
 	}
 	else
 		dst.ptr(y)[x] = make_float3(__int_as_float(0x7fffffff));
-
 }
 
 void ComputeNormalMap(const DeviceArray2D<float4>& src, DeviceArray2D<float3>& dst) {
+
 	dim3 block(8, 8);
 	dim3 grid(cv::divUp(src.cols(), block.x), cv::divUp(src.rows(), block.y));
 
@@ -73,9 +77,9 @@ void ComputeNormalMap(const DeviceArray2D<float4>& src, DeviceArray2D<float3>& d
 
 __global__ void
 WarpGrayScaleImage_device(PtrStepSz<float4> src, PtrStep<uchar> gray,
-						  Matrix3f R1, Matrix3f invR2, float3 t1, float3 t2,
-						  float fx, float fy, float cx, float cy,
-						  PtrStep<uchar> diff) {
+						  	  	  	  	  	     Matrix3f R1, Matrix3f invR2, float3 t1, float3 t2,
+						  	  	  	  	  	     float fx, float fy, float cx, float cy,
+						  	  	  	  	  	     PtrStep<uchar> diff) {
 
 	const int x = blockDim.x * blockIdx.x + threadIdx.x;
 	const int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -96,7 +100,9 @@ WarpGrayScaleImage_device(PtrStepSz<float4> src, PtrStep<uchar> gray,
 		diff.ptr(y)[x] = gray.ptr(v)[u];
 }
 
-void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2, DeviceArray2D<uchar>& diff) {
+void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2,
+										    DeviceArray2D<uchar>& diff) {
+
 	dim3 block(8, 8);
 	dim3 grid(cv::divUp(diff.cols(), block.x), cv::divUp(diff.rows(), block.y));
 
@@ -105,15 +111,19 @@ void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2, DeviceArray2D<
 
 	const int pyrlvl = 0;
 
-	WarpGrayScaleImage_device<<<grid, block>>>(frame1.mVMap[pyrlvl], frame2.mGray[pyrlvl], frame1.mRcw, frame2.mRwc, t1, t2,
-											   Frame::fx(pyrlvl), Frame::fy(pyrlvl), Frame::cx(pyrlvl), Frame::cy(pyrlvl), diff);
+	WarpGrayScaleImage_device<<<grid, block>>>(frame1.mVMap[pyrlvl], frame2.mGray[pyrlvl],
+																				    frame1.mRcw, frame2.mRwc, t1, t2,
+																				    Frame::fx(pyrlvl), Frame::fy(pyrlvl),
+																				    Frame::cx(pyrlvl), Frame::cy(pyrlvl), diff);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 }
 
 __global__ void
-ComputeResidualImage_device(PtrStep<uchar> src, PtrStep<uchar> dst, PtrStep<uchar> residual) {
+ComputeResidualImage_device(PtrStepSz<uchar> src,
+												     PtrStep<uchar> dst,
+												     PtrStep<uchar> residual) {
 
 	const int x = blockDim.x * blockIdx.x + threadIdx.x;
 	const int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -123,7 +133,9 @@ ComputeResidualImage_device(PtrStep<uchar> src, PtrStep<uchar> dst, PtrStep<ucha
 	residual.ptr(y)[x] = abs(src.ptr(y)[x] - dst.ptr(y)[x]);
 }
 
-void ComputeResidualImage(const DeviceArray2D<uchar>& src, const Frame& frame, DeviceArray2D<uchar>& residual) {
+void ComputeResidualImage(const DeviceArray2D<uchar>& src,
+										        DeviceArray2D<uchar>& residual,
+										        const Frame& frame) {
 	dim3 block(8, 8);
 	dim3 grid(cv::divUp(residual.cols(), block.x), cv::divUp(residual.rows(), block.y));
 

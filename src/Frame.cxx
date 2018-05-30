@@ -22,11 +22,12 @@ Frame::Frame(const Frame& other) {
 		other.mNMap[i].copyTo(mNMap[i]);
 		other.mdIx[i].copyTo(mdIx[i]);
 		other.mdIy[i].copyTo(mdIy[i]);
+		other.mMapPoints.copyTo(mMapPoints);
 	}
 
 	mRcw = other.mRcw.clone();
 	mtcw = other.mtcw.clone();
-	mRwc = mRcw.t();
+	mRwc = other.mRwc.clone();
 }
 
 Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K) {
@@ -66,17 +67,13 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K) {
 			PyrDownGaussian(mGray[i - 1], mGray[i]);
 			PyrDownGaussian(mDepth[i - 1], mDepth[i]);
 		}
-
-		float fx = mK[i].at<float>(0, 0);
-		float fy = mK[i].at<float>(1, 1);
-		float cx = mK[i].at<float>(0, 2);
-		float cy = mK[i].at<float>(1, 2);
-		BackProjectPoints(mDepth[i], mVMap[i], mDepthCutoff, fx, fy, cx, cy);
+		BackProjectPoints(mDepth[i], mVMap[i], mDepthCutoff, fx(i), fy(i), cx(i), cy(i));
 		ComputeNormalMap(mVMap[i], mNMap[i]);
 		ComputeDerivativeImage(mGray[i], mdIx[i], mdIy[i]);
 	}
 
 	cv::cuda::GpuMat GrayTemp, Descriptor;
+	std::vector<cv::KeyPoint> mKeyPoints;
 	GrayTemp.create(mPyrRes[0].second, mPyrRes[0].first, CV_8UC1);
 	SafeCall(cudaMemcpy2D((void*)GrayTemp.data, GrayTemp.step,
 				          (void*)mGray[0], mGray[0].step(), sizeof(char) * mGray[0].cols(),
@@ -87,12 +84,36 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K) {
 						  (void*)Descriptor.data, Descriptor.step, sizeof(char) * Descriptor.cols,
 						  Descriptor.rows, cudaMemcpyDeviceToDevice));
 
+	int nKp = mKeyPoints.size();
+	if(nKp > 0) {
+		float invfx = fx(0);
+		float invfy = fy(0);
+		float cx0 = cx(0);
+		float cy0 = cy(0);
+		mMapPoints.create(nKp);
+		Point* pts = new Point[nKp];
+		for(int i = 0; i < nKp; ++i) {
+			cv::KeyPoint& kp = mKeyPoints[i];
+			Point& pt = pts[i];
+			float dp = (float)imD.at<uchar>(kp.pt.x, kp.pt.y) / mDepthScale;
+			if(dp > 1e-3 && dp < mDepthCutoff) {
+				pt.pos.z = dp;
+				pt.pos.x = dp * (kp.pt.x - cx0) * invfx;
+				pt.pos.y = dp * (kp.pt.y - cy0) * invfy;
+				pt.valid = true;
+			}
+			else
+				pt.valid = false;
+		}
+		mMapPoints.upload((void*)pts, nKp);
+	}
+
 	mRcw = cv::Mat::eye(3, 3, CV_32FC1);
 	mtcw = cv::Mat::zeros(3, 1, CV_32FC1);
 	mRwc = mRcw.t();
 
-	cv::Mat test(mdIx[0].rows(), mdIx[0].cols(), CV_32FC1);
-	mdIx[0].download((void*)test.data, test.step);
+	cv::Mat test(mNMap[0].rows(), mNMap[0].cols(), CV_32FC3);
+	mNMap[0].download((void*)test.data, test.step);
 	cv::imshow("test", test);
 }
 
@@ -110,6 +131,7 @@ void Frame::release() {
 		mVMap[i].release();
 		mNMap[i].release();
 		mDepth[i].release();
+		mMapPoints.release();
 		mDescriptors.release();
 	}
 }
