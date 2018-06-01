@@ -43,10 +43,10 @@ void BilateralFiltering(const DeviceArray2D<ushort>& src, DeviceArray2D<float>& 
 }
 
 template <class T, class U> __global__
-void PyrDownGaussian_device(const PtrStepSz<T> src, PtrStep<U> dst, float* kernel) {
+void PyrDownGaussian_device(const PtrStepSz<T> src, PtrStepSz<U> dst, float* kernel) {
 	const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	const int y = blockIdx.y * blockDim.y + threadIdx.y;
-	if(x >= src.cols || y >= src.rows)
+	if(x >= dst.cols || y >= dst.rows)
 		return;
 
 	const int D = 5;
@@ -65,7 +65,7 @@ void PyrDownGaussian_device(const PtrStepSz<T> src, PtrStep<U> dst, float* kerne
 		}
 	}
 
-	dst.ptr(y)[x] = (float) (sum / (float) count);
+	dst.ptr(y)[x] = (U) (sum / (float) count);
 }
 
 void PyrDownGaussian(const DeviceArray2D<float>& src, DeviceArray2D<float>& dst) {

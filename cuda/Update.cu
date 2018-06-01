@@ -1,4 +1,6 @@
 #include "Map.h"
+#include "DeviceArray.h"
+#include "DeviceMath.h"
 
 __device__ MapDesc pDesc;
 
@@ -11,71 +13,87 @@ void Map::DownloadDesc() {
 	SafeCall(cudaMemcpyFromSymbol(&mDesc, pDesc, sizeof(MapDesc)));
 }
 
-__global__ void
-FuseKeyPoints_device(DeviceMap map, PtrSz<Point> pts, PtrStep<char> descriptors) {
+struct FrameFusion {
+	DeviceMap Map;
+	PtrStep<float> DepthMap;
+	PtrStep<uchar3> ColourMap;
+	PtrStep<float3> NormalMap;
 
-}
+	float fx, fy, cx, cy;
+	float MaxDepth, MinDepth;
+	int cols, rows;
+	Matrix3f Rcurr, invR;
+	float3 tcurr;
 
-void Map::FuseKeyPoints(const Frame& frame) {
-	static bool firstcall = false;
-}
+	__device__ inline
+	bool CheckVertexVisibility(const float3& vg) {
+		float3 vc = invR * (vg - tcurr);
+		if(vc.z < MinDepth || vc.z > MaxDepth)
+			return false;
 
-__device__ int
-HammingDist(const char& a,const char& b) {
-	return __popc(a ^ b);
-}
+		float u = fx * vc.x / vc.z + cx;
+		float v = fy * vc.y / vc.z + cy;
 
-__device__ int
-DescriptorDist(const char* a,const char* b) {
-	int dist = 0;
-	for(int i = 0; i < 8; ++i) {
-		dist += HammingDist(a[i], b[i]);
+		return !(u < 0 ||  v < 0 || u >= cols || v >= rows);
 	}
-	return dist;
-}
 
-__global__ void
-MatchKeyPoint_device(const DeviceMap map,
-									   const PtrSz<Point> pts,
-									   PtrStep<char> descriptors,
-									   PtrSz<Point> match) {
+	__device__ inline
+	bool CheckBlockVisibility(const int3& blockPos) {
+		float factor = pDesc.voxelSize * pDesc.blockSize;
 
-	int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	if(idx >= pts.size)
-		return;
+		float3 vertex = blockPos * factor;
+		if(CheckVertexVisibility(vertex)) return true;
 
-	int dist = 256;
-	const int HammingThresh = 64;
-	const char* descriptor = descriptors.ptr(idx);
-	Point& result = match[idx];
-	result.valid = false;
-	for(int i = 0; i < map.keyPoints.size; ++i) {
-		Point kp = map.keyPoints[i];
-		if(kp.valid) {
-			int tmp = DescriptorDist(descriptor, map.descriptors.ptr(i));
-			if(tmp < dist) {
-				dist = tmp;
-				result = kp;
-			}
+		vertex.z += factor;
+		if(CheckVertexVisibility(vertex)) return true;
 
-			if(tmp < HammingThresh)
-				return;
-		}
-	}
-}
+		vertex.y += factor;
+		if(CheckVertexVisibility(vertex)) return true;
 
-bool Map::MatchKeyPoint(const Frame& frame, int k) {
-	if(frame.mMapPoints.empty())
+		vertex.x += factor;
+		if(CheckVertexVisibility(vertex)) return true;
+
+		vertex.z -= factor;
+		if(CheckVertexVisibility(vertex)) return true;
+
+		vertex.y -= factor;
+		if(CheckVertexVisibility(vertex)) return true;
+
+		vertex.x -= factor;
+		vertex.y += factor;
+		if(CheckVertexVisibility(vertex)) return true;
+
+		vertex.x += factor;
+		vertex.y -= factor;
+		vertex.z += factor;
+		if(CheckVertexVisibility(vertex)) return true;
+
 		return false;
+	}
 
-	dim3 block(MaxThread);
-	dim3 grid(cv::divUp(frame.mMapPoints.size(), block.x));
+	__device__
+	void CreateVisibleBlocks() {
+		int x = blockDim.x * blockIdx.x + threadIdx.x;
+		int y = blockDim.y * blockIdx.y + threadIdx.y;
+		if(x >= cols || y >= rows)
+			 return;
 
-	DeviceArray<Point> match(frame.mMapPoints.size());
-	MatchKeyPoint_device<<<grid, block>>>(*this, frame.mMapPoints, frame.mDescriptors, match);
+		float depth = DepthMap.ptr(y)[x];
+		if(isnan(depth) || depth > MaxDepth || depth < MinDepth)
+			return;
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+		float truncdist = pDesc.voxelSize * 8;
+		float minD =min(MaxDepth, depth +  truncdist);
+		float maxD = min(MaxDepth, depth - truncdist);
+		float invSize = 1.0 / pDesc.voxelSize;
+	}
+};
 
-	return true;
+__global__ void
+FuseNewFrame_device() {
+
+}
+
+void FuseNewFrame(const Frame& frame) {
+
 }

@@ -70,8 +70,9 @@ struct ICPReduce {
 	PtrStep<float4> VMapCurr, VMapLast;
 	PtrStep<float3> NMapCurr, NMapLast;
 	PtrStep<uchar> GrayCurr, GrayLast;
+	mutable PtrStep<uchar> Corresp;
 	int cols, rows, N;
-	float fx, fy, cx, cy;
+	float fx, fy, cx, cy, minGxy;
 	float angleThresh, distThresh;
 
 	mutable float w;
@@ -113,30 +114,40 @@ struct ICPReduce {
 
 	__device__ inline
 	bool ComputeRGB(int& x, int& y, int& u, int& v,
-					float3& vcg, float3& vcp, float* row) const {
+								   float3& vcg, float3& vcp, float3& vlast, float* row) const {
 
 		float dx = dIx.ptr(v)[u];
 		float dy = dIy.ptr(v)[u];
+		if(dx * dx + dy * dy < minGxy)
+			return false;
 
-		bool valid = true;
+		if(abs(vlast.z - vcg.z) > 0.5)
+			return false;
+
+		bool valid = GrayLast.ptr(v)[u] > 0;
 		const int r = 2;
-		for(int i = max(0, u - r ); i < min(u + r + 1, cols); ++i)
-			for(int j = max(0, v - r ); j < min(v + r + 1, rows); ++j)
-				valid = (GrayLast.ptr(j)[i] > 0) && (GrayCurr.ptr(j)[i] > 0) && valid;
+		for(int i = max(0, x - r ); i < min(x + r + 1, cols); ++i)
+			for(int j = max(0, y - r ); j < min(y + r + 1, rows); ++j)
+				valid = (GrayCurr.ptr(j)[i] > 0) && valid;
 
 		if(!valid)
 			return false;
 
-		float3 rcx = -invRlast.coloumx();
-		float3 rcy = -invRlast.coloumy();
-		float3 rcz = -invRlast.coloumz();
+		float w = abs((float)GrayCurr.ptr(y)[x] - (float)GrayLast.ptr(v)[u]);
+		w = w > 1e-7? 1.0 / w : 1.0;
+		dx *= w;
+		dy *= w;
+
+		float3 rcx = invRlast.coloumx();
+		float3 rcy = invRlast.coloumy();
+		float3 rcz = invRlast.coloumz();
 		float3 dIdh;
-		dIdh.x = dx * fx / vcp.z;
-		dIdh.y = dy * fy / vcp.z;
-		dIdh.z = -(dx * fx * vcp.x  + dy * fy * vcp.y) / (vcp.z * vcp.z);
-		float3 r0xp = cross(invRlast.rowx, vcg);
-		float3 r1xp = cross(invRlast.rowy, vcg);
-		float3 r2xp = cross(invRlast.rowz, vcg);
+		dIdh.x =  -dx * fx / vcp.z;
+		dIdh.y =  -dy * fy / vcp.z;
+		dIdh.z = (dx * fx * vcp.x / vcp.z + dy * fy * vcp.y / vcp.z) /  vcp.z;
+		float3 r0xp = -cross(invRlast.rowx, vcg);
+		float3 r1xp = -cross(invRlast.rowy, vcg);
+		float3 r2xp = -cross(invRlast.rowz, vcg);
 
 		row[0] = dIdh * rcx;
 		row[1] = dIdh * rcy;
@@ -144,18 +155,20 @@ struct ICPReduce {
 		row[3] = dIdh * make_float3(r0xp.x, r1xp.x, r2xp.x);
 		row[4] = dIdh * make_float3(r0xp.y, r1xp.y, r2xp.y);
 		row[5] = dIdh * make_float3(r0xp.z, r1xp.z, r2xp.z);
-		row[6] = -(GrayCurr.ptr(y)[x] - GrayLast.ptr(v)[u]);
+		row[6] = -w * ((float)GrayCurr.ptr(y)[x] - (float)GrayLast.ptr(v)[u]);
 
 		return true;
 	}
 
-	template<bool bUseRGB> __device__ inline
+	template<bool bICPOnly> __device__ inline
 	void GetRow(int& i, float* sum) const {
 		int y = i / cols;
 		int x = i - (y * cols);
+		Corresp.ptr(y)[x] = 0;
 
 		int u = 0, v = 0;
-		bool bCorresp = false, bRGB = false;
+		bool bCorresp = false;
+		bool bRGB = false;
 		bool bView = false;
 		float3 vcurr, vlast, nlast, vcurrp;
 		bCorresp = SearchCorresp(bView, x, y, u, v, vcurr, vlast, nlast, vcurrp);
@@ -173,12 +186,14 @@ struct ICPReduce {
             row[6] = -nlast * (vlast - vcurr);
 		}
 
-        if(bView && bUseRGB) {
-        	bRGB = ComputeRGB(x, y, u, v, vcurr, vcurrp, row_rgb);
+        if(bView && !bICPOnly) {
+        	bRGB = ComputeRGB(x, y, u, v, vcurr, vcurrp, vlast, row_rgb);
+        	if(bRGB)
+        		Corresp.ptr(y)[x] = 255;
         }
 
 		int count = 0;
-		if(!bUseRGB || !bRGB) {
+		if(bICPOnly || !bRGB) {
 #pragma unroll
 			for(int i = 0; i < 7; ++i)
 #pragma unroll
@@ -191,11 +206,11 @@ struct ICPReduce {
 			for(int i = 0; i < 7; ++i)
 #pragma unroll
 				for(int j = i; j < 7; ++j)
-					sum[count++] = icpW * row[i] * row[j] + (1 - icpW) * row_rgb[i] * row_rgb[j];
-//					sum[count++] = row_rgb[i] * row_rgb[j];
+//					sum[count++] = icpW * row[i] * row[j] + (1 - icpW) * row_rgb[i] * row_rgb[j];
+					sum[count++] = row_rgb[i] * row_rgb[j];
 //					sum[count++] = row[i] * row[j];
 		}
-		sum[count] = (float)bCorresp;
+		sum[count] = (float)(bCorresp || bRGB);
 	}
 
 	template<typename T, int size, bool bRGB>
@@ -222,9 +237,9 @@ struct ICPReduce {
 	}
 };
 
-__global__ void
+template<bool bICPOnly> __global__ void
 ICPReduceSum_device(const ICPReduce icp) {
-	icp.template operator()<float, 29, true>();
+	icp.template operator()<float, 29, bICPOnly>();
 }
 
 static void inline
@@ -240,27 +255,33 @@ CreateMatrix(float* host_data, float* host_a, float* host_b) {
 		}
 }
 
-void ICPReduceSum(Frame& NextFrame, Frame& LastFrame, int pyrnum,
+void ICPReduceSum(Frame& NextFrame, Frame& LastFrame, int pyr,
 				  float* host_a, float* host_b, float& cost) {
 
+	DeviceArray2D<uchar> Corresp(Frame::cols(pyr), Frame::rows(pyr));
 	DeviceArray2D<float> sum(29, 96);
 	DeviceArray<float> result(29);
+	Corresp.zero();
 	result.zero();
 	sum.zero();
 
+	float minGxy[Frame::numPyrs] = { 25, 9, 1 };
+
 	ICPReduce icp;
 	icp.out = sum;
-	icp.dIx = LastFrame.mdIx[pyrnum];
-	icp.dIy = LastFrame.mdIy[pyrnum];
-	icp.VMapCurr = NextFrame.mVMap[pyrnum];
-	icp.NMapCurr = NextFrame.mNMap[pyrnum];
-	icp.GrayCurr = NextFrame.mGray[pyrnum];
-	icp.VMapLast = LastFrame.mVMap[pyrnum];
-	icp.NMapLast = LastFrame.mNMap[pyrnum];
-	icp.GrayLast = LastFrame.mGray[pyrnum];
-	icp.cols = Frame::cols(pyrnum);
-	icp.rows = Frame::rows(pyrnum);
-	icp.N = Frame::pixels(pyrnum);
+	icp.minGxy = minGxy[pyr];
+	icp.Corresp = Corresp;
+	icp.dIx = LastFrame.mdIx[pyr];
+	icp.dIy = LastFrame.mdIy[pyr];
+	icp.VMapCurr = NextFrame.mVMap[pyr];
+	icp.NMapCurr = NextFrame.mNMap[pyr];
+	icp.GrayCurr = NextFrame.mGray[pyr];
+	icp.VMapLast = LastFrame.mVMap[pyr];
+	icp.NMapLast = LastFrame.mNMap[pyr];
+	icp.GrayLast = LastFrame.mGray[pyr];
+	icp.cols = Frame::cols(pyr);
+	icp.rows = Frame::rows(pyr);
+	icp.N = Frame::pixels(pyr);
 	icp.Rcurr = NextFrame.mRcw;
 	icp.tcurr = Converter::CvMatToFloat3(NextFrame.mtcw);
 	icp.Rlast = LastFrame.mRcw;
@@ -268,14 +289,14 @@ void ICPReduceSum(Frame& NextFrame, Frame& LastFrame, int pyrnum,
 	icp.tlast = Converter::CvMatToFloat3(LastFrame.mtcw);
 	icp.angleThresh = 0.6;
 	icp.distThresh = 0.1;
-	icp.icpW = 0.9;
+	icp.icpW = 0;
 	icp.ICPOnly = false;
-	icp.fx = Frame::fx(pyrnum);
-	icp.fy = Frame::fy(pyrnum);
-	icp.cx = Frame::cx(pyrnum);
-	icp.cy = Frame::cy(pyrnum);
+	icp.fx = Frame::fx(pyr);
+	icp.fy = Frame::fy(pyr);
+	icp.cx = Frame::cx(pyr);
+	icp.cy = Frame::cy(pyr);
 
-	ICPReduceSum_device<<<96, 224>>>(icp);
+	ICPReduceSum_device<false><<<96, 224>>>(icp);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
@@ -284,6 +305,10 @@ void ICPReduceSum(Frame& NextFrame, Frame& LastFrame, int pyrnum,
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
+
+	cv::Mat corr(Frame::rows(pyr), Frame::cols(pyr), CV_8UC1);
+	Corresp.download((void*)corr.data, corr.step);
+	cv::imshow("Corresp", corr);
 
 	float host_data[29];
 	result.download(host_data);

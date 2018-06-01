@@ -84,15 +84,15 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K) {
 						  (void*)Descriptor.data, Descriptor.step, sizeof(char) * Descriptor.cols,
 						  Descriptor.rows, cudaMemcpyDeviceToDevice));
 
-	int nKp = mKeyPoints.size();
-	if(nKp > 0) {
+	mNkp = mKeyPoints.size();
+	if(mNkp > 0) {
 		float invfx = fx(0);
 		float invfy = fy(0);
 		float cx0 = cx(0);
 		float cy0 = cy(0);
-		mMapPoints.create(nKp);
-		Point* pts = new Point[nKp];
-		for(int i = 0; i < nKp; ++i) {
+		mMapPoints.create(mNkp);
+		Point* pts = new Point[mNkp];
+		for(int i = 0; i < mNkp; ++i) {
 			cv::KeyPoint& kp = mKeyPoints[i];
 			Point& pt = pts[i];
 			float dp = (float)imD.at<uchar>(kp.pt.x, kp.pt.y) / mDepthScale;
@@ -105,7 +105,7 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K) {
 			else
 				pt.valid = false;
 		}
-		mMapPoints.upload((void*)pts, nKp);
+		mMapPoints.upload((void*)pts, mNkp);
 	}
 
 	mRcw = cv::Mat::eye(3, 3, CV_32FC1);

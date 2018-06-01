@@ -35,7 +35,7 @@ void LoadDatasetTUM(std::string & sRootPath,
 
 int main(int argc, char ** argv) {
 	std::cout << std::fixed;
-	std::cout << std::setprecision(4);
+	std::cout << std::setprecision(6);
 
 	if(argc != 2) {
 		std::cout << "Wrong Parameters.\n"

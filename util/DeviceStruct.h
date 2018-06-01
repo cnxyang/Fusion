@@ -43,6 +43,12 @@ struct Rendering {
 	DeviceArray2D<unsigned char> Render;
 };
 
+struct RenderingBlock {
+	int2 upperleft;
+	int2 lowerright;
+	float2 depth;
+};
+
 struct DeviceMap {
 	PtrSz<int> memory;
 	PtrSz<int> usedMem;

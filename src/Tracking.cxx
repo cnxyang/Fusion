@@ -69,7 +69,7 @@ void Tracking::TrackICP() {
 	ShowResiduals();
 
 	float cost = 0, lastcost = 0;
-	int iter[3] = { 5, 3, 2 };
+	int iter[3] = { 10, 5, 3 };
 	for(int i = 2; i >= 0; --i)
 		for(int j = 0; j < iter[i]; j++) {
 
@@ -77,7 +77,7 @@ void Tracking::TrackICP() {
 
 			ICPReduceSum(mNextFrame, mLastFrame, i, host_a.data(), host_b.data(), cost);
 
-			Eigen::Matrix<double, 6, 6, Eigen::RowMajor> dA_icp = host_a.cast<double>();
+			Eigen::Matrix<double, 6, 6> dA_icp = host_a.cast<double>();
 			Eigen::Matrix<double, 6, 1> db_icp = host_b.cast<double>();
 
 			result = dA_icp.ldlt().solve(db_icp);
@@ -92,10 +92,9 @@ void Tracking::TrackICP() {
 
 			Converter::TransformToCv(T, mNextFrame.mRcw, mNextFrame.mtcw);
 			mNextFrame.mRwc = mNextFrame.mRcw.t();
-			std::cout << "cost:\n" << cost << std::endl;
+			std::cout << "cost:\n" << result << std::endl;
+			ShowResiduals();
 	}
-	ShowResiduals();
-
 }
 
 void Tracking::ShowResiduals() {
@@ -109,6 +108,27 @@ void Tracking::ShowResiduals() {
 	cv::Mat cvresidual(480, 640, CV_8UC1);
 	warpImg.download((void*)cvresidual.data, cvresidual.step);
 	cv::imshow("residual", cvresidual);
+
+//	cv::Mat hist;
+//	int histSize = 256;
+//	float range[] = { 0, 256 } ;
+//	const float* histRange = { range };
+//	cv::calcHist(&cvresidual, 1, 0, cv::Mat(), hist, 1, &histSize, &histRange);
+//
+//	int hist_w = 512;
+//	int hist_h = 400;
+//	int bin_w = cvRound((double) hist_w / histSize);
+//	cv::Mat histImage(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0));
+//	cv::normalize(hist, hist, 0, histImage.rows, cv::NORM_MINMAX, -1,
+//			cv::Mat());
+//	for (int i = 1; i < histSize; i++) {
+//		cv::line(histImage,
+//				cv::Point(bin_w * (i - 1),
+//						hist_h - cvRound(hist.at<float>(i - 1))),
+//				cv::Point(bin_w * (i), hist_h - cvRound(hist.at<float>(i))),
+//				cv::Scalar(255, 0, 0), 2, 8, 0);
+//	}
+//	cv::imshow("histImage", histImage);
 
 	int key = cv::waitKey(0);
 	if(key == 27)

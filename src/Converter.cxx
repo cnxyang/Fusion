@@ -6,7 +6,7 @@ float3 Converter::CvMatToFloat3(const cv::Mat& mat) {
 
 #ifndef __CUDACC__
 Eigen::Matrix<float, 4, 4> Converter::TransformToEigen(cv::Mat& r, cv::Mat& t) {
-	Eigen::Matrix<float, 4, 4> T = Eigen::Matrix<float, 4, 4>::Identity();
+	Eigen::Matrix<float, 4, 4, Eigen::RowMajor> T = Eigen::Matrix<float, 4, 4,  Eigen::RowMajor>::Identity();
 	T(0, 0) = r.at<float>(0, 0);
 	T(0, 1) = r.at<float>(0, 1);
 	T(0, 2) = r.at<float>(0, 2);

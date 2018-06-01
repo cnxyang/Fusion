@@ -50,6 +50,7 @@ public:
 	cv::Mat mRcw;
 	cv::Mat mRwc;
 	cv::Mat mtcw;
+	int mNkp;
 };
 
 #endif

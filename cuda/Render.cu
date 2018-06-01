@@ -13,19 +13,22 @@ struct Render {
 	float MaxD, MinD;
 	float voxelSize;
 	int blockSize;
+	uint* totalDepthBlock;
 
+	mutable PtrSz<DepthBlock> DepthBlocks;
 	mutable PtrStep<float4> VMap;
 	mutable PtrStep<float3> NMap;
 	mutable PtrStep<float2> DepthMap;
 
 	static const int MinMaxSubsample = 8;
-	static const int RenderingBlockSize = 16;
+	static const int DepthBlockSize = 16;
+	static const int MaxDepthBlocks = 65535 * 4;
 
 	__device__ inline
 	bool ProjectBlock(const int3& blockPos,
-					  int2 upperleft,
-					  int2 lowerright,
-					  float2 depth) const {
+					  	  	      int2& upperleft,
+					  	  	      int2& lowerright,
+					  	  	      float2& depth) const {
 
 		upperleft = make_int2(cols, rows) / MinMaxSubsample;
 		lowerright = make_int2(0, 0);
@@ -51,18 +54,10 @@ struct Render {
 			if(pixel.x < 0 || pixel.y < 0 || pixel.x >= cols || pixel.y >= rows)
 				continue;
 
-			if(upperleft.x > floor(pixel.x))
-				upperleft.x = (int)floor(pixel.x);
-
-			if(upperleft.y > floor(pixel.y))
-				upperleft.y = (int)floor(pixel.y);
-
-			if(lowerright.x < ceil(pixel.x))
-				lowerright.x = (int)ceil(pixel.x);
-
-			if(lowerright.y < ceil(pixel.y))
-				lowerright.y = (int)ceil(pixel.y);
-
+			if(upperleft.x > floor(pixel.x)) upperleft.x = (int)floor(pixel.x);
+			if(upperleft.y > floor(pixel.y)) upperleft.y = (int)floor(pixel.y);
+			if(lowerright.x < ceil(pixel.x)) lowerright.x = (int)ceil(pixel.x);
+			if(lowerright.y < ceil(pixel.y)) lowerright.y = (int)ceil(pixel.y);
 			if(depth.x > pt.z) depth.x = pt.z;
 			if(depth.y < pt.z) depth.y = pt.z;
 
@@ -74,11 +69,105 @@ struct Render {
 	}
 
 	__device__ inline
+	int ComputeOffset(uint element, uint* sum, int numBlocks)
+	{
+		__shared__ uint Buffer[blockDim.x];
+		__shared__ uint Offset;
+
+		Buffer[threadIdx.x] = element;
+		__syncthreads();
+
+		int s1, s2;
+
+		for (s1 = 1, s2 = 1; s1 < blockDim.x; s1 <<= 1) {
+			s2 |= s1;
+			if ((threadIdx.x & s2) == s2)
+				Buffer[threadIdx.x] += Buffer[threadIdx.x - s1];
+			__syncthreads();
+		}
+
+		for (s1 >>= 2, s2 >>= 1; s1 >= 1; s1 >>= 1, s2 >>= 1) {
+			if (threadIdx.x != blockDim.x - 1 && (threadIdx.x & s2) == s2)
+				Buffer[threadIdx.x + s1] += Buffer[threadIdx.x];
+			__syncthreads();
+		}
+
+		blockDim.x = ((blockDim.x <= numBlocks) ? blockDim.x : numBlocks);
+		if (threadIdx.x == 0 && Buffer[blockDim.x - 1] > 0)
+			Offset = atomicAdd(sum, Buffer[blockDim.x - 1]);
+		__syncthreads();
+
+		int offset;
+		if (threadIdx.x == 0) {
+			if (Buffer[threadIdx.x] == 0)
+				offset = -1;
+			else
+				offset = Offset;
+		}
+		else {
+			if (Buffer[threadIdx.x] == Buffer[threadIdx.x - 1])
+				offset = -1;
+			else
+				offset = Offset + Buffer[threadIdx.x - 1];
+		}
+		return offset;
+	}
+
+	__device__ inline
+	void FillDepthBlocks() const {
+		int idx = threadIdx.x + blockDim.x * blockIdx.x;
+
+		const HashEntry & entry(map.visibleEntries[idx]);
+
+		if(entry.ptr == EntryAvailable || idx >= num_blocks) return;
+
+		int2 upperLeft;
+		int2 lowerRight;
+		float2 zRange;
+
+		bool validProjection = false;
+
+		validProjection = ProjectSingleBlock(entry.pos, upperLeft, lowerRight, zRange);
+
+		int2 requiredRenderingBlocks = make_int2(ceilf((float)(lowerRight.x - upperLeft.x + 1) / renderingBlockSizeX),
+												 	 	    		      ceilf((float)(lowerRight.y - upperLeft.y + 1) / renderingBlockSizeY));
+
+		size_t requiredNumBlocks = requiredRenderingBlocks.x * requiredRenderingBlocks.y;
+		if (!validProjection) requiredNumBlocks = 0;
+		if (*noTotalBlocks + requiredNumBlocks >= MAX_RENDERING_BLOCKS) return;
+		int out_offset = ComputeOffset(requiredNumBlocks, &noTotalBlocks, num_blocks);
+		if (!validProjection) return;
+		if ((out_offset == -1) || (out_offset + requiredNumBlocks > MAX_RENDERING_BLOCKS)) return;
+
+		CreateRenderingBlocks(out_offset, upperLeft, lowerRight, zRange);
+	}
+
+	__device__
+	void RenderDepthMap() {
+		int x = threadIdx.x;
+		int y = threadIdx.y;
+		int blockId = blockIdx.x * 4 + blockIdx.y;
+
+		const DepthBlock& block(DepthBlocks[blockId]);
+		int xpos = block.upperLeft.x + x;
+		if (xpos > block.lowerRight.x) return;
+		int ypos = block.upperLeft.y + y;
+		if (ypos > block.lowerRight.y) return;
+
+		float * minData = &DepthMap.ptr(ypos)[xpos].x;
+		float * maxData = &DepthMap.ptr(ypos)[xpos].y;
+
+		atomicMin(minData, block.depth.x);
+		atomicMax(maxData, block.depth.y);
+		return;
+	}
+
+	__device__ inline
 	uint HashIndex(const int3& blockPos) const {
 
 		return ((blockPos.x * 73856093) ^
-				    (blockPos.y * 19349669) ^
-				    (blockPos.z * 83492791)) & pDesc.hashMask;
+				     (blockPos.y * 19349669) ^
+				     (blockPos.z * 83492791)) & pDesc.hashMask;
 	}
 
 	__device__ inline
@@ -265,7 +354,7 @@ struct Render {
 
 __global__ void
 ProjectBlocks_device(const Render rd) {
-
+	rd.RenderDepthMap();
 }
 
 __global__ void

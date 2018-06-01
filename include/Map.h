@@ -5,7 +5,6 @@
 #include "DeviceFunc.h"
 #include "DeviceArray.h"
 #include "DeviceStruct.h"
-
 #include <opencv2/opencv.hpp>
 
 enum {
