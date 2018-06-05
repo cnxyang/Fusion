@@ -6,6 +6,7 @@ int Frame::N[numPyrs];
 cv::Mat Frame::mK[numPyrs];
 bool Frame::mbFirstCall = true;
 float Frame::mDepthCutoff = 5.0f;
+float Frame::mDepthScale = 1000.0f;
 std::pair<int, int> Frame::mPyrRes[numPyrs];
 cv::Ptr<cv::cuda::ORB> Frame::mORB;
 
@@ -30,6 +31,37 @@ Frame::Frame(const Frame& other) {
 	mRwc = other.mRwc.clone();
 }
 
+Frame::Frame(const Frame& other, const Rendering& observation) {
+
+	for(int i = 0; i < numPyrs; ++i) {
+		if(i == 0) {
+			observation.VMap.copyTo(mVMap[0]);
+			observation.NMap.copyTo(mNMap[0]);
+		}
+		else {
+			ResizeMap(mVMap[i - 1], mNMap[i - 1], mVMap[i], mNMap[i]);
+		}
+
+		mDepth[i].create(Frame::cols(i), Frame::rows(i));
+		ProjectToDepth(mVMap[i], mDepth[i]);
+//		other.mDepth[i].copyTo(mDepth[i]);
+		other.mGray[i].copyTo(mGray[i]);
+		other.mdIx[i].copyTo(mdIx[i]);
+		other.mdIy[i].copyTo(mdIy[i]);
+		other.mMapPoints.copyTo(mMapPoints);
+	}
+
+	mRcw = other.mRcw.clone();
+	mtcw = other.mtcw.clone();
+	mRwc = other.mRwc.clone();
+
+	int p = 0;
+	cv::Mat test(mdIx[p].rows(), mdIx[p].cols(), CV_32FC1);
+	mdIx[p].download((void*)test.data, test.step);
+	cv::imshow("test", test);
+}
+
+
 Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K) {
 
 	if(mbFirstCall) {
@@ -39,11 +71,11 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K) {
 			mPyrRes[i].first = imD.cols / (1 << i);
 			mPyrRes[i].second = imD.rows / (1 << i);
 			N[i] = mPyrRes[i].first * mPyrRes[i].second;
-			mK[i] = cv::Mat::eye(3, 3, CV_32FC1);
-			mK[i].at<float>(0, 0) = K.at<float>(0, 0) / (1 << i);
-			mK[i].at<float>(1, 1) = K.at<float>(1, 1) / (1 << i);
-			mK[i].at<float>(0, 2) = K.at<float>(0, 2) / (1 << i);
-			mK[i].at<float>(1, 2) = K.at<float>(1, 2) / (1 << i);
+//			mK[i] = cv::Mat::eye(3, 3, CV_32FC1);
+//			mK[i].at<float>(0, 0) = K.at<float>(0, 0) / (1 << i);
+//			mK[i].at<float>(1, 1) = K.at<float>(1, 1) / (1 << i);
+//			mK[i].at<float>(0, 2) = K.at<float>(0, 2) / (1 << i);
+//			mK[i].at<float>(1, 2) = K.at<float>(1, 2) / (1 << i);
 		}
 		mbFirstCall = false;
 	}
@@ -84,37 +116,33 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K) {
 						  (void*)Descriptor.data, Descriptor.step, sizeof(char) * Descriptor.cols,
 						  Descriptor.rows, cudaMemcpyDeviceToDevice));
 
-	mNkp = mKeyPoints.size();
-	if(mNkp > 0) {
-		float invfx = fx(0);
-		float invfy = fy(0);
-		float cx0 = cx(0);
-		float cy0 = cy(0);
-		mMapPoints.create(mNkp);
-		Point* pts = new Point[mNkp];
-		for(int i = 0; i < mNkp; ++i) {
-			cv::KeyPoint& kp = mKeyPoints[i];
-			Point& pt = pts[i];
-			float dp = (float)imD.at<uchar>(kp.pt.x, kp.pt.y) / mDepthScale;
-			if(dp > 1e-3 && dp < mDepthCutoff) {
-				pt.pos.z = dp;
-				pt.pos.x = dp * (kp.pt.x - cx0) * invfx;
-				pt.pos.y = dp * (kp.pt.y - cy0) * invfy;
-				pt.valid = true;
-			}
-			else
-				pt.valid = false;
-		}
-		mMapPoints.upload((void*)pts, mNkp);
-	}
+//	mNkp = mKeyPoints.size();
+//	if(mNkp > 0) {
+//		float invfx = fx(0);
+//		float invfy = fy(0);
+//		float cx0 = cx(0);
+//		float cy0 = cy(0);
+//		mMapPoints.create(mNkp);
+//		Point* pts = new Point[mNkp];
+//		for(int i = 0; i < mNkp; ++i) {
+//			cv::KeyPoint& kp = mKeyPoints[i];
+//			Point& pt = pts[i];
+//			float dp = (float)imD.at<uchar>(kp.pt.x, kp.pt.y) / mDepthScale;
+//			if(dp > 1e-3 && dp < mDepthCutoff) {
+//				pt.pos.z = dp;
+//				pt.pos.x = dp * (kp.pt.x - cx0) * invfx;
+//				pt.pos.y = dp * (kp.pt.y - cy0) * invfy;
+//				pt.valid = true;
+//			}
+//			else
+//				pt.valid = false;
+//		}
+//		mMapPoints.upload((void*)pts, mNkp);
+//	}
 
 	mRcw = cv::Mat::eye(3, 3, CV_32FC1);
 	mtcw = cv::Mat::zeros(3, 1, CV_32FC1);
 	mRwc = mRcw.t();
-
-	cv::Mat test(mNMap[0].rows(), mNMap[0].cols(), CV_32FC3);
-	mNMap[0].download((void*)test.data, test.step);
-	cv::imshow("test", test);
 }
 
 void Frame::SetPose(const Frame& frame) {
@@ -133,6 +161,16 @@ void Frame::release() {
 		mDepth[i].release();
 		mMapPoints.release();
 		mDescriptors.release();
+	}
+}
+
+void Frame::SetK(cv::Mat& K) {
+	for(int i = 0; i < numPyrs; ++i) {
+		mK[i] = cv::Mat::eye(3, 3, CV_32FC1);
+		mK[i].at<float>(0, 0) = K.at<float>(0, 0) / (1 << i);
+		mK[i].at<float>(1, 1) = K.at<float>(1, 1) / (1 << i);
+		mK[i].at<float>(0, 2) = K.at<float>(0, 2) / (1 << i);
+		mK[i].at<float>(1, 2) = K.at<float>(1, 2) / (1 << i);
 	}
 }
 

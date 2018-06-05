@@ -35,7 +35,7 @@ void BilateralFiltering(const DeviceArray2D<ushort>& src, DeviceArray2D<float>& 
 	dim3 grid(cv::divUp(src.cols(), block.x), cv::divUp(src.rows(), block.y));
 
 	float SigmaSpace = 0.5 / (4 * 4);
-	float SigmaRange = 0.5 / (2 * 2);
+	float SigmaRange = 0.5 / (0.5 * 0.5);
 	BilateralFiltering_device<ushort, float, 5><<<grid, block>>>(src, dst, SigmaSpace, SigmaRange, 1.0 / scale);
 
 	SafeCall(cudaDeviceSynchronize());
@@ -115,7 +115,8 @@ ColourImageToIntensity_device(PtrStepSz<uchar3> src, PtrStep<uchar> dst) {
 
 	 uchar3 val = src.ptr(y)[x];
 	 int value = (float)val.x * 0.2126f + (float)val.y * 0.7152f + (float)val.z * 0.0722f;
-	 dst.ptr (y)[x] = value;
+//	 int value = ((float)val.x  + (float)val.y + (float)val.z) / 3;
+	 dst.ptr(y)[x] = value;
 }
 
 void ColourImageToIntensity(const DeviceArray2D<uchar3>& src, DeviceArray2D<uchar>& dst) {
@@ -141,18 +142,20 @@ ComputeDerivativeImage_device(PtrStepSz<uchar> src, PtrStep<float> dIx, PtrStep<
 
 	 if (x > 0 && y > 0 && x < src.cols - 1 && y < src.rows - 1) {
 
-		 int dx = 0;
-		 int dy = 0;
-		 int id = 8;
-		 for(int i = -1; i < 2; ++i)
-			 for(int j = -1; j < 2; ++j) {
-				 int val = src.ptr(y + i)[x + j];
-				 dx += val * sobelx[id];
-				 dy += val * sobely[id];
-				 --id;
-			 }
-		 dIx.ptr(y)[x] = (float)dx / 8;
-		 dIy.ptr(y)[x] = (float)dy / 8;
+//		 int dx = 0;
+//		 int dy = 0;
+//		 int id = 8;
+//		 for(int i = -1; i < 2; ++i)
+//			 for(int j = -1; j < 2; ++j) {
+//				 int val = src.ptr(y + i)[x + j];
+//				 dx += val * sobelx[id];
+//				 dy += val * sobely[id];
+//				 --id;
+//			 }
+//		 dIx.ptr(y)[x] = (float)dx / 8;
+//		 dIy.ptr(y)[x] = (float)dy / 8;
+		 dIx.ptr(y)[x] = ((float)src.ptr(y)[x + 1] - (float)src.ptr(y)[x-1]) / 2.0;
+		 dIy.ptr(y)[x] = ((float)src.ptr(y + 1)[x] - (float)src.ptr(y-1)[x]) / 2.0;
 	 }
 	 else {
 		 dIx.ptr(y)[x] = 0;
@@ -165,6 +168,116 @@ void ComputeDerivativeImage(const DeviceArray2D<uchar>& src, DeviceArray2D<float
 	dim3 grid(cv::divUp(src.cols(), block.x), cv::divUp(src.rows(), block.y));
 
 	ComputeDerivativeImage_device<<<grid, block>>>(src, dx, dy);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
+}
+
+//__constant__ float gsobel_x3x3[9];
+//__constant__ float gsobel_y3x3[9];
+//__global__ void applyKernel(const PtrStepSz<unsigned char> src, PtrStep<float> dx, PtrStep<float> dy)
+//{
+//  int x = threadIdx.x + blockIdx.x * blockDim.x;
+//  int y = threadIdx.y + blockIdx.y * blockDim.y;
+//
+//  if(x >= src.cols || y >= src.rows)
+//    return;
+//
+//  float dxVal = 0;
+//  float dyVal = 0;
+//
+//  int kernelIndex = 8;
+//  for(int j = max(y - 1, 0); j <= min(y + 1, src.rows - 1); j++)
+//  {
+//      for(int i = max(x - 1, 0); i <= min(x + 1, src.cols - 1); i++)
+//      {
+//          dxVal += (float)src.ptr(j)[i] * gsobel_x3x3[kernelIndex];
+//          dyVal += (float)src.ptr(j)[i] * gsobel_y3x3[kernelIndex];
+//          --kernelIndex;
+//      }
+//  }
+//
+//  dx.ptr(y)[x] = dxVal ;
+//  dy.ptr(y)[x] = dyVal ;
+//}
+//
+//void ComputeDerivativeImage(const DeviceArray2D<uchar>& src, DeviceArray2D<float>& dx, DeviceArray2D<float>& dy)
+//{
+//    static bool once = false;
+//
+//    if(!once)
+//    {
+//        float gsx3x3[9] = {0.52201,  0.00000, -0.52201,
+//                           0.79451, -0.00000, -0.79451,
+//                           0.52201,  0.00000, -0.52201};
+//
+//        float gsy3x3[9] = {0.52201, 0.79451, 0.52201,
+//                           0.00000, 0.00000, 0.00000,
+//                           -0.52201, -0.79451, -0.52201};
+//
+//        cudaMemcpyToSymbol(gsobel_x3x3, gsx3x3, sizeof(float) * 9);
+//        cudaMemcpyToSymbol(gsobel_y3x3, gsy3x3, sizeof(float) * 9);
+//
+//        SafeCall(cudaGetLastError());
+//        SafeCall(cudaDeviceSynchronize());
+//
+//        once = true;
+//    }
+//
+//    dim3 block(32, 8);
+//    dim3 grid(cv::divUp(src.cols(), block.x), cv::divUp(src.rows(), block.y));
+//
+//    applyKernel<<<grid, block>>>(src, dx, dy);
+//
+//    SafeCall(cudaGetLastError());
+//    SafeCall(cudaDeviceSynchronize());
+//}
+
+__global__ void
+ResizeMap_device(const PtrStepSz<float4> vsrc, const PtrStep<float3> nsrc,
+							   PtrStepSz<float4> vdst, PtrStep<float3> ndst) {
+
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+	int y = threadIdx.y + blockIdx.y * blockDim.y;
+	if (x >= vsrc.cols || y >= vsrc.rows)
+		return;
+
+	float4 v00 = vsrc.ptr(y * 2 + 0)[x * 2 + 0];
+	float4 v01 = vsrc.ptr(y * 2 + 0)[x * 2 + 1];
+	float4 v10 = vsrc.ptr(y * 2 + 1)[x * 2 + 0];
+	float4 v11 = vsrc.ptr(y * 2 + 1)[x * 2 + 1];
+	float3 n00 = nsrc.ptr(y * 2 + 0)[x * 2 + 0];
+	float3 n01 = nsrc.ptr(y * 2 + 0)[x * 2 + 1];
+	float3 n10 = nsrc.ptr(y * 2 + 1)[x * 2 + 0];
+	float3 n11 = nsrc.ptr(y * 2 + 1)[x * 2 + 1];
+
+	if (isnan(v00.x) || isnan(v01.x) || isnan(v10.x) || isnan(v11.x)) {
+		vdst.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
+	}
+	else {
+		vdst.ptr(y)[x] = (v00 + v01 + v10 + v11) / 4;
+	}
+
+	if (isnan(n00.x) || isnan(n01.x) || isnan(n10.x) || isnan(n11.x)) {
+		ndst.ptr(y)[x] = make_float3(__int_as_float(0x7fffffff));
+	}
+	else {
+		ndst.ptr(y)[x] = normalised((n00 + n01 + n10 + n11) / 4);
+	}
+}
+
+void ResizeMap(const DeviceArray2D<float4>& vsrc,
+						   const DeviceArray2D<float3>& nsrc,
+						   DeviceArray2D<float4>& vdst,
+						   DeviceArray2D<float3>& ndst) {
+
+	vdst.create(vsrc.cols() / 2, vsrc.rows() / 2);
+	ndst.create(nsrc.cols() / 2, nsrc.rows() / 2);
+
+	dim3 block(8, 8);
+	dim3 grid(cv::divUp(vdst.cols(), block.x), cv::divUp(vdst.rows(), block.y));
+
+	ResizeMap_device<<<grid, block>>>(vsrc, nsrc, vdst, ndst);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());

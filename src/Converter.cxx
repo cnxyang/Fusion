@@ -5,8 +5,8 @@ float3 Converter::CvMatToFloat3(const cv::Mat& mat) {
 }
 
 #ifndef __CUDACC__
-Eigen::Matrix<float, 4, 4> Converter::TransformToEigen(cv::Mat& r, cv::Mat& t) {
-	Eigen::Matrix<float, 4, 4, Eigen::RowMajor> T = Eigen::Matrix<float, 4, 4,  Eigen::RowMajor>::Identity();
+Eigen::Matrix<double, 4, 4> Converter::TransformToEigen(cv::Mat r, cv::Mat t) {
+	Eigen::Matrix<double, 4, 4, Eigen::RowMajor> T = Eigen::Matrix<double, 4, 4,  Eigen::RowMajor>::Identity();
 	T(0, 0) = r.at<float>(0, 0);
 	T(0, 1) = r.at<float>(0, 1);
 	T(0, 2) = r.at<float>(0, 2);
@@ -22,7 +22,7 @@ Eigen::Matrix<float, 4, 4> Converter::TransformToEigen(cv::Mat& r, cv::Mat& t) {
 	return T;
 }
 
-void Converter::TransformToCv(Eigen::Matrix<float, 4, 4>& T, cv::Mat& r, cv::Mat& t) {
+void Converter::TransformToCv(Eigen::Matrix<double, 4, 4>& T, cv::Mat& r, cv::Mat& t) {
 	r = cv::Mat::eye(3, 3, CV_32FC1);
 	t = cv::Mat::zeros(3, 1, CV_32FC1);
 	r.at<float>(0, 0) = T(0, 0);

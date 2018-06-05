@@ -14,6 +14,7 @@ public:
 	Frame();
 	~Frame();
 	Frame(const Frame& other);
+	Frame(const Frame& other, const Rendering& observation);
 	Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K);
 
 	void SetPose(const Frame& frame);
@@ -31,11 +32,14 @@ public:
 	static int cols(int pyr);
 	static int rows(int pyr);
 	static int pixels(int pyr);
+	static void SetK(cv::Mat& K);
+
+	operator Rendering();
 
 public:
 
 	static bool mbFirstCall;
-	constexpr static const float mDepthScale = 5000.0f;
+	static float mDepthScale;
 	static float mDepthCutoff;
 	static cv::Ptr<cv::cuda::ORB> mORB;
 

@@ -10,10 +10,10 @@ Tracking::Tracking() {
 	mpMap = nullptr;
 	mNextState = NOT_INITIALISED;
 	mK = cv::Mat::eye(3, 3, CV_32FC1);
-	mK.at<float>(0, 0) = 528;
-	mK.at<float>(1, 1) = 528;
-	mK.at<float>(0, 2) = 320;
-	mK.at<float>(1, 2) = 240;
+	mK.at<float>(0, 0) = 528  ;
+	mK.at<float>(1, 1) = 528  ;
+	mK.at<float>(0, 2) = 320  ;
+	mK.at<float>(1, 2) = 240  ;
 }
 
 void Tracking::GrabImageRGBD(cv::Mat& imRGB, cv::Mat& imD) {
@@ -57,44 +57,52 @@ bool Tracking::TrackLastFrame() {
 }
 
 void Tracking::TrackMap() {
-//	std::vector<cv::KeyPoint>& kp = mpMap->mKeyPoints;
 }
 
 void Tracking::TrackICP() {
 
+	const float w = 0.1;
 	Eigen::Matrix<double, 6, 1> result;
-	Eigen::Matrix<float, 6, 6> host_a;
+	Eigen::Matrix<float, 6, 6, Eigen::RowMajor> host_a;
 	Eigen::Matrix<float, 6, 1> host_b;
 	mNextFrame.SetPose(mLastFrame);
-	ShowResiduals();
 
-	float cost = 0, lastcost = 0;
+	float cost = 0;
 	int iter[3] = { 10, 5, 3 };
 	for(int i = 2; i >= 0; --i)
 		for(int j = 0; j < iter[i]; j++) {
 
-			lastcost = cost;
-
-			ICPReduceSum(mNextFrame, mLastFrame, i, host_a.data(), host_b.data(), cost);
+			cost = ICPReduceSum(mNextFrame, mLastFrame, i, host_a.data(), host_b.data());
+			std::cout << "Last ICP Error: " << cost << std::endl;
 
 			Eigen::Matrix<double, 6, 6> dA_icp = host_a.cast<double>();
 			Eigen::Matrix<double, 6, 1> db_icp = host_b.cast<double>();
 
-			result = dA_icp.ldlt().solve(db_icp);
-			auto e = Sophus::SE3f::exp(result.cast<float>());
+			cost = RGBReduceSum(mNextFrame, mLastFrame, i, host_a.data(), host_b.data());
+			std::cout << "Last RGB Error: " << cost << std::endl;
+
+			Eigen::Matrix<double, 6, 6> dA_rgb = host_a.cast<double>();
+			Eigen::Matrix<double, 6, 1> db_rgb = host_b.cast<double>();
+
+			Eigen::Matrix<double, 6, 6> dA = w * w * dA_icp + dA_rgb;
+			Eigen::Matrix<double, 6, 1> db = w * db_icp + db_rgb;
+
+			result = dA.ldlt().solve(db);
+			auto e = Sophus::SE3d::exp(result);
 			auto dT = e.matrix();
 
-			Eigen::Matrix<float, 4, 4> T = Converter::TransformToEigen(mNextFrame.mRcw, mNextFrame.mtcw);
-			std::cout << "T:\n" << T << std::endl
-					  << "-----------------------" << std::endl
-					  << "dT:\n" << dT << std::endl;
-			T = dT * T;
+			Eigen::Matrix<double, 4, 4> Tc = Converter::TransformToEigen(mNextFrame.mRcw, mNextFrame.mtcw);
+			Eigen::Matrix<double, 4, 4> Tp = Converter::TransformToEigen(mLastFrame.mRcw, mLastFrame.mtcw);
+			Tc = Tp * (dT.inverse() * Tc.inverse() * Tp).inverse();
 
-			Converter::TransformToCv(T, mNextFrame.mRcw, mNextFrame.mtcw);
+			Converter::TransformToCv(Tc, mNextFrame.mRcw, mNextFrame.mtcw);
 			mNextFrame.mRwc = mNextFrame.mRcw.t();
-			std::cout << "cost:\n" << result << std::endl;
-			ShowResiduals();
 	}
+	ShowResiduals();
+}
+
+void Tracking::SetObservation(const Rendering& render) {
+	mLastFrame = Frame(mLastFrame, render);
 }
 
 void Tracking::ShowResiduals() {
@@ -109,28 +117,28 @@ void Tracking::ShowResiduals() {
 	warpImg.download((void*)cvresidual.data, cvresidual.step);
 	cv::imshow("residual", cvresidual);
 
-//	cv::Mat hist;
-//	int histSize = 256;
-//	float range[] = { 0, 256 } ;
-//	const float* histRange = { range };
-//	cv::calcHist(&cvresidual, 1, 0, cv::Mat(), hist, 1, &histSize, &histRange);
-//
-//	int hist_w = 512;
-//	int hist_h = 400;
-//	int bin_w = cvRound((double) hist_w / histSize);
-//	cv::Mat histImage(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0));
-//	cv::normalize(hist, hist, 0, histImage.rows, cv::NORM_MINMAX, -1,
-//			cv::Mat());
-//	for (int i = 1; i < histSize; i++) {
-//		cv::line(histImage,
-//				cv::Point(bin_w * (i - 1),
-//						hist_h - cvRound(hist.at<float>(i - 1))),
-//				cv::Point(bin_w * (i), hist_h - cvRound(hist.at<float>(i))),
-//				cv::Scalar(255, 0, 0), 2, 8, 0);
-//	}
-//	cv::imshow("histImage", histImage);
+	cv::Mat hist;
+	int histSize = 256;
+	float range[] = { 0, 256 } ;
+	const float* histRange = { range };
+	cv::calcHist(&cvresidual, 1, 0, cv::Mat(), hist, 1, &histSize, &histRange);
 
-	int key = cv::waitKey(0);
+	int hist_w = 512;
+	int hist_h = 400;
+	int bin_w = cvRound((double) hist_w / histSize);
+	cv::Mat histImage(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0));
+	cv::normalize(hist, hist, 0, histImage.rows, cv::NORM_MINMAX, -1,
+			cv::Mat());
+	for (int i = 1; i < histSize; i++) {
+		cv::line(histImage,
+				cv::Point(bin_w * (i - 1),
+						hist_h - cvRound(hist.at<float>(i - 1))),
+				cv::Point(bin_w * (i), hist_h - cvRound(hist.at<float>(i))),
+				cv::Scalar(255, 0, 0), 2, 8, 0);
+	}
+	cv::imshow("histImage", histImage);
+
+	int key = cv::waitKey(10);
 	if(key == 27)
 		exit(0);
 }

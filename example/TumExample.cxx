@@ -8,6 +8,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
 
+#include "Frame.h"
 #include "Converter.h"
 #include "Tracking.h"
 
@@ -39,7 +40,7 @@ int main(int argc, char ** argv) {
 
 	if(argc != 2) {
 		std::cout << "Wrong Parameters.\n"
-				  << "Usage: ./tum_example path_to_tum_dataset" << std::endl;
+				      << "Usage: ./tum_example path_to_tum_dataset" << std::endl;
 		exit(-1);
 	}
 
@@ -57,6 +58,28 @@ int main(int argc, char ** argv) {
 	}
 
 	Tracking Tracker;
+	Map map;
+	map.AllocateDeviceMemory(MapDesc());
+	map.ResetDeviceMemory();
+	cv::Mat K = cv::Mat::eye(3, 3, CV_32FC1);
+	// Freiburg 1
+//	K.at<float>(0, 0) = 517.3;
+//	K.at<float>(1, 1) = 516.5;
+//	K.at<float>(0, 2) = 318.6;
+//	K.at<float>(1, 2) = 255.3;
+	// Freiburg 2
+	K.at<float>(0, 0) = 520.9;
+	K.at<float>(1, 1) = 521.0;
+	K.at<float>(0, 2) = 325.1;
+	K.at<float>(1, 2) = 249.7;
+	// Freiburg 3
+//	K.at<float>(0, 0) = 535.4;
+//	K.at<float>(1, 1) = 539.2;
+//	K.at<float>(0, 2) = 320.1;
+//	K.at<float>(1, 2) = 247.6;
+	Frame::SetK(K);
+	Frame::mDepthScale = 5000.0f;
+
 	int nImages = std::min(vsRGBList.size(), vdTimeList.size());
 	std::cout << "----------------------------------------------\n"
 			  << "Total Images to be processed: " << nImages << std::endl;
@@ -66,8 +89,23 @@ int main(int argc, char ** argv) {
 
 		auto t1 = std::chrono::steady_clock::now();
 		Tracker.GrabImageRGBD(imRGB, imD);
-		auto t2 = std::chrono::steady_clock::now();
+		int no = map.FuseFrame(Tracker.mLastFrame);
+		Rendering rd;
+		rd.cols = 640;
+		rd.rows = 480;
+		rd.fx = K.at<float>(0, 0);
+		rd.fy = K.at<float>(1, 1);
+		rd.cx = K.at<float>(0, 2);
+		rd.cy = K.at<float>(1, 2);
+		rd.Rview = Tracker.mLastFrame.mRcw;
+		rd.invRview = Tracker.mLastFrame.mRwc;
+		rd.maxD = 5.0f;
+		rd.minD = 0.1f;
+		rd.tview = Converter::CvMatToFloat3(Tracker.mLastFrame.mtcw);
 
+		map.RenderMap(rd, no);
+//		Tracker.SetObservation(rd);
+		auto t2 = std::chrono::steady_clock::now();
         int key = cv::waitKey(10);
 
 		switch(key) {

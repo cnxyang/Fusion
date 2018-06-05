@@ -52,6 +52,10 @@ struct PtrSz {
 
 	__device__ T& operator[](int x);
 
+	__device__ operator T*();
+
+	__device__ operator const T*() const;
+
 	__device__ T operator[](int x) const;
 
 	T* data;
@@ -197,6 +201,16 @@ PtrSz<T>::operator [](int x) {
 template<class T> __device__ inline T
 PtrSz<T>::operator [](int x) const {
 	return data[x];
+}
+
+template<class T> __device__ inline
+PtrSz<T>::operator T*() {
+	return data;
+}
+
+template<class T> __device__ inline
+PtrSz<T>::operator const T*() const {
+	return data;
 }
 
 //------------------------------------------------------------------

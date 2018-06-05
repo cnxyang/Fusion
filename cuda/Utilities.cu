@@ -146,3 +146,90 @@ void ComputeResidualImage(const DeviceArray2D<uchar>& src,
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 }
+
+__global__ void
+renderImageKernel(const PtrStep<float4> vmap,
+								  const PtrStep<float3> nmap,
+								  const float3 light_pose,
+								  PtrStepSz<uchar4> dst)
+{
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+	int y = threadIdx.y + blockIdx.y * blockDim.y;
+
+	if (x >= dst.cols || y >= dst.rows)
+		return;
+
+	float3 color;
+	float3 p = make_float3(vmap.ptr(y)[x]);
+	if (isnan(p.x)) {
+		const float3 bgr1 = make_float3(4.f / 255.f, 2.f / 255.f, 2.f / 255.f);
+		const float3 bgr2 = make_float3(236.f / 255.f, 120.f / 255.f, 120.f / 255.f);
+
+		float w = static_cast<float>(y) / dst.rows;
+		color = bgr1 * (1 - w) + bgr2 * w;
+	}
+	else	{
+		float3 P = p;
+		float3 N = nmap.ptr(y)[x];
+
+		const float Ka = 0.3f;  //ambient coeff
+		const float Kd = 0.5f;  //diffuse coeff
+		const float Ks = 0.2f;  //specular coeff
+		const float n = 20.f;  //specular power
+
+		const float Ax = 1.f;   //ambient color,  can be RGB
+		const float Dx = 1.f;   //diffuse color,  can be RGB
+		const float Sx = 1.f;   //specular color, can be RGB
+		const float Lx = 1.f;   //light color
+
+		float3 L = normalised(light_pose - P);
+		float3 V = normalised(make_float3(0.f, 0.f, 0.f) - P);
+		float3 R = normalised(2 * N * (N * L) - L);
+
+		float Ix = Ax * Ka * Dx + Lx * Kd * Dx * fmax(0.f, (N * L))
+			     + Lx * Ks * Sx * __powf(fmax(0.f, (R * V)), n);
+		color = make_float3(Ix, Ix, Ix);
+	}
+
+	uchar4 out;
+	out.x = static_cast<unsigned char>(__saturatef(color.x) * 255.f);
+	out.y = static_cast<unsigned char>(__saturatef(color.y) * 255.f);
+	out.z = static_cast<unsigned char>(__saturatef(color.z) * 255.f);
+	out.w = 0;
+	dst.ptr(y)[x] = out;
+}
+
+void renderImage(const DeviceArray2D<float4>& points,
+		         	 	 	   const DeviceArray2D<float3>& normals,
+		         	 	 	   const float3 & light_pose,
+		         	 	 	   DeviceArray2D<uchar4>& image)
+{
+	dim3 block(32, 8);
+	dim3 grid(cv::divUp(points.cols(), block.x), cv::divUp(points.rows(), block.y));
+
+	renderImageKernel<<<grid, block>>>(points, normals, light_pose, image);
+ SafeCall(cudaGetLastError());
+}
+
+__global__ void
+ProjectToDepth_device(const PtrStep<float4> vmap_src, PtrStepSz<float> dst)
+{
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= dst.cols || y >= dst.rows)
+        return;
+
+    float z = vmap_src.ptr(y)[x].z;
+
+    dst.ptr(y)[x] = isnan(z) || z <= 1e-3 ? __int_as_float(0x7fffffff) : z;
+}
+
+void ProjectToDepth(const DeviceArray2D<float4>& src, DeviceArray2D<float>& dst)
+{
+    dim3 block (32, 8);
+    dim3 grid (cv::divUp(src.cols(), block.x), cv::divUp(src.rows(), block.y));
+
+    ProjectToDepth_device<<<grid, block>>>(src, dst);
+    SafeCall(cudaGetLastError());
+};

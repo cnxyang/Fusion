@@ -7,24 +7,18 @@
 #include "DeviceStruct.h"
 #include <opencv2/opencv.hpp>
 
-enum {
-	EntryAvailable = -1,
-	EntryOccupied = -2,
-	BucketLocked = -3,
-	BucketFree = -4
-};
-
 class Map {
 public:
 	Map();
 	~Map();
 
-	void AllocateDeviceMemory(MapDesc& desc);
+	void AllocateDeviceMemory(MapDesc desc);
+	void ResetDeviceMemory();
 	void ReleaseDeviceMemory();
 	void FuseKeyPoints(const Frame& frame);
 	bool MatchKeyPoint(const Frame& frame, int k);
-	void FuseFrame(const Frame& frame);
-	void RenderMap(Rendering& render);
+	int FuseFrame(const Frame& frame);
+	void RenderMap(Rendering& render, int num_occupied_blocks);
 	void UpdateDesc(MapDesc& desc);
 	void DownloadDesc();
 	operator DeviceMap();
