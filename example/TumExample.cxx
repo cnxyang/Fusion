@@ -9,8 +9,8 @@
 #include <opencv2/highgui.hpp>
 
 #include "Frame.h"
-#include "Converter.h"
 #include "Tracking.h"
+#include "Converter.h"
 
 enum MemRepType {
 	Byte = 1,
@@ -35,8 +35,6 @@ void LoadDatasetTUM(std::string & sRootPath,
 					std::vector<double> & vdTimeStamp);
 
 int main(int argc, char ** argv) {
-	std::cout << std::fixed;
-	std::cout << std::setprecision(6);
 
 	if(argc != 2) {
 		std::cout << "Wrong Parameters.\n"
@@ -62,6 +60,13 @@ int main(int argc, char ** argv) {
 	map.AllocateDeviceMemory(MapDesc());
 	map.ResetDeviceMemory();
 	cv::Mat K = cv::Mat::eye(3, 3, CV_32FC1);
+	cv::Mat Coeff = cv::Mat::zeros(5, 1, CV_32FC1);
+
+	// default
+//	K.at<float>(0, 0) = 525.0;
+//	K.at<float>(1, 1) = 525.0;
+//	K.at<float>(0, 2) = 319.5;
+//	K.at<float>(1, 2) = 239.5;
 	// Freiburg 1
 //	K.at<float>(0, 0) = 517.3;
 //	K.at<float>(1, 1) = 516.5;
@@ -104,9 +109,14 @@ int main(int argc, char ** argv) {
 		rd.tview = Converter::CvMatToFloat3(Tracker.mLastFrame.mtcw);
 
 		map.RenderMap(rd, no);
-//		Tracker.SetObservation(rd);
+		Tracker.AddObservation(rd);
+
 		auto t2 = std::chrono::steady_clock::now();
         int key = cv::waitKey(10);
+
+		cv::Mat tmp(rd.rows, rd.cols, CV_8UC4);
+		rd.Render.download((void*)tmp.data, tmp.step);
+		cv::imshow("img", tmp);
 
 		switch(key) {
 

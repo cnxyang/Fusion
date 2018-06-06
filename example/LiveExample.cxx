@@ -35,8 +35,6 @@ void LoadDatasetTUM(std::string & sRootPath,
 					std::vector<double> & vdTimeStamp);
 
 int main(int argc, char ** argv) {
-	std::cout << std::fixed;
-	std::cout << std::setprecision(6);
 
 	CameraNI camera;
 	camera.InitCamera();
@@ -74,7 +72,25 @@ int main(int argc, char ** argv) {
 			rd.tview = Converter::CvMatToFloat3(Tracker.mLastFrame.mtcw);
 
 			map.RenderMap(rd, no);
-			Tracker.SetObservation(rd);
+			Tracker.AddObservation(rd);
+
+			rd.cols = 1280;
+			rd.rows = 960;
+			rd.fx = 1056;
+			rd.fy = 1056;
+			rd.cx = 640;
+			rd.cy = 480;
+			rd.Rview = Matrix3f::Identity();
+			rd.invRview = Matrix3f::Identity();
+			rd.maxD = 5.0f;
+			rd.minD = 0.1f;
+			rd.tview = make_float3(0);
+
+			map.RenderMap(rd, no);
+
+			cv::Mat tmp(rd.rows, rd.cols, CV_8UC4);
+			rd.Render.download((void*)tmp.data, tmp.step);
+			cv::imshow("img", tmp);
 		}
 		auto t2 = std::chrono::steady_clock::now();
 

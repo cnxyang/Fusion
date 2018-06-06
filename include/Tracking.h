@@ -9,7 +9,7 @@ class Tracking {
 public:
 	Tracking();
 	void GrabImageRGBD(cv::Mat& imRGB, cv::Mat& imD);
-	void SetObservation(const Rendering& render);
+	void AddObservation(const Rendering& render);
 
 public:
 	void Track();

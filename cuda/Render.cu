@@ -81,6 +81,8 @@ struct HashRayCaster
 		__shared__ uint prefixBuffer[16 * 16];
 		__shared__ uint groupOffset;
 
+		if(localId == 0)
+			memset(prefixBuffer, 0, sizeof(uint) * 16 * 16);
 		prefixBuffer[localId] = element;
 		__syncthreads();
 
@@ -543,6 +545,7 @@ void Map::RenderMap(Rendering& render, int num_occupied_blocks) {
 
 	uint totalBlocks;
 	noTotalBlocks.download((void*)&totalBlocks);
+	std::cout << totalBlocks << std::endl;
 	if (totalBlocks == 0 || totalBlocks >= MAX_RENDERING_BLOCKS)
 		return;
 
@@ -568,8 +571,4 @@ void Map::RenderMap(Rendering& render, int num_occupied_blocks) {
 	SafeCall(cudaDeviceSynchronize());
 
 	renderImage(render.VMap, render.NMap, make_float3(0), render.Render);
-
-	cv::Mat normal(render.rows, render.cols, CV_8UC4);
-	render.Render.download((void*)normal.data, normal.step);
-	cv::imshow("n", normal);
 }
