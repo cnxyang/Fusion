@@ -67,7 +67,8 @@ struct ICPReduce {
 	mutable PtrStepSz<float> out;
 
 	__device__ inline
-	bool SearchPoint(int& x, int& y, float3& vcurr_g, float3& vlast_g, float3& nlast_g) const {
+	bool SearchPoint(int& x, int& y, float3& vcurr_g,
+								 float3& vlast_g, float3& nlast_g) const {
 
 		float3 vcurr_c = make_float3(VMapCurr.ptr(y)[x]);
 		if(isnan(vcurr_c.x) || vcurr_c.z < 1e-3)

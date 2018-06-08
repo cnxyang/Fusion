@@ -142,20 +142,20 @@ ComputeDerivativeImage_device(PtrStepSz<uchar> src, PtrStep<float> dIx, PtrStep<
 
 	 if (x > 0 && y > 0 && x < src.cols - 1 && y < src.rows - 1) {
 
-//		 int dx = 0;
-//		 int dy = 0;
-//		 int id = 8;
-//		 for(int i = -1; i < 2; ++i)
-//			 for(int j = -1; j < 2; ++j) {
-//				 int val = src.ptr(y + i)[x + j];
-//				 dx += val * sobelx[id];
-//				 dy += val * sobely[id];
-//				 --id;
-//			 }
-//		 dIx.ptr(y)[x] = (float)dx / 8;
-//		 dIy.ptr(y)[x] = (float)dy / 8;
-		 dIx.ptr(y)[x] = ((float)src.ptr(y)[x + 1] - (float)src.ptr(y)[x-1]) / 2.0;
-		 dIy.ptr(y)[x] = ((float)src.ptr(y + 1)[x] - (float)src.ptr(y-1)[x]) / 2.0;
+		 int dx = 0;
+		 int dy = 0;
+		 int id = 8;
+		 for(int i = -1; i < 2; ++i)
+			 for(int j = -1; j < 2; ++j) {
+				 int val = src.ptr(y + i)[x + j];
+				 dx += val * sobelx[id];
+				 dy += val * sobely[id];
+				 --id;
+			 }
+		 dIx.ptr(y)[x] = (float)dx / 8;
+		 dIy.ptr(y)[x] = (float)dy / 8;
+//		 dIx.ptr(y)[x] = ((float)src.ptr(y)[x + 1] - (float)src.ptr(y)[x-1]) / 2.0;
+//		 dIy.ptr(y)[x] = ((float)src.ptr(y + 1)[x] - (float)src.ptr(y-1)[x]) / 2.0;
 	 }
 	 else {
 		 dIx.ptr(y)[x] = 0;

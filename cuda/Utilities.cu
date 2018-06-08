@@ -112,9 +112,9 @@ void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2,
 	const int pyrlvl = 0;
 
 	WarpGrayScaleImage_device<<<grid, block>>>(frame1.mVMap[pyrlvl], frame2.mGray[pyrlvl],
-																				    frame1.mRcw, frame2.mRwc, t1, t2,
-																				    Frame::fx(pyrlvl), Frame::fy(pyrlvl),
-																				    Frame::cx(pyrlvl), Frame::cy(pyrlvl), diff);
+																				frame1.mRcw, frame2.mRwc, t1, t2,
+																				Frame::fx(pyrlvl), Frame::fy(pyrlvl),
+																				Frame::cx(pyrlvl), Frame::cy(pyrlvl), diff);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
@@ -208,7 +208,7 @@ void renderImage(const DeviceArray2D<float4>& points,
 	dim3 grid(cv::divUp(points.cols(), block.x), cv::divUp(points.rows(), block.y));
 
 	renderImageKernel<<<grid, block>>>(points, normals, light_pose, image);
- SafeCall(cudaGetLastError());
+	SafeCall(cudaGetLastError());
 }
 
 __global__ void
