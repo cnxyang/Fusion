@@ -294,6 +294,8 @@ struct HashIntegrator {
 			Voxel & prev = map.voxelBlocks[entry.ptr + idx];
 
 			if (fuse) {
+				if(prev.sdfW < 1e-7)
+					curr.sdfW = 1;
 				prev += curr;
 			} else {
 				prev -= curr;
@@ -319,23 +321,25 @@ void createBlocksKernel(HashIntegrator hi) {
 
 int Map::FuseFrame(const Frame& frame) {
 
+		int pyr = 0;
 		HashIntegrator HI;
 		HI.map = *this;
 		HI.R_curr = frame.mRcw;
 		HI.R_inv = frame.mRwc;
 		HI.t_curr = Converter::CvMatToFloat3(frame.mtcw);
-		HI.fx = Frame::fx(0);
-		HI.fy = Frame::fy(0);
-		HI.cx = Frame::cx(0);
-		HI.cy = Frame::cy(0);
-		HI.depth = frame.mDepth[0];
-		HI.width = Frame::cols(0);
-		HI.height = Frame::rows(0);
+		HI.fx = Frame::fx(pyr);
+		HI.fy = Frame::fy(pyr);
+		HI.cx = Frame::cx(pyr);
+		HI.cy = Frame::cy(pyr);
+		HI.depth = frame.mDepth[pyr];
+		HI.width = Frame::cols(pyr);
+		HI.height = Frame::rows(pyr);
+		HI.nmap = frame.mNMap[pyr];
 		HI.DEPTH_MAX = DEPTH_MAX;
 		HI.DEPTH_MIN = DEPTH_MIN;
 
 	    dim3 block(32, 8);
-	    dim3 grid(cv::divUp(Frame::cols(0), block.x), cv::divUp(Frame::rows(0), block.y));
+	    dim3 grid(cv::divUp(Frame::cols(pyr), block.x), cv::divUp(Frame::rows(pyr), block.y));
 
 	    createBlocksKernel<<<grid, block>>>(HI);
 

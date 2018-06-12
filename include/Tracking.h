@@ -25,6 +25,8 @@ public:
 		LOST
 	};
 
+	float cost;
+	const int iter[3] = { 10, 5, 3 };
 	Frame mLastFrame;
 	Frame mNextFrame;
 	State mNextState;

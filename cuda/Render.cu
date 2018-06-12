@@ -83,6 +83,8 @@ struct HashRayCaster
 
 		if(localId == 0)
 			memset(prefixBuffer, 0, sizeof(uint) * 16 * 16);
+		__syncthreads();
+
 		prefixBuffer[localId] = element;
 		__syncthreads();
 
@@ -495,7 +497,6 @@ Memset_device(PtrStepSz<float> a2d, float val) {
 
 void Map::RenderMap(Rendering& render, int num_occupied_blocks) {
 
-	std::cout << num_occupied_blocks << std::endl;
 	if(num_occupied_blocks == 0)
 		return;
 
@@ -545,7 +546,6 @@ void Map::RenderMap(Rendering& render, int num_occupied_blocks) {
 
 	uint totalBlocks;
 	noTotalBlocks.download((void*)&totalBlocks);
-	std::cout << totalBlocks << std::endl;
 	if (totalBlocks == 0 || totalBlocks >= MAX_RENDERING_BLOCKS)
 		return;
 

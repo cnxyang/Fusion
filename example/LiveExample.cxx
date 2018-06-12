@@ -74,22 +74,9 @@ int main(int argc, char ** argv) {
 			map.RenderMap(rd, no);
 			Tracker.AddObservation(rd);
 
-			rd.cols = 1280;
-			rd.rows = 960;
-			rd.fx = 1056;
-			rd.fy = 1056;
-			rd.cx = 640;
-			rd.cy = 480;
-			rd.Rview = Matrix3f::Identity();
-			rd.invRview = Matrix3f::Identity();
-			rd.maxD = 5.0f;
-			rd.minD = 0.1f;
-			rd.tview = make_float3(0);
-
-			map.RenderMap(rd, no);
-
 			cv::Mat tmp(rd.rows, rd.cols, CV_8UC4);
 			rd.Render.download((void*)tmp.data, tmp.step);
+			cv::resize(tmp, tmp, cv::Size(tmp.cols * 2, tmp.rows * 2));
 			cv::imshow("img", tmp);
 		}
 		auto t2 = std::chrono::steady_clock::now();

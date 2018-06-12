@@ -67,19 +67,17 @@ void Tracking::TrackICP() {
 	Eigen::Matrix<float, 6, 1> host_b;
 	mNextFrame.SetPose(mLastFrame);
 
-	float cost = 0;
-	int iter[3] = { 10, 5, 3 };
 	for(int i = 2; i >= 0; --i)
 		for(int j = 0; j < iter[i]; j++) {
 
 			cost = ICPReduceSum(mNextFrame, mLastFrame, i, host_a.data(), host_b.data());
-//			std::cout << "Last ICP Error: " << cost << std::endl;
+			std::cout << "Last ICP Error: " << cost << std::endl;
 
 			Eigen::Matrix<double, 6, 6> dA_icp = host_a.cast<double>();
 			Eigen::Matrix<double, 6, 1> db_icp = host_b.cast<double>();
 
 			cost = RGBReduceSum(mNextFrame, mLastFrame, i, host_a.data(), host_b.data());
-//			std::cout << "Last RGB Error: " << cost << std::endl;
+			std::cout << "Last RGB Error: " << cost << std::endl;
 
 			Eigen::Matrix<double, 6, 6> dA_rgb = host_a.cast<double>();
 			Eigen::Matrix<double, 6, 1> db_rgb = host_b.cast<double>();

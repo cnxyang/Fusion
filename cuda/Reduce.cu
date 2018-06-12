@@ -368,3 +368,103 @@ float RGBReduceSum(Frame& NextFrame, Frame& LastFrame,
 	CreateMatrix(host_data, host_a, host_b);
 	return sqrt(host_data[27]) / host_data[28];
 }
+
+struct RGB {
+
+	Matrix3f Rcurr;
+	Matrix3f Rlast;
+	Matrix3f invRlast;
+	float3 tcurr;
+	float3 tlast;
+	PtrStep<float> dIx, dIy;
+	PtrStep<uchar> GrayCurr, GrayLast;
+	PtrStep<float4> VMapCurr, VMapLast;
+	int cols, rows, N;
+	float fx, fy, cx, cy, minGxy;
+
+	mutable PtrStep<float> residual;
+	mutable PtrStep<int2> coord;
+	mutable PtrStep<bool> found;
+	mutable PtrStep<float> out;
+
+	__device__ bool
+	FindCorresp(int& x, int& y, int& u, int& v, float& gx,
+						 float& gy, float& diff, float3& vlast_c) const {
+
+		float3 vcurr_c = make_float3(VMapCurr.ptr(y)[x]);
+		if(isnan(vcurr_c.x) || vcurr_c.z < 1e-3)
+			return false;
+
+		float3 vcurr_g = Rcurr * vcurr_c + tcurr;
+		float3 vcurr_p = invRlast * (vcurr_g - tlast);
+
+		float invz = 1.0 / vcurr_p.z;
+		u = (int)(vcurr_p.x * invz * fx + cx + 0.5);
+		v = (int)(vcurr_p.y * invz * fy + cy + 0.5);
+		if(u < 0 || v < 0 || u >= cols || v >= rows)
+			return false;
+
+		vlast_c = make_float3(VMapLast.ptr(v)[u]);
+		if(isnan(vlast_c.x) || vlast_c.z < 1e-3)
+			return false;
+
+		float3 vlast_g = Rlast * vlast_c + tlast;
+
+		gx = dIx.ptr(v)[u];
+		gy = dIy.ptr(v)[u];
+		diff = (float)GrayLast.ptr(v)[u] - (float)GrayCurr.ptr(y)[x];
+
+		return (vlast_g.z - vcurr_g.z) < 0.6 && (gx * gx + gy * gy) >= minGxy;
+	}
+
+	__device__ inline
+	void GetRow(int& i, float* sum) const {
+		int y = i / cols;
+		int x = i - (y * cols);
+
+		int u, v;
+		float3 vlast;
+		float gx, gy, diff;
+		bool found_correp = false;
+		found_correp= FindCorresp(x, y, u, v, gx, gy, diff, vlast);
+
+		if(found_correp) {
+
+			residual.ptr(y)[x] = diff;
+			found.ptr(y)[x] = found_correp;
+			coord.ptr(y)[x] = { u, v };
+			sum[0] = diff;
+			sum[1] = 1;
+		}
+	}
+
+	template<typename T, int size>
+	__device__ void operator()() const {
+		T sum[size];
+		T val[size];
+		memset(sum, 0, sizeof(T) * size);
+		int i = blockIdx.x * blockDim.x + threadIdx.x;
+		for (; i < N; i += blockDim.x * gridDim.x) {
+			memset(val, 0, sizeof(T) * size);
+			GetRow(i, val);
+
+			for(int j = 0; j < size; ++j)
+				sum[j] += val[j];
+		}
+
+		BlockReduceSum<T, size>(sum);
+
+		if (threadIdx.x == 0)
+			for(int i = 0; i < size; ++i)
+				out.ptr(blockIdx.x)[i] = sum[i];
+	}
+};
+
+__global__ void
+RGBDense_device(const RGB rgb) {
+	rgb.template operator()<float, 2>();
+}
+
+void RGBDense(Frame& NextFrame, Frame& LastFrame) {
+
+}
