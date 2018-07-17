@@ -362,6 +362,7 @@ float RGBReduceSum(Frame& NextFrame, Frame& LastFrame,
 	cv::Mat hostcorres(Frame::rows(pyr), Frame::cols(pyr), CV_8UC1);
 	Corres.download((void*)hostcorres.data, hostcorres.step);
 	cv::imshow("corresp", hostcorres);
+	cv::imwrite("corresp.jpg", hostcorres);
 
 	float host_data[29];
 	result.download(host_data);

@@ -23,8 +23,10 @@ Frame::Frame(const Frame& other) {
 		other.mNMap[i].copyTo(mNMap[i]);
 		other.mdIx[i].copyTo(mdIx[i]);
 		other.mdIy[i].copyTo(mdIy[i]);
-		other.mMapPoints.copyTo(mMapPoints);
 	}
+
+	mMapPoints = other.mMapPoints;
+	other.mDescriptors.copyTo(mDescriptors);
 
 	mRcw = other.mRcw.clone();
 	mtcw = other.mtcw.clone();
@@ -44,13 +46,13 @@ Frame::Frame(const Frame& other, const Rendering& observation) {
 
 		mDepth[i].create(Frame::cols(i), Frame::rows(i));
 		ProjectToDepth(mVMap[i], mDepth[i]);
-//		other.mDepth[i].copyTo(mDepth[i]);
 		other.mGray[i].copyTo(mGray[i]);
 		other.mdIx[i].copyTo(mdIx[i]);
 		other.mdIy[i].copyTo(mdIy[i]);
-		other.mMapPoints.copyTo(mMapPoints);
 	}
 
+	mMapPoints = other.mMapPoints;
+	other.mDescriptors.copyTo(mDescriptors);
 	mRcw = other.mRcw.clone();
 	mtcw = other.mtcw.clone();
 	mRwc = other.mRwc.clone();
@@ -62,20 +64,14 @@ Frame::Frame(const Frame& other, const Rendering& observation) {
 }
 
 
-Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K) {
+Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 
 	if(mbFirstCall) {
 		mORB = cv::cuda::ORB::create(1000);
 		for(int i = 0; i < numPyrs; ++i) {
-
 			mPyrRes[i].first = imD.cols / (1 << i);
 			mPyrRes[i].second = imD.rows / (1 << i);
 			N[i] = mPyrRes[i].first * mPyrRes[i].second;
-//			mK[i] = cv::Mat::eye(3, 3, CV_32FC1);
-//			mK[i].at<float>(0, 0) = K.at<float>(0, 0) / (1 << i);
-//			mK[i].at<float>(1, 1) = K.at<float>(1, 1) / (1 << i);
-//			mK[i].at<float>(0, 2) = K.at<float>(0, 2) / (1 << i);
-//			mK[i].at<float>(1, 2) = K.at<float>(1, 2) / (1 << i);
 		}
 		mbFirstCall = false;
 	}
@@ -104,40 +100,34 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K) {
 		ComputeDerivativeImage(mGray[i], mdIx[i], mdIy[i]);
 	}
 
-	cv::cuda::GpuMat GrayTemp, Descriptor;
-	std::vector<cv::KeyPoint> mKeyPoints;
-	GrayTemp.create(mPyrRes[0].second, mPyrRes[0].first, CV_8UC1);
-	SafeCall(cudaMemcpy2D((void*)GrayTemp.data, GrayTemp.step,
-				          (void*)mGray[0], mGray[0].step(), sizeof(char) * mGray[0].cols(),
-				          mGray[0].rows(), cudaMemcpyDeviceToDevice));
-	mORB->detectAndCompute(GrayTemp, cv::cuda::GpuMat(), mKeyPoints, Descriptor);
-	mDescriptors.create(Descriptor.cols, Descriptor.rows);
-	SafeCall(cudaMemcpy2D((void*)mDescriptors, mDescriptors.step(),
-						  (void*)Descriptor.data, Descriptor.step, sizeof(char) * Descriptor.cols,
-						  Descriptor.rows, cudaMemcpyDeviceToDevice));
-
+//	cv::cuda::GpuMat GrayTemp;
+//	std::vector<cv::KeyPoint> mKeyPoints;
+//	GrayTemp.create(rows(0), cols(0), CV_8UC1);
+//	SafeCall(cudaMemcpy2D((void*)GrayTemp.data, GrayTemp.step,
+//					          (void*)mGray[0], mGray[0].step(), sizeof(char) * mGray[0].cols(),
+//					          mGray[0].rows(), cudaMemcpyDeviceToDevice));
+//	mORB->detectAndCompute(GrayTemp, cv::cuda::GpuMat(), mKeyPoints, mDescriptors);
+//
 //	mNkp = mKeyPoints.size();
-//	if(mNkp > 0) {
-//		float invfx = fx(0);
-//		float invfy = fy(0);
+//	if (mNkp > 0) {
+//		float invfx = 1.0 / fx(0);
+//		float invfy = 1.0 / fy(0);
 //		float cx0 = cx(0);
 //		float cy0 = cy(0);
-//		mMapPoints.create(mNkp);
-//		Point* pts = new Point[mNkp];
+//		int counter = 0;
 //		for(int i = 0; i < mNkp; ++i) {
 //			cv::KeyPoint& kp = mKeyPoints[i];
-//			Point& pt = pts[i];
-//			float dp = (float)imD.at<uchar>(kp.pt.x, kp.pt.y) / mDepthScale;
-//			if(dp > 1e-3 && dp < mDepthCutoff) {
-//				pt.pos.z = dp;
-//				pt.pos.x = dp * (kp.pt.x - cx0) * invfx;
-//				pt.pos.y = dp * (kp.pt.y - cy0) * invfy;
-//				pt.valid = true;
+//			float x = kp.pt.x;
+//			float y = kp.pt.y;
+//			float dp = (float)imD.at<unsigned short>((int)(y + 0.5), (int)(x + 0.5)) / mDepthScale;
+//			float3 pos = make_float3(nanf("0x7fffffff"));
+//			if (dp > 1e-3 && dp < mDepthCutoff) {
+//				pos.z = dp;
+//				pos.x = dp * (x - cx0) * invfx;
+//				pos.y = dp * (y - cy0) * invfy;
 //			}
-//			else
-//				pt.valid = false;
+//			mMapPoints.push_back(pos);
 //		}
-//		mMapPoints.upload((void*)pts, mNkp);
 //	}
 
 	mRcw = cv::Mat::eye(3, 3, CV_32FC1);
@@ -159,7 +149,7 @@ void Frame::release() {
 		mVMap[i].release();
 		mNMap[i].release();
 		mDepth[i].release();
-		mMapPoints.release();
+//		mMapPoints.release();
 		mDescriptors.release();
 	}
 }

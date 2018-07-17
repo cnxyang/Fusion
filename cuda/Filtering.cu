@@ -115,7 +115,6 @@ ColourImageToIntensity_device(PtrStepSz<uchar3> src, PtrStep<uchar> dst) {
 
 	 uchar3 val = src.ptr(y)[x];
 	 int value = (float)val.x * 0.2126f + (float)val.y * 0.7152f + (float)val.z * 0.0722f;
-//	 int value = ((float)val.x  + (float)val.y + (float)val.z) / 3;
 	 dst.ptr(y)[x] = value;
 }
 
@@ -154,8 +153,6 @@ ComputeDerivativeImage_device(PtrStepSz<uchar> src, PtrStep<float> dIx, PtrStep<
 			 }
 		 dIx.ptr(y)[x] = (float)dx / 8;
 		 dIy.ptr(y)[x] = (float)dy / 8;
-//		 dIx.ptr(y)[x] = ((float)src.ptr(y)[x + 1] - (float)src.ptr(y)[x-1]) / 2.0;
-//		 dIy.ptr(y)[x] = ((float)src.ptr(y + 1)[x] - (float)src.ptr(y-1)[x]) / 2.0;
 	 }
 	 else {
 		 dIx.ptr(y)[x] = 0;
@@ -172,66 +169,6 @@ void ComputeDerivativeImage(const DeviceArray2D<uchar>& src, DeviceArray2D<float
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 }
-
-//__constant__ float gsobel_x3x3[9];
-//__constant__ float gsobel_y3x3[9];
-//__global__ void applyKernel(const PtrStepSz<unsigned char> src, PtrStep<float> dx, PtrStep<float> dy)
-//{
-//  int x = threadIdx.x + blockIdx.x * blockDim.x;
-//  int y = threadIdx.y + blockIdx.y * blockDim.y;
-//
-//  if(x >= src.cols || y >= src.rows)
-//    return;
-//
-//  float dxVal = 0;
-//  float dyVal = 0;
-//
-//  int kernelIndex = 8;
-//  for(int j = max(y - 1, 0); j <= min(y + 1, src.rows - 1); j++)
-//  {
-//      for(int i = max(x - 1, 0); i <= min(x + 1, src.cols - 1); i++)
-//      {
-//          dxVal += (float)src.ptr(j)[i] * gsobel_x3x3[kernelIndex];
-//          dyVal += (float)src.ptr(j)[i] * gsobel_y3x3[kernelIndex];
-//          --kernelIndex;
-//      }
-//  }
-//
-//  dx.ptr(y)[x] = dxVal ;
-//  dy.ptr(y)[x] = dyVal ;
-//}
-//
-//void ComputeDerivativeImage(const DeviceArray2D<uchar>& src, DeviceArray2D<float>& dx, DeviceArray2D<float>& dy)
-//{
-//    static bool once = false;
-//
-//    if(!once)
-//    {
-//        float gsx3x3[9] = {0.52201,  0.00000, -0.52201,
-//                           0.79451, -0.00000, -0.79451,
-//                           0.52201,  0.00000, -0.52201};
-//
-//        float gsy3x3[9] = {0.52201, 0.79451, 0.52201,
-//                           0.00000, 0.00000, 0.00000,
-//                           -0.52201, -0.79451, -0.52201};
-//
-//        cudaMemcpyToSymbol(gsobel_x3x3, gsx3x3, sizeof(float) * 9);
-//        cudaMemcpyToSymbol(gsobel_y3x3, gsy3x3, sizeof(float) * 9);
-//
-//        SafeCall(cudaGetLastError());
-//        SafeCall(cudaDeviceSynchronize());
-//
-//        once = true;
-//    }
-//
-//    dim3 block(32, 8);
-//    dim3 grid(cv::divUp(src.cols(), block.x), cv::divUp(src.rows(), block.y));
-//
-//    applyKernel<<<grid, block>>>(src, dx, dy);
-//
-//    SafeCall(cudaGetLastError());
-//    SafeCall(cudaDeviceSynchronize());
-//}
 
 __global__ void
 ResizeMap_device(const PtrStepSz<float4> vsrc, const PtrStep<float3> nsrc,

@@ -6,10 +6,10 @@
 
 enum ENTRYTYPE { EntryAvailable = -1, EntryOccupied = -2 };
 
-static const uint  NUM_BUCKETS 		 = 800000;
-static const uint  NUM_SDF_BLOCKS 	 = 500000;
+static const uint  NUM_BUCKETS 		 = 500000;
+static const uint  NUM_SDF_BLOCKS 	 = 300000;
 static const uint  BLOCK_DIM	 	 = 8;
-static const uint  BUCKET_SIZE 		 = 10;
+static const uint  BUCKET_SIZE 		 = 5;
 static const uint  LINKED_LIST_SIZE  = 7;
 static const float VOXEL_SIZE 		 = 0.005f;
 static const uint  BLOCK_SIZE		 = BLOCK_DIM * BLOCK_DIM * BLOCK_DIM;
@@ -19,25 +19,13 @@ static const float DEPTH_MAX		 = 3.0f;
 static const float TRUNC_DIST		 = 0.03f;
 static const int   NUM_MAX_TRIANGLES = 2000 * 2000;
 static const int MAX_RENDERING_BLOCKS = 65535 * 4;
-//struct HashEntry {
-//	int3 pos;
-//	int ptr;
-//	int offset;
-//};
 
 struct Point {
 	float3 pos;
+	float3 normal;
 	int ptr;
-	int id;
 	bool valid;
 };
-
-//struct Voxel {
-//	short sdf;
-//	short sdfW;
-//	uchar3 rgb;
-//	short rgbW;
-//};
 
 struct MapDesc {
 	int bucketSize;

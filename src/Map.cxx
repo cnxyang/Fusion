@@ -1,5 +1,7 @@
 #include "Map.h"
 
+bool Map::mbFirstCall = true;
+
 Map::Map() {}
 
 Map::~Map() {
@@ -25,6 +27,10 @@ void Map::AllocateDeviceMemory(MapDesc desc) {
 	mHashEntries.create(NUM_BUCKETS    * BUCKET_SIZE);
 	mVisibleEntries.create(NUM_BUCKETS    * BUCKET_SIZE);
 	mVoxelBlocks.create(NUM_SDF_BLOCKS * BLOCK_SIZE);
+
+	mMapPoints.create(MaxNoKeyPoints);
+	mIndexArray.create(MaxNoKeyPoints);
+	mDescriptors.create(32, MaxNoKeyPoints);
 }
 
 void Map::ReleaseDeviceMemory() {
@@ -61,4 +67,14 @@ Map::operator const DeviceMap() const {
 	map.visibleEntries = mVisibleEntries;
 	map.voxelBlocks = mVoxelBlocks;
 	return map;
+}
+
+void Map::FuseKeyPoints(const Frame& frame) {
+	if(mbFirstCall) {
+		if(frame.mNkp > 0) {
+//			AppendMapPoints(frame.mMapPoints, frame.mDescriptors, mMapPoints, mDescriptors, 0, frame.mNkp - 1);
+//			GenerateIndexArray(frame.mMapPoints, mIndexArray, frame.mNkp);
+		}
+		mbFirstCall = false;
+	}
 }

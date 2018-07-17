@@ -8,12 +8,13 @@
 class Tracking {
 public:
 	Tracking();
+	void SetMap(Map* pMap);
 	void GrabImageRGBD(cv::Mat& imRGB, cv::Mat& imD);
 	void AddObservation(const Rendering& render);
 
 public:
 	void Track();
-	void TrackMap();
+	bool TrackMap();
 	void TrackICP();
 	bool InitTracking();
 	bool TrackLastFrame();
@@ -32,6 +33,7 @@ public:
 	State mNextState;
 	cv::Mat mK;
 	Map* mpMap;
+	cv::Ptr<cv::cuda::DescriptorMatcher> mORBMatcher;
 };
 
 #endif

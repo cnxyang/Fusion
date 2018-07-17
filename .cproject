@@ -194,6 +194,7 @@
 									<listOptionValue builtIn="false" value="opencv_highgui"/>
 									<listOptionValue builtIn="false" value="opencv_imgcodecs"/>
 									<listOptionValue builtIn="false" value="opencv_imgproc"/>
+									<listOptionValue builtIn="false" value="opencv_features2d"/>
 								</option>
 								<inputType id="nvcc.linker.input.1759729829" superClass="nvcc.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
@@ -268,6 +269,7 @@
 									<listOptionValue builtIn="false" value="opencv_cudaarithm"/>
 									<listOptionValue builtIn="false" value="opencv_highgui"/>
 									<listOptionValue builtIn="false" value="opencv_imgcodecs"/>
+									<listOptionValue builtIn="false" value="opencv_features2d"/>
 									<listOptionValue builtIn="false" value="opencv_imgproc"/>
 								</option>
 								<inputType id="nvcc.linker.input.1967788395" superClass="nvcc.linker.input">

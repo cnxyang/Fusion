@@ -5,6 +5,8 @@
 #include "DeviceFunc.h"
 #include "DeviceArray.h"
 #include "DeviceStruct.h"
+
+#include <vector>
 #include <opencv2/opencv.hpp>
 
 class Map {
@@ -16,7 +18,6 @@ public:
 	void ResetDeviceMemory();
 	void ReleaseDeviceMemory();
 	void FuseKeyPoints(const Frame& frame);
-	bool MatchKeyPoint(const Frame& frame, int k);
 	int FuseFrame(const Frame& frame);
 	void RenderMap(Rendering& render, int num_occupied_blocks);
 	void UpdateDesc(MapDesc& desc);
@@ -25,6 +26,10 @@ public:
 	operator const DeviceMap() const;
 
 public:
+	static bool mbFirstCall;
+	static const int MaxNoKeyPoints = 200000;
+	static const int MaxNoKeyPointsPerFrame = 1000;
+
 	DeviceArray<int> mMemory;
 	DeviceArray<int> mUsedMem;
 	DeviceArray<int> mBucketMutex;
@@ -34,6 +39,7 @@ public:
 	DeviceArray<Voxel> mVoxelBlocks;
 	MapDesc mDesc;
 
+	DeviceArray<int2> mIndexArray;
 	DeviceArray<Point> mMapPoints;
 	DeviceArray2D<char> mDescriptors;
 };

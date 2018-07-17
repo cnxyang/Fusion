@@ -4,6 +4,7 @@
 #include "DeviceArray.h"
 #include "DeviceStruct.h"
 
+//#include <pair>
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include <opencv2/features2d.hpp>
@@ -15,7 +16,7 @@ public:
 	~Frame();
 	Frame(const Frame& other);
 	Frame(const Frame& other, const Rendering& observation);
-	Frame(const cv::Mat& imRGB, const cv::Mat& imD, const cv::Mat& K);
+	Frame(const cv::Mat& imRGB, const cv::Mat& imD);
 
 	void SetPose(const Frame& frame);
 	void release();
@@ -49,8 +50,10 @@ public:
 	DeviceArray2D<float3> mNMap[numPyrs];
 	DeviceArray2D<float> mdIx[numPyrs];
 	DeviceArray2D<float> mdIy[numPyrs];
-	DeviceArray<Point> mMapPoints;
-	DeviceArray2D<char> mDescriptors;
+//	DeviceArray<Point> mMapPoints;
+//	DeviceArray2D<char> mDescriptors;
+	std::vector<float3> mMapPoints;
+	cv::cuda::GpuMat mDescriptors;
 	cv::Mat mRcw;
 	cv::Mat mRwc;
 	cv::Mat mtcw;

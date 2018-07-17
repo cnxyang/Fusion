@@ -181,9 +181,20 @@ void operator+=(float3 & a, float3 b) {
 	a.z += b.z;
 }
 
+__host__ __device__ inline
+void operator-=(float3 & a, float3 b) {
+	a.x -= b.x;
+	a.y -= b.y;
+	a.z -= b.z;
+}
+
 /* ----------------- *
  * operator-(type)   *
  *------------------ */
+
+__host__  __device__  inline int2 operator-(int2 a, int2 b) {
+	return make_int2(a.x - b.x, a.y - b.y);
+}
 
 __host__  __device__  inline float3 operator-(float3 b) {
 	return make_float3(-b.x, -b.y, -b.z);
@@ -307,6 +318,10 @@ __host__  __device__  inline int3 operator/(int3 a, uint b) {
 
 __host__  __device__  inline int3 operator/(int3 a, int b) {
 	return make_int3(a.x / b, a.y / b, a.z / b);
+}
+
+__host__  __device__  inline float3 operator/(float3 a, int b) {
+	return make_float3(a.x / b, a.y / b, a.z / b);
 }
 
 __host__  __device__  inline float3 operator/(float3 a, float b) {
