@@ -20,11 +20,8 @@ static const float TRUNC_DIST		 = 0.03f;
 static const int   NUM_MAX_TRIANGLES = 2000 * 2000;
 static const int MAX_RENDERING_BLOCKS = 65535 * 4;
 
-struct Point {
+struct MapPoint {
 	float3 pos;
-	float3 normal;
-	int ptr;
-	bool valid;
 };
 
 struct MapDesc {

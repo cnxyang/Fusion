@@ -48,6 +48,7 @@
 									<listOptionValue builtIn="false" value="opencv_imgcodecs"/>
 									<listOptionValue builtIn="false" value="opencv_imgproc"/>
 									<listOptionValue builtIn="false" value="opencv_cudafeatures2d"/>
+									<listOptionValue builtIn="false" value="opencv_features2d"/>
 								</option>
 								<inputType id="nvcc.linker.input.624764160" superClass="nvcc.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>

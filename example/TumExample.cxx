@@ -69,20 +69,20 @@ int main(int argc, char ** argv) {
 //	K.at<float>(0, 2) = 319.5;
 //	K.at<float>(1, 2) = 239.5;
 	// Freiburg 1
-//	K.at<float>(0, 0) = 517.3;
-//	K.at<float>(1, 1) = 516.5;
-//	K.at<float>(0, 2) = 318.6;
-//	K.at<float>(1, 2) = 255.3;
+	K.at<float>(0, 0) = 517.3;
+	K.at<float>(1, 1) = 516.5;
+	K.at<float>(0, 2) = 318.6;
+	K.at<float>(1, 2) = 255.3;
 	// Freiburg 2
 //	K.at<float>(0, 0) = 520.9;
 //	K.at<float>(1, 1) = 521.0;
 //	K.at<float>(0, 2) = 325.1;
 //	K.at<float>(1, 2) = 249.7;
 	// Freiburg 3
-	K.at<float>(0, 0) = 535.4;
-	K.at<float>(1, 1) = 539.2;
-	K.at<float>(0, 2) = 320.1;
-	K.at<float>(1, 2) = 247.6;
+//	K.at<float>(0, 0) = 535.4;
+//	K.at<float>(1, 1) = 539.2;
+//	K.at<float>(0, 2) = 320.1;
+//	K.at<float>(1, 2) = 247.6;
 	Frame::SetK(K);
 	Frame::mDepthScale = 5000.0f;
 
@@ -94,30 +94,34 @@ int main(int argc, char ** argv) {
 		cv::Mat imRGB = cv::imread(vsRGBList[i], cv::IMREAD_UNCHANGED);
 
 		auto t1 = std::chrono::steady_clock::now();
-		Tracker.GrabImageRGBD(imRGB, imD);
-		int no = map.FuseFrame(Tracker.mLastFrame);
-		Rendering rd;
-		rd.cols = 640;
-		rd.rows = 480;
-		rd.fx = K.at<float>(0, 0);
-		rd.fy = K.at<float>(1, 1);
-		rd.cx = K.at<float>(0, 2);
-		rd.cy = K.at<float>(1, 2);
-		rd.Rview = Tracker.mLastFrame.mRcw;
-		rd.invRview = Tracker.mLastFrame.mRwc;
-		rd.maxD = 5.0f;
-		rd.minD = 0.1f;
-		rd.tview = Converter::CvMatToFloat3(Tracker.mLastFrame.mtcw);
+		bool bOK = Tracker.GrabImageRGBD(imRGB, imD);
 
-		map.RenderMap(rd, no);
-		Tracker.AddObservation(rd);
+		if(bOK) {
+			int no = map.FuseFrame(Tracker.mLastFrame);
+			Rendering rd;
+			rd.cols = 640;
+			rd.rows = 480;
+			rd.fx = K.at<float>(0, 0);
+			rd.fy = K.at<float>(1, 1);
+			rd.cx = K.at<float>(0, 2);
+			rd.cy = K.at<float>(1, 2);
+			rd.Rview = Tracker.mLastFrame.mRcw;
+			rd.invRview = Tracker.mLastFrame.mRwc;
+			rd.maxD = 5.0f;
+			rd.minD = 0.1f;
+			rd.tview = Converter::CvMatToFloat3(Tracker.mLastFrame.mtcw);
+
+			map.RenderMap(rd, no);
+			Tracker.AddObservation(rd);
+
+			cv::Mat tmp(rd.rows, rd.cols, CV_8UC4);
+			rd.Render.download((void*)tmp.data, tmp.step);
+			cv::resize(tmp, tmp, cv::Size(tmp.cols * 2, tmp.rows * 2));
+			cv::imshow("img", tmp);
+		}
 
 		auto t2 = std::chrono::steady_clock::now();
         int key = cv::waitKey(10);
-
-		cv::Mat tmp(rd.rows, rd.cols, CV_8UC4);
-		rd.Render.download((void*)tmp.data, tmp.step);
-		cv::imshow("img", tmp);
 
 		switch(key) {
 
@@ -131,9 +135,6 @@ int main(int argc, char ** argv) {
 
 		case 's':
 		case 'S':
-			cv::imwrite("imD.jpg", imD);
-			cv::imwrite("imRGB.jpg", imRGB);
-			cv::imwrite("img.jpg", tmp);
 			break;
 
 		case 'm':

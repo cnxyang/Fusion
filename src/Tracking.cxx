@@ -15,16 +15,20 @@ Tracking::Tracking() {
 	mORBMatcher = cv::cuda::DescriptorMatcher::createBFMatcher(cv::NORM_HAMMING);
 }
 
-void Tracking::GrabImageRGBD(cv::Mat& imRGB, cv::Mat& imD) {
+bool Tracking::GrabImageRGBD(cv::Mat& imRGB, cv::Mat& imD) {
 
 	mNextFrame = Frame(imRGB, imD);
 
-	Track();
+	bool bOK = Track();
+	if(!bOK)
+		return false;
 
 	mLastFrame = Frame(mNextFrame);
+
+	return true;
 }
 
-void Tracking::Track() {
+bool Tracking::Track() {
 	bool bOK;
 	switch(mNextState) {
 	case NOT_INITIALISED:
@@ -36,102 +40,79 @@ void Tracking::Track() {
 		break;
 
 	case LOST:
+		bOK = Relocalisation();
 		break;
 	}
 
-	if(!bOK)
+	if(!bOK) {
 		mNextState = LOST;
+//		Track();
+	}
+
+	return bOK;
 }
 
 bool Tracking::InitTracking() {
 
-	mpMap->FuseKeyPoints(mNextFrame);
+	mpMap->SetFirstFrame(mNextFrame);
 	mNextState = OK;
 	return true;
 }
 
 bool Tracking::TrackLastFrame() {
 	mNextFrame.SetPose(mLastFrame);
-//	TrackMap();
-	TrackICP();
+	bool bOK = TrackMap();
+	if(!bOK)
+		return false;
+//	TrackICP();
 	return true;
 }
 
-#define RANSAC_MAX_ITER 100
-#define RANSAC_NUM_POINTS 3
-#define INLINER_THRESH 0.05
+bool Tracking::Relocalisation() {
+	bool result = TrackMap();
+	if(result)
+		mNextState = OK;
+	return result;
+}
 
-cv::Ptr<cv::cuda::ORB> ORBextractor = cv::cuda::ORB::create(1500);
+#define RANSAC_MAX_ITER 30
+#define RANSAC_NUM_POINTS 3
+#define INLINER_THRESH 0.2
+#define HIGH_PROB_DIST 3.0
 
 bool Tracking::TrackMap() {
 
-	std::vector<cv::KeyPoint> nextKP, lastKP;
-	cv::cuda::GpuMat nextDesc, lastDesc;
-	cv::cuda::GpuMat nextGray, lastGray;
 	std::vector<cv::DMatch> Matches;
-	nextGray.create(Frame::rows(0), Frame::cols(0), CV_8UC1);
-	lastGray.create(Frame::rows(0), Frame::cols(0), CV_8UC1);
+	std::vector<std::vector<cv::DMatch>> matches;
+//	mORBMatcher->knnMatch(mNextFrame.mDescriptors, mpMap->mDescriptors, matches, 2);
+	mORBMatcher->knnMatch(mNextFrame.mDescriptors, mLastFrame.mDescriptors, matches, 2);
+	std::cout << "knn: " << matches.size() << std::endl;
+	for(int i = 0; i < matches.size(); ++i) {
+		cv::DMatch& firstMatch = matches[i][0];
+		cv::DMatch& secondMatch = matches[i][1];
+		if(firstMatch.distance > 0.6 * secondMatch.distance)
+			Matches.push_back(firstMatch);
+	}
 
-	SafeCall(	cudaMemcpy2D((void* )nextGray.data, nextGray.step,
-					(void* )mNextFrame.mGray[0], mNextFrame.mGray[0].step(),
-					sizeof(char) * mNextFrame.mGray[0].cols(),
-					mNextFrame.mGray[0].rows(), cudaMemcpyDeviceToDevice));
-	SafeCall(	cudaMemcpy2D((void* )lastGray.data, lastGray.step,
-					(void* )mLastFrame.mGray[0], mLastFrame.mGray[0].step(),
-					sizeof(char) * mLastFrame.mGray[0].cols(),
-					mLastFrame.mGray[0].rows(), cudaMemcpyDeviceToDevice));
+//	mORBMatcher->match(mNextFrame.mDescriptors, mpMap->mDescriptors, Matches);
 
-	ORBextractor->detectAndCompute(nextGray, cv::cuda::GpuMat(), nextKP, nextDesc);
-	ORBextractor->detectAndCompute(lastGray, cv::cuda::GpuMat(), lastKP, lastDesc);
-	mORBMatcher->match(nextDesc, lastDesc, Matches);
-
-	cv::Mat nextImg, lastImg, outImg, nextD, lastD;
-	nextGray.download(nextImg);
-	lastGray.download(lastImg);
-	nextD.create(Frame::rows(0), Frame::cols(0), CV_32FC1);
-	lastD.create(Frame::rows(0), Frame::cols(0), CV_32FC1);
-	mNextFrame.mDepth[0].download((void*)nextD.data, nextD.step);
-	mLastFrame.mDepth[0].download((void*)lastD.data, lastD.step);
-	cv::imshow("depth", nextD);
-	cv::imshow("lastDepth", lastImg);
-
-	cv::Mat outImg3;
-	cv::drawMatches(nextImg, nextKP, lastImg, lastKP, Matches, outImg3);
-	cv::imshow("Matches3", outImg3);
-
-	std::vector<Eigen::Vector3d> vP, vQ;
-	std::vector<cv::DMatch> newMatches;
-	std::vector<cv::KeyPoint> newNextKP, newLastKP;
-
-	int counter = 0;
+	std::vector<Eigen::Vector3d> vNextKPs, vMapKPs;
+	std::cout << "Num:" <<  Matches.size() << std::endl;
+	vNextKPs.reserve(Matches.size());
+	vMapKPs.reserve(Matches.size());
 	for(int i = 0; i < Matches.size(); ++i) {
 		int queryId = Matches[i].queryIdx;
 		int trainId = Matches[i].trainIdx;
-		cv::Point2f queryPt = nextKP[queryId].pt;
-		cv::Point2f trainPt =  lastKP[trainId].pt;
-
-		float nextdp = nextD.at<float>((int)(queryPt.y), (int)(queryPt.x));
-		float lastdp = lastD.at<float>((int)(trainPt.y), (int)(trainPt.x));
-		if(std::isnan(nextdp) || std::isnan(lastdp) || nextdp < 3e-1 || lastdp < 3e-1 || nextdp > 5 || lastdp > 5)
-			continue;
+		MapPoint& queryPt = mNextFrame.mMapPoints[queryId];
+//		MapPoint& trainPt = mpMap->mMapPoints[trainId];
+		MapPoint& trainPt = mLastFrame.mMapPoints[trainId];
 
 		Eigen::Vector3d p, q;
-		p << nextdp * (queryPt.x - Frame::cx(0)) / Frame::fx(0), nextdp * (queryPt.y - Frame::cy(0)) / Frame::fy(0), nextdp;
-		q << lastdp * (trainPt.x - Frame::cx(0)) / Frame::fx(0), lastdp * (trainPt.y - Frame::cy(0)) / Frame::fy(0), lastdp;
-		vP.push_back(p);
-		vQ.push_back(q);
-		cv::DMatch match = Matches[i];
-		match.queryIdx = counter;
-		match.trainIdx = counter;
-		newMatches.push_back(match);
-		newNextKP.push_back(nextKP[queryId]);
-		newLastKP.push_back(lastKP[trainId]);
-		counter++;
+		p << queryPt.pos.x, queryPt.pos.y,  queryPt.pos.z;
+		q << trainPt.pos.x, trainPt.pos.y, trainPt.pos.z;
+		vNextKPs.push_back(p);
+		vMapKPs.push_back(q);
 	}
-
-	cv::Mat outImg2;
-	cv::drawMatches(nextImg, newNextKP, lastImg, newLastKP, newMatches, outImg2);
-	cv::imshow("Matches2", outImg2);
 
 	int best_inliners = 0;
 	float best_cost = 1000;
@@ -140,13 +121,8 @@ bool Tracking::TrackMap() {
 	for (int i = 0; i < RANSAC_MAX_ITER; ++i) {
 
 		std::vector<int> pair;
-		std::vector<Eigen::Vector3d> pvec;
-		std::vector<Eigen::Vector3d> qvec;
-		Eigen::Vector3d p_mean, q_mean;
-		p_mean = q_mean = Eigen::Vector3d::Zero();
-
 		for (int j = 0; j < RANSAC_NUM_POINTS; ++j) {
-			int index = std::rand() % vP.size();
+			int index = std::rand() % vNextKPs.size();
 			pair.push_back(index);
 		}
 
@@ -162,11 +138,15 @@ bool Tracking::TrackMap() {
 		if (!valid)
 			continue;
 
+		std::vector<Eigen::Vector3d> pvec;
+		std::vector<Eigen::Vector3d> qvec;
+		Eigen::Vector3d p_mean, q_mean;
+		p_mean = q_mean = Eigen::Vector3d::Zero();
 		for (int j = 0; j < RANSAC_NUM_POINTS; ++j) {
 
 			Eigen::Vector3d p, q;
-			p = vP[pair[j]];
-			q = vQ[pair[j]];
+			p = vNextKPs[pair[j]];
+			q = vMapKPs[pair[j]];
 
 			p_mean += p;
 			q_mean += q;
@@ -179,14 +159,19 @@ bool Tracking::TrackMap() {
 		q_mean /= RANSAC_NUM_POINTS;
 
 		Eigen::Matrix3d Ab = Eigen::Matrix3d::Zero();
+		float sigmap, sigmaq;
+		sigmap = sigmaq = 0;
 		for (int j = 0; j < RANSAC_NUM_POINTS; ++j) {
+			sigmap += (pvec[j] - p_mean).norm();
+			sigmaq += (qvec[j] - q_mean).norm();
 			Ab += (pvec[j] - p_mean) * (qvec[j] - q_mean).transpose();
 		}
 
 		Eigen::JacobiSVD<Eigen::Matrix3d> svd(Ab, Eigen::ComputeFullU | Eigen::ComputeFullV);
 		Eigen::Matrix3d V = svd.matrixV();
 		Eigen::Matrix3d U = svd.matrixU();
-		Eigen::Matrix3d R = (V * U.transpose()).transpose();
+		Eigen::Matrix3d R = U * V.transpose();
+		float scale = sqrtf(sigmap / sigmaq);
 		int detR = R.determinant();
 		if (detR != 1)
 			continue;
@@ -199,11 +184,11 @@ bool Tracking::TrackMap() {
 		pvec.clear();
 		qvec.clear();
 		float cost = 0;
-		for (int k = 0; k < vQ.size(); ++k) {
+		for (int k = 0; k < vMapKPs.size(); ++k) {
 
 			Eigen::Vector3d p, q;
-			p = vP[k];
-			q = vQ[k];
+			p = vNextKPs[k];
+			q = vMapKPs[k];
 
 			float dist = (p - (R * q + t)).norm();
 			if (dist < INLINER_THRESH) {
@@ -215,50 +200,31 @@ bool Tracking::TrackMap() {
 			}
 		}
 
-		if (num_inliners < 10)
+		if (num_inliners < 0.2 * Matches.size())
 			continue;
 
 		if (num_inliners >= best_inliners) {
 			p_mean /= num_inliners;
 			q_mean /= num_inliners;
+			sigmap = sigmaq = 0;
 			for (int j = 0; j < num_inliners; ++j) {
+				sigmap += (pvec[j] - p_mean).norm();
+				sigmaq += (qvec[j] - q_mean).norm();
 				Ab += (pvec[j] - p_mean) * (qvec[j] - q_mean).transpose();
 			}
 			best_inliners = num_inliners;
-			Eigen::JacobiSVD<Eigen::Matrix3d> svd2(Ab,	Eigen::ComputeFullU | Eigen::ComputeFullV);
+			Eigen::JacobiSVD<Eigen::Matrix3d> svd2(Ab, Eigen::ComputeFullU | Eigen::ComputeFullV);
 			Eigen::Matrix3d V = svd2.matrixV();
 			Eigen::Matrix3d U = svd2.matrixU();
-			best_R = (V * U.transpose()).transpose();
+			float scale = sqrtf(sigmap / sigmaq);
+			best_R =  U * V.transpose();
 			best_t = p_mean - best_R * q_mean;
-//			best_R = R;
-//			best_t = t;
+			std::cout << "scale: " << sqrtf(sigmap / sigmaq) << std::endl;
 		}
 	}
 
-	Matches.clear();
-	nextKP.clear();
-	lastKP.clear();
-	counter = 0;
-	for(int i = 0; i < vP.size(); ++i) {
-		Eigen::Vector3d p = vP[i];
-		Eigen::Vector3d q = vQ[i];
-
-		float dist = (p - (best_R * q + best_t)).norm();
-		if (fabs(dist) < INLINER_THRESH) {
-			cv::DMatch match = newMatches[i];
-			match.queryIdx = counter;
-			match.trainIdx = counter;
-			Matches.push_back(match);
-			nextKP.push_back(newNextKP[i]);
-			lastKP.push_back(newLastKP[i]);
-			counter++;
-		}
-	}
-
-	cv::drawMatches(nextImg, nextKP, lastImg, lastKP, Matches, outImg);
-	cv::imshow("Matches", outImg);
-
-	if(best_inliners < 10)
+	std::cout << best_inliners << std::endl;
+	if(best_inliners < 0.2 * Matches.size())
 		return false;
 
 	Eigen::Matrix4d Tp = Converter::TransformToEigen(mLastFrame.mRcw, mLastFrame.mtcw);
@@ -271,6 +237,35 @@ bool Tracking::TrackMap() {
 	Tc =  Td.inverse() * Tp;
 	Converter::TransformToCv(Tc, mNextFrame.mRcw, mNextFrame.mtcw);
 	mNextFrame.mRwc = mNextFrame.mRcw.t();
+
+//	Eigen::Matrix4d Tc = Eigen::Matrix4d::Identity();
+//	Tc.topLeftCorner(3, 3) = best_R.transpose();
+//	Tc.topRightCorner(3, 1) = -best_R.transpose() * best_t;
+//	std::cout << Tc << std::endl;
+//
+//	Converter::TransformToCv(Tc, mNextFrame.mRcw, mNextFrame.mtcw);
+//	mNextFrame.mRwc = mNextFrame.mRcw.t();
+//
+//	std::vector<cv::DMatch> newMatches;
+//	for(int i = 0; i < Matches.size(); ++i) {
+//		int queryId = Matches[i].queryIdx;
+//		int trainId = Matches[i].trainIdx;
+//		MapPoint& queryPt = mNextFrame.mMapPoints[queryId];
+//		MapPoint& trainPt = mpMap->mMapPoints[trainId];
+//
+//		Eigen::Vector3d p, q;
+//		p << queryPt.pos.x, queryPt.pos.y,  queryPt.pos.z;
+//		q << trainPt.pos.x, trainPt.pos.y, trainPt.pos.z;
+//
+//		float dist = (p - (best_R * q + best_t)).norm();
+//		if (dist < INLINER_THRESH) {
+//			newMatches.push_back(Matches[i]);
+//		}
+//	}
+//
+//	FuseKeyPointsAndDescriptors(mNextFrame, mpMap->mMapPoints, mpMap->mDescriptors, newMatches);
+
+	return true;
 }
 
 void Tracking::TrackICP() {
@@ -291,16 +286,16 @@ void Tracking::TrackICP() {
 			Eigen::Matrix<double, 6, 6> dA_icp = host_a.cast<double>();
 			Eigen::Matrix<double, 6, 1> db_icp = host_b.cast<double>();
 
-			cost = RGBReduceSum(mNextFrame, mLastFrame, i, host_a.data(), host_b.data());
+//			cost = RGBReduceSum(mNextFrame, mLastFrame, i, host_a.data(), host_b.data());
 //			std::cout << "Last RGB Error: " << cost << std::endl;
 
-			Eigen::Matrix<double, 6, 6> dA_rgb = host_a.cast<double>();
-			Eigen::Matrix<double, 6, 1> db_rgb = host_b.cast<double>();
+//			Eigen::Matrix<double, 6, 6> dA_rgb = host_a.cast<double>();
+//			Eigen::Matrix<double, 6, 1> db_rgb = host_b.cast<double>();
 
-			Eigen::Matrix<double, 6, 6> dA = w * w * dA_icp + dA_rgb;
-			Eigen::Matrix<double, 6, 1> db = w * db_icp + db_rgb;
-//			Eigen::Matrix<double, 6, 6> dA = dA_icp;
-//			Eigen::Matrix<double, 6, 1> db = db_icp;
+//			Eigen::Matrix<double, 6, 6> dA = w * w * dA_icp + dA_rgb;
+//			Eigen::Matrix<double, 6, 1> db = w * db_icp + db_rgb;
+			Eigen::Matrix<double, 6, 6> dA = dA_icp;
+			Eigen::Matrix<double, 6, 1> db = db_icp;
 			result = dA.ldlt().solve(db);
 			auto e = Sophus::SE3d::exp(result);
 			auto dT = e.matrix();

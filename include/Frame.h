@@ -4,7 +4,6 @@
 #include "DeviceArray.h"
 #include "DeviceStruct.h"
 
-//#include <pair>
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include <opencv2/features2d.hpp>
@@ -50,9 +49,9 @@ public:
 	DeviceArray2D<float3> mNMap[numPyrs];
 	DeviceArray2D<float> mdIx[numPyrs];
 	DeviceArray2D<float> mdIy[numPyrs];
-//	DeviceArray<Point> mMapPoints;
-//	DeviceArray2D<char> mDescriptors;
-	std::vector<float3> mMapPoints;
+
+	std::vector<MapPoint> mMapPoints;
+	std::vector<cv::KeyPoint> mKeyPoints;
 	cv::cuda::GpuMat mDescriptors;
 	cv::Mat mRcw;
 	cv::Mat mRwc;

@@ -9,14 +9,15 @@ class Tracking {
 public:
 	Tracking();
 	void SetMap(Map* pMap);
-	void GrabImageRGBD(cv::Mat& imRGB, cv::Mat& imD);
+	bool GrabImageRGBD(cv::Mat& imRGB, cv::Mat& imD);
 	void AddObservation(const Rendering& render);
 
 public:
-	void Track();
+	bool Track();
 	bool TrackMap();
 	void TrackICP();
 	bool InitTracking();
+	bool Relocalisation();
 	bool TrackLastFrame();
 	void ShowResiduals();
 

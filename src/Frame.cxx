@@ -5,7 +5,7 @@
 int Frame::N[numPyrs];
 cv::Mat Frame::mK[numPyrs];
 bool Frame::mbFirstCall = true;
-float Frame::mDepthCutoff = 5.0f;
+float Frame::mDepthCutoff = 8.0f;
 float Frame::mDepthScale = 1000.0f;
 std::pair<int, int> Frame::mPyrRes[numPyrs];
 cv::Ptr<cv::cuda::ORB> Frame::mORB;
@@ -26,6 +26,7 @@ Frame::Frame(const Frame& other) {
 	}
 
 	mMapPoints = other.mMapPoints;
+	mKeyPoints = other.mKeyPoints;
 	other.mDescriptors.copyTo(mDescriptors);
 
 	mRcw = other.mRcw.clone();
@@ -52,6 +53,7 @@ Frame::Frame(const Frame& other, const Rendering& observation) {
 	}
 
 	mMapPoints = other.mMapPoints;
+	mKeyPoints = other.mKeyPoints;
 	other.mDescriptors.copyTo(mDescriptors);
 	mRcw = other.mRcw.clone();
 	mtcw = other.mtcw.clone();
@@ -62,7 +64,6 @@ Frame::Frame(const Frame& other, const Rendering& observation) {
 	mdIx[p].download((void*)test.data, test.step);
 	cv::imshow("test", test);
 }
-
 
 Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 
@@ -100,35 +101,46 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 		ComputeDerivativeImage(mGray[i], mdIx[i], mdIy[i]);
 	}
 
-//	cv::cuda::GpuMat GrayTemp;
-//	std::vector<cv::KeyPoint> mKeyPoints;
-//	GrayTemp.create(rows(0), cols(0), CV_8UC1);
-//	SafeCall(cudaMemcpy2D((void*)GrayTemp.data, GrayTemp.step,
-//					          (void*)mGray[0], mGray[0].step(), sizeof(char) * mGray[0].cols(),
-//					          mGray[0].rows(), cudaMemcpyDeviceToDevice));
-//	mORB->detectAndCompute(GrayTemp, cv::cuda::GpuMat(), mKeyPoints, mDescriptors);
-//
-//	mNkp = mKeyPoints.size();
-//	if (mNkp > 0) {
-//		float invfx = 1.0 / fx(0);
-//		float invfy = 1.0 / fy(0);
-//		float cx0 = cx(0);
-//		float cy0 = cy(0);
-//		int counter = 0;
-//		for(int i = 0; i < mNkp; ++i) {
-//			cv::KeyPoint& kp = mKeyPoints[i];
-//			float x = kp.pt.x;
-//			float y = kp.pt.y;
-//			float dp = (float)imD.at<unsigned short>((int)(y + 0.5), (int)(x + 0.5)) / mDepthScale;
-//			float3 pos = make_float3(nanf("0x7fffffff"));
-//			if (dp > 1e-3 && dp < mDepthCutoff) {
-//				pos.z = dp;
-//				pos.x = dp * (x - cx0) * invfx;
-//				pos.y = dp * (y - cy0) * invfy;
-//			}
-//			mMapPoints.push_back(pos);
-//		}
-//	}
+	cv::cuda::GpuMat GrayTemp, DescTemp;
+	std::vector<cv::KeyPoint> KPTemp;
+	GrayTemp.create(rows(0), cols(0), CV_8UC1);
+	SafeCall(cudaMemcpy2D((void*)GrayTemp.data, GrayTemp.step,
+				 (void*)mGray[0], mGray[0].step(), sizeof(char) * mGray[0].cols(),
+				 mGray[0].rows(), cudaMemcpyDeviceToDevice));
+	mORB->detectAndCompute(GrayTemp, cv::cuda::GpuMat(), KPTemp, DescTemp);
+
+	cv::Mat out;
+	cv::drawKeypoints(imRGB, KPTemp, out);
+	cv::imshow("kp", out);
+
+	mNkp = KPTemp.size();
+	std::vector<int> index;
+	if (mNkp > 0) {
+		float invfx = 1.0 / fx(0);
+		float invfy = 1.0 / fy(0);
+		float cx0 = cx(0);
+		float cy0 = cy(0);
+		for(int i = 0; i < mNkp; ++i) {
+			cv::KeyPoint& kp = KPTemp[i];
+			float x = kp.pt.x;
+			float y = kp.pt.y;
+			float dp = (float)imD.at<unsigned short>((int)(y + 0.5), (int)(x + 0.5)) / mDepthScale;
+			float3 pos = make_float3(nanf("0x7fffffff"));
+			if (dp > 2e-1 && dp < mDepthCutoff) {
+				pos.z = dp;
+				pos.x = dp * (x - cx0) * invfx;
+				pos.y = dp * (y - cy0) * invfy;
+				MapPoint mp;
+				mp.pos = pos;
+
+				mKeyPoints.push_back(kp);
+				mMapPoints.push_back(mp);
+				index.push_back(i);
+			}
+		}
+		mNkp = mMapPoints.size();
+		RemoveBadDescriptors(DescTemp, mDescriptors, index);
+	}
 
 	mRcw = cv::Mat::eye(3, 3, CV_32FC1);
 	mtcw = cv::Mat::zeros(3, 1, CV_32FC1);
@@ -149,7 +161,6 @@ void Frame::release() {
 		mVMap[i].release();
 		mNMap[i].release();
 		mDepth[i].release();
-//		mMapPoints.release();
 		mDescriptors.release();
 	}
 }

@@ -42,20 +42,24 @@ int main(int argc, char ** argv) {
 	cv::Mat imD, imRGB;
 	Tracking Tracker;
 	Map map;
+	Tracker.SetMap(&map);
 	map.AllocateDeviceMemory(MapDesc());
 	map.ResetDeviceMemory();
-
 	cv::Mat K = cv::Mat::eye(3, 3, CV_32FC1);
+
 	K.at<float>(0, 0) = 520.149963;
 	K.at<float>(1, 1) = 516.175781;
 	K.at<float>(0, 2) = 309.993548;
 	K.at<float>(1, 2) = 227.090932;
 	Frame::SetK(K);
+	Frame::mDepthScale = 1000.0f;
 
 	while(1) {
 		auto t1 = std::chrono::steady_clock::now();
 		if(camera.FetchFrame(imD, imRGB)) {
 
+			cv::imshow("depth", imD);
+			cv::imshow("rgb", imRGB);
 			Tracker.GrabImageRGBD(imRGB, imD);
 			int no = map.FuseFrame(Tracker.mLastFrame);
 			Rendering rd;

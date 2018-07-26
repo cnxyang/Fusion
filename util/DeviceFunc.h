@@ -26,10 +26,8 @@ void renderImage(const DeviceArray2D<float4>& points, const DeviceArray2D<float3
 
 float ICPReduceSum(Frame& NextFrame, Frame& LastFrame, int pyr, float* host_a, float* host_b);
 float RGBReduceSum(Frame& NextFrame, Frame& LastFrame,  int pyr, float* host_a, float* host_b);
-
-void AppendMapPoints(const DeviceArray<Point>& src, const DeviceArray2D<char>& des_src, DeviceArray<Point>& dst, DeviceArray2D<char>& des_dst, int start, int end);
-void GenerateIndexArray(const DeviceArray<Point>& src, DeviceArray<int2>& index, int N);
-bool MatchKeyPoint(const Frame& frame, const DeviceArray<Point>& mapPoint, const DeviceArray2D<char>& Des);
-void FindTransform(const Frame& frame, const DeviceArray<Point>& mapPoint);
+void RemoveBadDescriptors(cv::cuda::GpuMat& src, cv::cuda::GpuMat& dst, std::vector<int>& index);
+void FuseDescriptors(Frame& frame, cv::cuda::GpuMat& dst);
+void FuseKeyPointsAndDescriptors(Frame& frame, std::vector<MapPoint>& mp, cv::cuda::GpuMat& mdesc, std::vector<cv::DMatch>& matches);
 
 #endif

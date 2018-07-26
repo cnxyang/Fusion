@@ -9,17 +9,6 @@ Map::~Map() {
 }
 
 void Map::AllocateDeviceMemory(MapDesc desc) {
-//	mUsedMem.create(1);
-//	mNumVisibleEntries.create(1);
-//	mBucketMutex.create(desc.numBuckets);
-//	mMemory.create(desc.numBuckets * desc.bucketSize);
-//	mHashEntries.create(desc.numBuckets * desc.bucketSize);
-//	mVisibleEntries.create(desc.numBuckets * desc.bucketSize);
-//	mVoxelBlocks.create(desc.numBlocks * desc.blockSize3);
-//	UpdateDesc(desc);
-//
-//	mMapPoints.create(desc.numBuckets);
-//	mDescriptors.create(32, desc.numBuckets);
 	mMemory.create(NUM_SDF_BLOCKS);
 	mUsedMem.create(1);
 	mNumVisibleEntries.create(1);
@@ -28,9 +17,7 @@ void Map::AllocateDeviceMemory(MapDesc desc) {
 	mVisibleEntries.create(NUM_BUCKETS    * BUCKET_SIZE);
 	mVoxelBlocks.create(NUM_SDF_BLOCKS * BLOCK_SIZE);
 
-	mMapPoints.create(MaxNoKeyPoints);
-	mIndexArray.create(MaxNoKeyPoints);
-	mDescriptors.create(32, MaxNoKeyPoints);
+	mDescriptors.create(MaxNoKeyPoints, 32, CV_8UC1);
 }
 
 void Map::ReleaseDeviceMemory() {
@@ -41,7 +28,6 @@ void Map::ReleaseDeviceMemory() {
 	mHashEntries.release();
 	mVisibleEntries.release();
 	mVoxelBlocks.release();
-	mMapPoints.release();
 	mDescriptors.release();
 }
 
@@ -55,6 +41,11 @@ Map::operator DeviceMap() {
 	map.visibleEntries = mVisibleEntries;
 	map.voxelBlocks = mVoxelBlocks;
 	return map;
+}
+
+void Map::SetFirstFrame(Frame& frame) {
+	mMapPoints = frame.mMapPoints;
+	frame.mDescriptors.copyTo(mDescriptors);
 }
 
 Map::operator const DeviceMap() const {

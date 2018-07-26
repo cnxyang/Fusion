@@ -22,6 +22,10 @@ public:
 	void RenderMap(Rendering& render, int num_occupied_blocks);
 	void UpdateDesc(MapDesc& desc);
 	void DownloadDesc();
+
+	void SetFirstFrame(Frame& frame);
+	std::vector<MapPoint> GetMapPoints() const;
+	cv::cuda::GpuMat GetDescritpros() const;
 	operator DeviceMap();
 	operator const DeviceMap() const;
 
@@ -39,9 +43,8 @@ public:
 	DeviceArray<Voxel> mVoxelBlocks;
 	MapDesc mDesc;
 
-	DeviceArray<int2> mIndexArray;
-	DeviceArray<Point> mMapPoints;
-	DeviceArray2D<char> mDescriptors;
+	std::vector<MapPoint> mMapPoints;
+	cv::cuda::GpuMat mDescriptors;
 };
 
 #endif
