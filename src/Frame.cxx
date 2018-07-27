@@ -126,7 +126,7 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 			float y = kp.pt.y;
 			float dp = (float)imD.at<unsigned short>((int)(y + 0.5), (int)(x + 0.5)) / mDepthScale;
 			float3 pos = make_float3(nanf("0x7fffffff"));
-			if (dp > 2e-1 && dp < mDepthCutoff) {
+			if (dp > 1e-1 && dp < mDepthCutoff) {
 				pos.z = dp;
 				pos.x = dp * (x - cx0) * invfx;
 				pos.y = dp * (y - cy0) * invfy;

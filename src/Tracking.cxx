@@ -49,6 +49,7 @@ bool Tracking::Track() {
 //		Track();
 	}
 
+	mCamPos.push_back(mNextFrame.mtcw);
 	return bOK;
 }
 
@@ -64,7 +65,7 @@ bool Tracking::TrackLastFrame() {
 	bool bOK = TrackMap();
 	if(!bOK)
 		return false;
-//	TrackICP();
+//		TrackICP();
 	return true;
 }
 
@@ -75,9 +76,9 @@ bool Tracking::Relocalisation() {
 	return result;
 }
 
-#define RANSAC_MAX_ITER 30
-#define RANSAC_NUM_POINTS 3
-#define INLINER_THRESH 0.2
+#define RANSAC_MAX_ITER 130
+#define RANSAC_NUM_POINTS 5
+#define INLINER_THRESH 0.01
 #define HIGH_PROB_DIST 3.0
 
 bool Tracking::TrackMap() {
@@ -86,20 +87,29 @@ bool Tracking::TrackMap() {
 	std::vector<std::vector<cv::DMatch>> matches;
 //	mORBMatcher->knnMatch(mNextFrame.mDescriptors, mpMap->mDescriptors, matches, 2);
 	mORBMatcher->knnMatch(mNextFrame.mDescriptors, mLastFrame.mDescriptors, matches, 2);
-	std::cout << "knn: " << matches.size() << std::endl;
+//	std::cout << "knn: " << matches.size() << std::endl;
 	for(int i = 0; i < matches.size(); ++i) {
 		cv::DMatch& firstMatch = matches[i][0];
 		cv::DMatch& secondMatch = matches[i][1];
-		if(firstMatch.distance > 0.6 * secondMatch.distance)
-			Matches.push_back(firstMatch);
+		if(firstMatch.distance < 0.8 *  secondMatch.distance) {
+				Matches.push_back(firstMatch);
+		}
 	}
+
+	float totalDist = 0;
+	for(int i = 0; i < Matches.size(); ++i) {
+		totalDist += Matches[i].distance;
+	}
+	std::cout << "avg. dist : " << totalDist / Matches.size() << std::endl;
 
 //	mORBMatcher->match(mNextFrame.mDescriptors, mpMap->mDescriptors, Matches);
 
 	std::vector<Eigen::Vector3d> vNextKPs, vMapKPs;
-	std::cout << "Num:" <<  Matches.size() << std::endl;
+//	std::cout << "Num:" <<  Matches.size() << std::endl;
 	vNextKPs.reserve(Matches.size());
 	vMapKPs.reserve(Matches.size());
+	Matrix3f Rp = mNextFrame.mRcw;
+	float3 tp = Converter::CvMatToFloat3(mNextFrame.mtcw);
 	for(int i = 0; i < Matches.size(); ++i) {
 		int queryId = Matches[i].queryIdx;
 		int trainId = Matches[i].trainIdx;
@@ -108,11 +118,14 @@ bool Tracking::TrackMap() {
 		MapPoint& trainPt = mLastFrame.mMapPoints[trainId];
 
 		Eigen::Vector3d p, q;
+//		queryPt.pos = Rp * queryPt.pos + tp;
 		p << queryPt.pos.x, queryPt.pos.y,  queryPt.pos.z;
 		q << trainPt.pos.x, trainPt.pos.y, trainPt.pos.z;
 		vNextKPs.push_back(p);
 		vMapKPs.push_back(q);
 	}
+
+
 
 	int best_inliners = 0;
 	float best_cost = 1000;
@@ -200,7 +213,7 @@ bool Tracking::TrackMap() {
 			}
 		}
 
-		if (num_inliners < 0.2 * Matches.size())
+		if (num_inliners < 0.1 * Matches.size())
 			continue;
 
 		if (num_inliners >= best_inliners) {
@@ -219,15 +232,18 @@ bool Tracking::TrackMap() {
 			float scale = sqrtf(sigmap / sigmaq);
 			best_R =  U * V.transpose();
 			best_t = p_mean - best_R * q_mean;
-			std::cout << "scale: " << sqrtf(sigmap / sigmaq) << std::endl;
+//			std::cout << "scale: " << sqrtf(sigmap / sigmaq) << std::endl;
 		}
 	}
 
-	std::cout << best_inliners << std::endl;
-	if(best_inliners < 0.2 * Matches.size())
+//	std::cout << best_inliners << std::endl;
+	if(best_inliners < 0.1 * Matches.size())
 		return false;
 
 	Eigen::Matrix4d Tp = Converter::TransformToEigen(mLastFrame.mRcw, mLastFrame.mtcw);
+	Eigen::Vector3d last_t = Tp.topRightCorner(3, 1);
+
+	Tp = Converter::TransformToEigen(mLastFrame.mRcw, mLastFrame.mtcw);
 	Eigen::Matrix4d Td = Eigen::Matrix4d::Identity();
 	Eigen::Matrix4d Tc = Eigen::Matrix4d::Identity();
 	Td.topLeftCorner(3, 3) = best_R;
@@ -241,11 +257,11 @@ bool Tracking::TrackMap() {
 //	Eigen::Matrix4d Tc = Eigen::Matrix4d::Identity();
 //	Tc.topLeftCorner(3, 3) = best_R.transpose();
 //	Tc.topRightCorner(3, 1) = -best_R.transpose() * best_t;
-//	std::cout << Tc << std::endl;
+////	std::cout << Tc << std::endl;
 //
 //	Converter::TransformToCv(Tc, mNextFrame.mRcw, mNextFrame.mtcw);
 //	mNextFrame.mRwc = mNextFrame.mRcw.t();
-//
+
 //	std::vector<cv::DMatch> newMatches;
 //	for(int i = 0; i < Matches.size(); ++i) {
 //		int queryId = Matches[i].queryIdx;
@@ -256,7 +272,7 @@ bool Tracking::TrackMap() {
 //		Eigen::Vector3d p, q;
 //		p << queryPt.pos.x, queryPt.pos.y,  queryPt.pos.z;
 //		q << trainPt.pos.x, trainPt.pos.y, trainPt.pos.z;
-//
+////
 //		float dist = (p - (best_R * q + best_t)).norm();
 //		if (dist < INLINER_THRESH) {
 //			newMatches.push_back(Matches[i]);

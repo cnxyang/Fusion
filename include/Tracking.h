@@ -34,6 +34,7 @@ public:
 	State mNextState;
 	cv::Mat mK;
 	Map* mpMap;
+	std::vector<cv::Mat> mCamPos;
 	cv::Ptr<cv::cuda::DescriptorMatcher> mORBMatcher;
 };
 

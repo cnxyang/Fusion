@@ -22,6 +22,7 @@ static const int MAX_RENDERING_BLOCKS = 65535 * 4;
 
 struct MapPoint {
 	float3 pos;
+	int counter;
 };
 
 struct MapDesc {

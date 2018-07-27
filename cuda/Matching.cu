@@ -53,7 +53,7 @@ void FuseKeyPointsAndDescriptors(Frame& frame, std::vector<MapPoint>& mps,
 															   cv::cuda::GpuMat& mdesc,
 															   std::vector<cv::DMatch>& matches) {
 
-	std::cout <<"mNKP:" << frame.mNkp << std::endl;
+//	std::cout <<"mNKP:" << frame.mNkp << std::endl;
 	int* fuseFlag = new int[frame.mNkp];
 	std::memset(&fuseFlag[0], 0, sizeof(int) * frame.mNkp);
 
