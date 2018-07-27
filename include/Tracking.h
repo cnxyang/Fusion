@@ -16,7 +16,9 @@ public:
 	bool Track();
 	bool TrackMap();
 	void TrackICP();
+	bool TrackFrame();
 	bool InitTracking();
+	void CreateKeyFrame();
 	bool Relocalisation();
 	bool TrackLastFrame();
 	void ShowResiduals();
@@ -27,6 +29,7 @@ public:
 		LOST
 	};
 
+	int mNoFrames;
 	float cost;
 	const int iter[3] = { 10, 5, 3 };
 	Frame mLastFrame;
@@ -34,7 +37,6 @@ public:
 	State mNextState;
 	cv::Mat mK;
 	Map* mpMap;
-	std::vector<cv::Mat> mCamPos;
 	cv::Ptr<cv::cuda::DescriptorMatcher> mORBMatcher;
 };
 

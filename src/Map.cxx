@@ -16,8 +16,6 @@ void Map::AllocateDeviceMemory(MapDesc desc) {
 	mHashEntries.create(NUM_BUCKETS    * BUCKET_SIZE);
 	mVisibleEntries.create(NUM_BUCKETS    * BUCKET_SIZE);
 	mVoxelBlocks.create(NUM_SDF_BLOCKS * BLOCK_SIZE);
-
-	mDescriptors.create(MaxNoKeyPoints, 32, CV_8UC1);
 }
 
 void Map::ReleaseDeviceMemory() {
@@ -28,7 +26,6 @@ void Map::ReleaseDeviceMemory() {
 	mHashEntries.release();
 	mVisibleEntries.release();
 	mVoxelBlocks.release();
-	mDescriptors.release();
 }
 
 Map::operator DeviceMap() {
@@ -58,14 +55,4 @@ Map::operator const DeviceMap() const {
 	map.visibleEntries = mVisibleEntries;
 	map.voxelBlocks = mVoxelBlocks;
 	return map;
-}
-
-void Map::FuseKeyPoints(const Frame& frame) {
-	if(mbFirstCall) {
-		if(frame.mNkp > 0) {
-//			AppendMapPoints(frame.mMapPoints, frame.mDescriptors, mMapPoints, mDescriptors, 0, frame.mNkp - 1);
-//			GenerateIndexArray(frame.mMapPoints, mIndexArray, frame.mNkp);
-		}
-		mbFirstCall = false;
-	}
 }

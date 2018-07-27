@@ -99,6 +99,7 @@ int main(int argc, char ** argv) {
 	Frame::SetK(K);
 	Frame::mDepthScale = 5000.0f;
 	std::vector<GLfloat> vertices;
+	std::vector<GLfloat> features;
 
 	int nImages = std::min(vsRGBList.size(), vdTimeList.size());
 	std::cout << "----------------------------------------------\n"
@@ -137,13 +138,25 @@ int main(int argc, char ** argv) {
 			cv::imshow("img", tmp);
 
 			// Render some stuff
-			glColor3f(1.0, 1.0, 1.0);
+			glColor3f(0.5, 1.0, 1.0);
 
 			vertices.push_back(5 * Tracker.mNextFrame.mtcw.at<float>(0));
 			vertices.push_back(5 * Tracker.mNextFrame.mtcw.at<float>(1));
 			vertices.push_back(5 * Tracker.mNextFrame.mtcw.at<float>(2));
 
+			Matrix3f Rc = Tracker.mNextFrame.mRcw;
+			float3 tc = Converter::CvMatToFloat3(Tracker.mNextFrame.mtcw);
+			for(int j = 0; j < Tracker.mNextFrame.mMapPoints.size(); ++j) {
+				float3 f = Rc * Tracker.mNextFrame.mMapPoints[j].pos + tc;
+				features.push_back(5 * f.x);
+				features.push_back(5 * f.y);
+				features.push_back(5 * f.z);
+			}
+
 			pangolin::glDrawVertices(vertices.size() / 3, (GLfloat*)&vertices[0], GL_LINE_STRIP, 3);
+			glColor3f(1.0, 0.5, 1.0);
+//			glPointSize(2.0);
+			pangolin::glDrawVertices(features.size() / 3, (GLfloat*)&features[0], GL_POINTS, 3);
 
 			pangolin::FinishFrame();
 		}

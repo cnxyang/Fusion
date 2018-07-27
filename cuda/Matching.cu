@@ -53,18 +53,16 @@ void FuseKeyPointsAndDescriptors(Frame& frame, std::vector<MapPoint>& mps,
 															   cv::cuda::GpuMat& mdesc,
 															   std::vector<cv::DMatch>& matches) {
 
-//	std::cout <<"mNKP:" << frame.mNkp << std::endl;
 	int* fuseFlag = new int[frame.mNkp];
 	std::memset(&fuseFlag[0], 0, sizeof(int) * frame.mNkp);
 
-//	for(int i = 0; i < frame.mNkp; ++i)
-//		std::cout << fuseFlag[i];
-//	std::cout << std::endl;
-
 	for(int i = 0; i < matches.size(); ++i) {
 		int queryId = matches[i].queryIdx;
-		if(queryId < frame.mNkp)
+		if(queryId < frame.mNkp) {
+			int trainId = matches[i].trainIdx;
+			mps[trainId].counter++;
 			fuseFlag[queryId] = 1;
+		}
 	}
 
 	Matrix3f R = frame.mRcw;
@@ -90,4 +88,10 @@ void FuseKeyPointsAndDescriptors(Frame& frame, std::vector<MapPoint>& mps,
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 	delete [] fuseFlag;
+}
+
+void PickConfidentMapPoints(std::vector<MapPoint>& mps, cv::cuda::GpuMat& desc) {
+	for(int i = 0; i < mps.size(); ++i) {
+
+	}
 }
