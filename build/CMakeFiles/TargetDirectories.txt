@@ -1,3 +1,0 @@
-/home/xy/Dropbox/prog/NewSystem/build/CMakeFiles/edit_cache.dir
-/home/xy/Dropbox/prog/NewSystem/build/CMakeFiles/rebuild_cache.dir
-/home/xy/Dropbox/prog/NewSystem/build/CMakeFiles/newsys.dir
