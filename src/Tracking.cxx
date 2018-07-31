@@ -9,6 +9,14 @@
 #include <vector>
 #include <chrono>
 
+#include "g2o/core/sparse_optimizer.h"
+#include "g2o/core/block_solver.h"
+#include "g2o/core/solver.h"
+#include "g2o/core/optimization_algorithm_levenberg.h"
+#include "g2o/solvers/dense/linear_solver_dense.h"
+#include "g2o/types/icp/types_icp.h"
+
+
 Tracking::Tracking() {
 	mpMap = nullptr;
 	mNextState = NOT_INITIALISED;
@@ -23,9 +31,12 @@ bool Tracking::GrabImageRGBD(cv::Mat& imRGB, cv::Mat& imD) {
 	if(!bOK)
 		return false;
 
-	mLastFrame = Frame(mNextFrame);
+	NeedNewKeyFrame();
 
-	CreateKeyFrame();
+	if(mbNeedNewKF)
+		CreateKeyFrame();
+
+	mLastFrame = Frame(mNextFrame);
 
 	return true;
 }
@@ -50,12 +61,16 @@ bool Tracking::Track() {
 		mNextState = LOST;
 //		Track();
 	}
+	else {
+		mNextState = OK;
+	}
 
 	return bOK;
 }
 
 bool Tracking::InitTracking() {
 	mpMap->SetFirstFrame(mNextFrame);
+	mbNeedNewKF = true;
 	mNextState = OK;
 	mNoFrames = 0;
 	return true;
@@ -65,9 +80,9 @@ bool Tracking::TrackLastFrame() {
 	mNextFrame.SetPose(mLastFrame);
 //	bool bOK = TrackMap();
 	bool bOK = TrackFrame();
-	if(!bOK)
-		return false;
-//	TrackICP();
+//	if(!bOK)
+//		return false;
+	TrackICP();
 	return true;
 }
 
@@ -78,40 +93,63 @@ bool Tracking::Relocalisation() {
 	return result;
 }
 
-void Tracking::CreateKeyFrame() {
-	KeyFrame newKf = KeyFrame(mNextFrame);
-	mpMap->mvKeyFrames.push_back(newKf);
+void Tracking::NeedNewKeyFrame() {
+	if(mbNeedNewKF)
+		return;
+
+	Eigen::Vector3d p, q;
+	p << mNextFrame.mtcw.at<float>(0), mNextFrame.mtcw.at<float>(1), mNextFrame.mtcw.at<float>(2);
+	q << mLastKeyFrame.mtcw.at<float>(0), mLastKeyFrame.mtcw.at<float>(1), mLastKeyFrame.mtcw.at<float>(2);
+
+	if((p - q).norm() > 0.5)
+		mbNeedNewKF = true;
 }
 
-#define RANSAC_MAX_ITER 130
-#define RANSAC_NUM_POINTS 5
-#define INLINER_THRESH 0.01
+void Tracking::CreateKeyFrame() {
+	mLastKeyFrame = KeyFrame(mNextFrame);
+	mpMap->mvKeyFrames.push_back(mLastKeyFrame);
+	mbNeedNewKF = false;
+	std::cout << mpMap->mvKeyFrames.size() << std::endl;
+}
+
+#define RANSAC_MAX_ITER 35
+#define RANSAC_NUM_POINTS 6
+#define INLINER_THRESH 0.02
 #define HIGH_PROB_DIST 3.0
 
 bool Tracking::TrackFrame() {
 
 	std::vector<cv::DMatch> Matches;
 	std::vector<std::vector<cv::DMatch>> matches;
-	mORBMatcher->knnMatch(mNextFrame.mDescriptors, mLastFrame.mDescriptors, matches, 2);
+	mORBMatcher->knnMatch(mNextFrame.mDescriptors, mLastKeyFrame.mDescriptors, matches, 2);
 
 	for(int i = 0; i < matches.size(); ++i) {
 		cv::DMatch& firstMatch = matches[i][0];
 		cv::DMatch& secondMatch = matches[i][1];
-		if(firstMatch.distance < 0.8 *  secondMatch.distance && firstMatch.distance < 64) {
+		if(firstMatch.distance < 0.7 *  secondMatch.distance) {
 				Matches.push_back(firstMatch);
 		}
 	}
 
+	if(Matches.size() < 100)
+		mbNeedNewKF = true;
+
+	if(Matches.size() < 3)
+		return false;
+
+//	std::cout << "No Matches : " << Matches.size() << std::endl;
 	std::vector<Eigen::Vector3d> vNextKPs, vMapKPs;
 	vNextKPs.reserve(Matches.size());
 	vMapKPs.reserve(Matches.size());
+	std::vector<Eigen::Vector3d> pvec;
+	std::vector<Eigen::Vector3d> qvec;
 	Matrix3f Rp = mNextFrame.mRcw;
 	float3 tp = Converter::CvMatToFloat3(mNextFrame.mtcw);
 	for(int i = 0; i < Matches.size(); ++i) {
 		int queryId = Matches[i].queryIdx;
 		int trainId = Matches[i].trainIdx;
 		MapPoint& queryPt = mNextFrame.mMapPoints[queryId];
-		MapPoint& trainPt = mLastFrame.mMapPoints[trainId];
+		MapPoint& trainPt = mLastKeyFrame.mMapPoints[trainId];
 
 		Eigen::Vector3d p, q;
 		p << queryPt.pos.x, queryPt.pos.y,  queryPt.pos.z;
@@ -144,8 +182,6 @@ bool Tracking::TrackFrame() {
 		if (!valid)
 			continue;
 
-		std::vector<Eigen::Vector3d> pvec;
-		std::vector<Eigen::Vector3d> qvec;
 		Eigen::Vector3d p_mean, q_mean;
 		p_mean = q_mean = Eigen::Vector3d::Zero();
 		for (int j = 0; j < RANSAC_NUM_POINTS; ++j) {
@@ -229,21 +265,164 @@ bool Tracking::TrackFrame() {
 		}
 	}
 
-	if(best_inliners < 0.1 * Matches.size())
+	if(best_inliners < 50)
+		mbNeedNewKF = true;
+
+	if(best_inliners < 0.2 * Matches.size())
 		return false;
 
-	Eigen::Matrix4d Tp = Converter::TransformToEigen(mLastFrame.mRcw, mLastFrame.mtcw);
-	Eigen::Vector3d last_t = Tp.topRightCorner(3, 1);
+	float totalCost = 0;
+	for(int i = 0; i < Matches.size(); ++i) {
+		Eigen::Vector3d p, q;
+		p = vNextKPs[i];
+		q = vMapKPs[i];
+		totalCost += (p - (best_R * q + best_t)).norm();
+	}
 
-	Tp = Converter::TransformToEigen(mLastFrame.mRcw, mLastFrame.mtcw);
+	std::cout << "avg. Cost: " << totalCost / Matches.size() << std::endl;
+
+//	g2o::SparseOptimizer optimizer;
+//	optimizer.setVerbose(false);
+//	std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver;
+//	g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(
+//	    g2o::make_unique<g2o::BlockSolver_6_3>(std::move(linearSolver))
+//	);
+//	optimizer.setAlgorithm(solver);
+//
+//	Eigen::Matrix4d Tp = Converter::TransformToEigen(mLastKeyFrame.mRcw, mLastKeyFrame.mtcw);
+//	Eigen::Matrix3d last_r = Tp.topLeftCorner(3, 3);
+//	Eigen::Vector3d last_t = Tp.topRightCorner(3, 1);
+//	Eigen::Quaterniond q(last_r);
+//	g2o::SE3Quat last_pose(q, last_t);
+//	g2o::VertexSE3Expmap * v_last = new g2o::VertexSE3Expmap();
+//	v_last->setId(0);
+//	v_last->setFixed(true);
+//	v_last->setEstimate(last_pose);
+//	optimizer.addVertex(v_last);
+
+	// initialise g2o
+	g2o::SparseOptimizer optimizer;
+	optimizer.setVerbose(false);
+	g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(g2o::make_unique<g2o::BlockSolverX>(g2o::make_unique<g2o::LinearSolverDense<g2o::BlockSolverX::PoseMatrixType>>()));
+	optimizer.setAlgorithm(solver);
+
+	std::vector<Eigen::Matrix4d> poses;
+	Eigen::Matrix4d Tp = Converter::TransformToEigen(mLastKeyFrame.mRcw, mLastKeyFrame.mtcw);
 	Eigen::Matrix4d Td = Eigen::Matrix4d::Identity();
 	Eigen::Matrix4d Tc = Eigen::Matrix4d::Identity();
 	Td.topLeftCorner(3, 3) = best_R;
 	Td.topRightCorner(3, 1) = best_t;
-
 	Tc =  Td.inverse() * Tp;
+	poses.push_back(Tp);
+	poses.push_back(Tc);
+
+//	for(int i = 0; i < 2; ++i) {
+//		Eigen::Vector3d t = poses[i].topRightCorner(3, 1);
+//		Eigen::Matrix3d r = poses[i].topLeftCorner(3, 3);
+//		Eigen::Quaterniond q(r);
+//		Eigen::Isometry3d cam;
+//		cam = q;
+//		cam.translation() = t;
+//
+//		g2o::VertexSE3 *vc = new g2o::VertexSE3();
+//		vc->setEstimate(cam);
+//		vc->setId(i);
+//
+//		if(i == 0)
+//			vc->setFixed(true);
+//
+//		optimizer.addVertex(vc);
+//	}
+
+//	for(int i = 0; i < pvec.size(); ++i) {
+//		g2o::VertexSE3* vp0 = dynamic_cast<g2o::VertexSE3*>(optimizer.vertices().find(0)->second);
+//		g2o::VertexSE3* vp1 = dynamic_cast<g2o::VertexSE3*>(optimizer.vertices().find(1)->second);
+//		Eigen::Vector3d pt0, pt1;
+//		pt0 = vp0->estimate() * qvec[i];
+//		pt1 = vp1->estimate() * pvec[i];
+//
+//		g2o::Edge_V_V_GICP * e = new g2o::Edge_V_V_GICP();
+//		e->setVertex(0, vp0);
+//		e->setVertex(1, vp1);
+//
+//	    Eigen::Vector3d nm0, nm1;
+//	    nm0 << 0, i, 1;
+//	    nm1 << 0, i, 1;
+//	    nm0.normalize();
+//	    nm1.normalize();
+//
+//		g2o::EdgeGICP meas;
+//		meas.pos0 = pt0;
+//		meas.pos1 = pt1;
+//	    meas.normal0 = nm0;
+//	    meas.normal1 = nm1;
+//
+//		e->setMeasurement(meas);
+//		meas = e->measurement();
+//		e->information() = meas.prec0(0.01);
+//
+//		optimizer.addEdge(e);
+//	}
+
+//	optimizer.initializeOptimization();
+//    optimizer.computeActiveErrors();
+//    std::cout << "Initial chi2 = " << std::FIXED(optimizer.chi2()) << std::endl;
+//	optimizer.setVerbose(true);
+//    optimizer.optimize(5);
+//	Eigen::Matrix3d next_r = Tc.topLeftCorner(3, 3);
+//	Eigen::Vector3d next_t = Tc.topRightCorner(3, 1);
+//	Eigen::Quaterniond p(next_r);
+//	g2o::SE3Quat next_pose(q, next_t);
+//	g2o::VertexSE3Expmap * v_next = new g2o::VertexSE3Expmap();
+//	v_next->setId(1);
+//	v_next->setFixed(false);
+//	v_next->setEstimate(next_pose);
+//	optimizer.addVertex(v_next);
+//
+////	std::vector<Eigen::Vector3d> truePoints;
+//	int point_id = 2;
+//	for(int i = 0; i < pvec.size(); ++i) {
+//	    g2o::VertexSBAPointXYZ * v_p = new g2o::VertexSBAPointXYZ();
+//	    v_p->setId(point_id);
+//	    v_p->setMarginalized(false);
+//	    v_p->setEstimate(last_r * qvec[i] + last_t);
+////		Eigen::Vector3d q_g = ;
+//	    optimizer.addVertex(v_p);
+//
+//	    float fx0 = Frame::fx(0);
+//	    float fy0 = Frame::fy(0);
+//	    float cx0 = Frame::cx(0);
+//	    float cy0 = Frame::cy(0);
+//
+//	    Eigen::Vector2d zp, zq;
+//	    zp<< fx0 * pvec[i](0) / pvec[i](2) + cx0, fy0 * pvec[i](1) / pvec[i](2) + cy0;
+//	    zq<< fx0 * qvec[i](0) / qvec[i](2) + cx0, fy0 * qvec[i](1) / qvec[i](2) + cy0;
+//
+//		g2o::EdgeProjectXYZ2UV * e = new g2o::EdgeProjectXYZ2UV();
+//		e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(v_p));
+//		e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertices().find(0)->second));
+//		e->setMeasurement(zq);
+//		e->setParameterId(0, 0);
+//
+//		g2o::EdgeProjectXYZ2UV * e2 = new g2o::EdgeProjectXYZ2UV();
+//		e2->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(v_p));
+//		e2->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertices().find(1)->second));
+//		e2->setMeasurement(zp);
+//		e2->setParameterId(0, 0);
+//
+//		optimizer.addEdge(e);
+//		optimizer.addEdge(e2);
+//		point_id++;
+//	}
+//
+//	optimizer.initializeOptimization();
+//	optimizer.setVerbose(true);
+//	optimizer.optimize(10);
+
 	Converter::TransformToCv(Tc, mNextFrame.mRcw, mNextFrame.mtcw);
 	mNextFrame.mRwc = mNextFrame.mRcw.t();
+
+	mNoFrames++;
 
 	return true;
 }
@@ -257,11 +436,15 @@ bool Tracking::TrackMap() {
 	for(int i = 0; i < matches.size(); ++i) {
 		cv::DMatch& firstMatch = matches[i][0];
 		cv::DMatch& secondMatch = matches[i][1];
-		if(firstMatch.distance < 0.8 *  secondMatch.distance && firstMatch.distance < 64) {
+		if(firstMatch.distance < 0.6 *  secondMatch.distance) {
 				Matches.push_back(firstMatch);
 		}
 	}
 
+	if(Matches.size() < 3)
+		return false;
+
+	std::cout << "No Matches : " << Matches.size() << std::endl;
 	std::vector<Eigen::Vector3d> vNextKPs, vMapKPs;
 	vNextKPs.reserve(Matches.size());
 	vMapKPs.reserve(Matches.size());

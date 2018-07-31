@@ -55,18 +55,18 @@ int main(int argc, char ** argv) {
 		exit(-1);
 	}
 
-	pangolin::CreateWindowAndBind("main", 640, 480);
+	pangolin::CreateWindowAndBind("main", 1280, 960);
 	// 3D Mouse handler requires depth testing to be enabled
 	glEnable(GL_DEPTH_TEST);
 
 	// Define Camera Render Object (for view / scene browsing)
 	pangolin::OpenGlRenderState s_cam(
-			pangolin::ProjectionMatrix(640, 480, 420, 420, 320, 240, 0.1, 1000),
+			pangolin::ProjectionMatrix(1280, 960, 840, 840, 640, 480, 0.1, 1000),
 			pangolin::ModelViewLookAt(-0, 0.5, -3, 0, 0, 0, pangolin::AxisX));
 
 	// Add named OpenGL viewport to window and provide 3D Handler
 	pangolin::View& d_cam = pangolin::CreateDisplay().SetBounds(0.0, 1.0, 0.0,
-			1.0, -640.0f / 480.0f).SetHandler(new pangolin::Handler3D(s_cam));
+			1.0, -1280.0f / 960.0f).SetHandler(new pangolin::Handler3D(s_cam));
 
 	Tracking Tracker;
 	Map map;
@@ -136,6 +136,7 @@ int main(int argc, char ** argv) {
 			rd.Render.download((void*)tmp.data, tmp.step);
 			cv::resize(tmp, tmp, cv::Size(tmp.cols * 2, tmp.rows * 2));
 			cv::imshow("img", tmp);
+			cv::imshow("depth", imD);
 
 			// Render some stuff
 			glColor3f(0.5, 1.0, 1.0);
@@ -155,7 +156,6 @@ int main(int argc, char ** argv) {
 
 			pangolin::glDrawVertices(vertices.size() / 3, (GLfloat*)&vertices[0], GL_LINE_STRIP, 3);
 			glColor3f(1.0, 0.5, 1.0);
-//			glPointSize(2.0);
 			pangolin::glDrawVertices(features.size() / 3, (GLfloat*)&features[0], GL_POINTS, 3);
 
 			pangolin::FinishFrame();

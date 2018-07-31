@@ -18,6 +18,7 @@ public:
 	void TrackICP();
 	bool TrackFrame();
 	bool InitTracking();
+	void NeedNewKeyFrame();
 	void CreateKeyFrame();
 	bool Relocalisation();
 	bool TrackLastFrame();
@@ -30,10 +31,12 @@ public:
 	};
 
 	int mNoFrames;
+	bool mbNeedNewKF;
 	float cost;
 	const int iter[3] = { 10, 5, 3 };
 	Frame mLastFrame;
 	Frame mNextFrame;
+	KeyFrame mLastKeyFrame;
 	State mNextState;
 	cv::Mat mK;
 	Map* mpMap;

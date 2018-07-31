@@ -68,7 +68,7 @@ Frame::Frame(const Frame& other, const Rendering& observation) {
 Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 
 	if(mbFirstCall) {
-		mORB = cv::cuda::ORB::create(1000);
+		mORB = cv::cuda::ORB::create(500, 1.2f, 8, 31, 0, 2, cv::cuda::ORB::FAST_SCORE);
 		for(int i = 0; i < numPyrs; ++i) {
 			mPyrRes[i].first = imD.cols / (1 << i);
 			mPyrRes[i].second = imD.rows / (1 << i);
