@@ -115,28 +115,28 @@ int main(int argc, char ** argv) {
 		auto t1 = std::chrono::steady_clock::now();
 		bool bOK = Tracker.GrabImageRGBD(imRGB, imD);
 		if(bOK) {
-			int no = map.FuseFrame(Tracker.mLastFrame);
-			Rendering rd;
-			rd.cols = 640;
-			rd.rows = 480;
-			rd.fx = K.at<float>(0, 0);
-			rd.fy = K.at<float>(1, 1);
-			rd.cx = K.at<float>(0, 2);
-			rd.cy = K.at<float>(1, 2);
-			rd.Rview = Tracker.mLastFrame.mRcw;
-			rd.invRview = Tracker.mLastFrame.mRwc;
-			rd.maxD = 5.0f;
-			rd.minD = 0.1f;
-			rd.tview = Converter::CvMatToFloat3(Tracker.mLastFrame.mtcw);
-
-			map.RenderMap(rd, no);
-			Tracker.AddObservation(rd);
-
-			cv::Mat tmp(rd.rows, rd.cols, CV_8UC4);
-			rd.Render.download((void*)tmp.data, tmp.step);
-			cv::resize(tmp, tmp, cv::Size(tmp.cols * 2, tmp.rows * 2));
-			cv::imshow("img", tmp);
-			cv::imshow("depth", imD);
+//			int no = map.FuseFrame(Tracker.mLastFrame);
+//			Rendering rd;
+//			rd.cols = 640;
+//			rd.rows = 480;
+//			rd.fx = K.at<float>(0, 0);
+//			rd.fy = K.at<float>(1, 1);
+//			rd.cx = K.at<float>(0, 2);
+//			rd.cy = K.at<float>(1, 2);
+//			rd.Rview = Tracker.mLastFrame.mRcw;
+//			rd.invRview = Tracker.mLastFrame.mRwc;
+//			rd.maxD = 5.0f;
+//			rd.minD = 0.1f;
+//			rd.tview = Converter::CvMatToFloat3(Tracker.mLastFrame.mtcw);
+//
+//			map.RenderMap(rd, no);
+//			Tracker.AddObservation(rd);
+//
+//			cv::Mat tmp(rd.rows, rd.cols, CV_8UC4);
+//			rd.Render.download((void*)tmp.data, tmp.step);
+//			cv::resize(tmp, tmp, cv::Size(tmp.cols * 2, tmp.rows * 2));
+//			cv::imshow("img", tmp);
+//			cv::imshow("depth", imD);
 
 			// Render some stuff
 			glColor3f(0.5, 1.0, 1.0);
@@ -145,13 +145,12 @@ int main(int argc, char ** argv) {
 			vertices.push_back(5 * Tracker.mNextFrame.mtcw.at<float>(1));
 			vertices.push_back(5 * Tracker.mNextFrame.mtcw.at<float>(2));
 
-			Matrix3f Rc = Tracker.mNextFrame.mRcw;
-			float3 tc = Converter::CvMatToFloat3(Tracker.mNextFrame.mtcw);
+			Eigen::Matrix4d Tc = Converter::TransformToEigen(Tracker.mNextFrame.mRcw, Tracker.mNextFrame.mtcw);
 			for(int j = 0; j < Tracker.mNextFrame.mMapPoints.size(); ++j) {
-				float3 f = Rc * Tracker.mNextFrame.mMapPoints[j].pos + tc;
-				features.push_back(5 * f.x);
-				features.push_back(5 * f.y);
-				features.push_back(5 * f.z);
+				Eigen::Vector3d f = Tc.topLeftCorner(3, 3) * Tracker.mNextFrame.mMapPoints[j].pos + Tc.topRightCorner(3, 1);
+				features.push_back(5 * f(0));
+				features.push_back(5 * f(1));
+				features.push_back(5 * f(2));
 			}
 
 			pangolin::glDrawVertices(vertices.size() / 3, (GLfloat*)&vertices[0], GL_LINE_STRIP, 3);

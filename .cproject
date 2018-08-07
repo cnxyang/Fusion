@@ -43,36 +43,14 @@
 							<tool command="nvcc" commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG} ${OUTPUT_PREFIX} ${OUTPUT} ${INPUTS}" errorParsers="org.eclipse.cdt.core.GLDErrorParser;nvcc.errorParser" id="nvcc.linker.base.2101327286" name="NVCC Linker" superClass="nvcc.linker.base">
 								<option id="nvcc.linker.option.libs.1214683271" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="opencv_core"/>
-									<listOptionValue builtIn="false" value="g2o_core"/>
 									<listOptionValue builtIn="false" value="cholmod"/>
-									<listOptionValue builtIn="false" value="csparse"/>
-									<listOptionValue builtIn="false" value="g2o_cli"/>
-									<listOptionValue builtIn="false" value="g2o_ext_freeglut_minimal"/>
-									<listOptionValue builtIn="false" value="g2o_incremental"/>
-									<listOptionValue builtIn="false" value="g2o_interactive"/>
-									<listOptionValue builtIn="false" value="g2o_interface"/>
-									<listOptionValue builtIn="false" value="g2o_opengl_helper"/>
-									<listOptionValue builtIn="false" value="g2o_parser"/>
-									<listOptionValue builtIn="false" value="g2o_simulator"/>
-									<listOptionValue builtIn="false" value="g2o_solver_csparse"/>
-									<listOptionValue builtIn="false" value="g2o_solver_dense"/>
-									<listOptionValue builtIn="false" value="g2o_solver_eigen"/>
-									<listOptionValue builtIn="false" value="g2o_solver_pcg"/>
-									<listOptionValue builtIn="false" value="g2o_solver_slam2d_linear"/>
-									<listOptionValue builtIn="false" value="g2o_solver_structure_only"/>
-									<listOptionValue builtIn="false" value="g2o_types_data"/>
-									<listOptionValue builtIn="false" value="g2o_types_icp"/>
 									<listOptionValue builtIn="false" value="g2o_types_sba"/>
-									<listOptionValue builtIn="false" value="g2o_types_sclam2d"/>
-									<listOptionValue builtIn="false" value="g2o_types_sim3"/>
-									<listOptionValue builtIn="false" value="g2o_types_slam2d_addons"/>
-									<listOptionValue builtIn="false" value="g2o_types_slam2d"/>
-									<listOptionValue builtIn="false" value="g2o_types_slam3d_addons"/>
-									<listOptionValue builtIn="false" value="g2o_types_slam3d"/>
-									<listOptionValue builtIn="false" value="g2o_viewer"/>
-									<listOptionValue builtIn="false" value="g2o_csparse_extension"/>
-									<listOptionValue builtIn="false" value="g2o_stuff"/>
 									<listOptionValue builtIn="false" value="g2o_solver_cholmod"/>
+									<listOptionValue builtIn="false" value="g2o_types_icp"/>
+									<listOptionValue builtIn="false" value="g2o_solver_csparse"/>
+									<listOptionValue builtIn="false" value="g2o_stuff"/>
+									<listOptionValue builtIn="false" value="g2o_core"/>
+									<listOptionValue builtIn="false" value="g2o_types_slam3d"/>
 									<listOptionValue builtIn="false" value="pangolin"/>
 									<listOptionValue builtIn="false" value="GL"/>
 									<listOptionValue builtIn="false" value="opencv_cudafeatures2d"/>
@@ -150,36 +128,14 @@
 							<tool id="nvcc.linker.base.1869898228" name="NVCC Linker" superClass="nvcc.linker.base">
 								<option id="nvcc.linker.option.libs.755556442" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="opencv_core"/>
-									<listOptionValue builtIn="false" value="g2o_core"/>
 									<listOptionValue builtIn="false" value="cholmod"/>
-									<listOptionValue builtIn="false" value="csparse"/>
-									<listOptionValue builtIn="false" value="g2o_cli"/>
-									<listOptionValue builtIn="false" value="g2o_ext_freeglut_minimal"/>
-									<listOptionValue builtIn="false" value="g2o_incremental"/>
-									<listOptionValue builtIn="false" value="g2o_interactive"/>
-									<listOptionValue builtIn="false" value="g2o_interface"/>
-									<listOptionValue builtIn="false" value="g2o_opengl_helper"/>
-									<listOptionValue builtIn="false" value="g2o_parser"/>
-									<listOptionValue builtIn="false" value="g2o_simulator"/>
-									<listOptionValue builtIn="false" value="g2o_solver_csparse"/>
-									<listOptionValue builtIn="false" value="g2o_solver_dense"/>
-									<listOptionValue builtIn="false" value="g2o_solver_eigen"/>
-									<listOptionValue builtIn="false" value="g2o_solver_pcg"/>
-									<listOptionValue builtIn="false" value="g2o_solver_slam2d_linear"/>
-									<listOptionValue builtIn="false" value="g2o_solver_structure_only"/>
-									<listOptionValue builtIn="false" value="g2o_types_data"/>
-									<listOptionValue builtIn="false" value="g2o_types_icp"/>
 									<listOptionValue builtIn="false" value="g2o_types_sba"/>
-									<listOptionValue builtIn="false" value="g2o_types_sclam2d"/>
-									<listOptionValue builtIn="false" value="g2o_types_sim3"/>
-									<listOptionValue builtIn="false" value="g2o_types_slam2d_addons"/>
-									<listOptionValue builtIn="false" value="g2o_types_slam2d"/>
-									<listOptionValue builtIn="false" value="g2o_types_slam3d_addons"/>
-									<listOptionValue builtIn="false" value="g2o_types_slam3d"/>
-									<listOptionValue builtIn="false" value="g2o_viewer"/>
-									<listOptionValue builtIn="false" value="g2o_csparse_extension"/>
-									<listOptionValue builtIn="false" value="g2o_stuff"/>
 									<listOptionValue builtIn="false" value="g2o_solver_cholmod"/>
+									<listOptionValue builtIn="false" value="g2o_types_icp"/>
+									<listOptionValue builtIn="false" value="g2o_solver_csparse"/>
+									<listOptionValue builtIn="false" value="g2o_stuff"/>
+									<listOptionValue builtIn="false" value="g2o_core"/>
+									<listOptionValue builtIn="false" value="g2o_types_slam3d"/>
 									<listOptionValue builtIn="false" value="pangolin"/>
 									<listOptionValue builtIn="false" value="GL"/>
 									<listOptionValue builtIn="false" value="opencv_cudafeatures2d"/>
@@ -257,13 +213,14 @@
 							<tool id="nvcc.linker.base.1084725188" name="NVCC Linker" superClass="nvcc.linker.base">
 								<option id="nvcc.linker.option.libs.1475261328" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="opencv_core"/>
-									<listOptionValue builtIn="false" value="g2o_core"/>
 									<listOptionValue builtIn="false" value="cholmod"/>
-									<listOptionValue builtIn="false" value="csparse"/>
-									<listOptionValue builtIn="false" value="g2o_solver_dense"/>
+									<listOptionValue builtIn="false" value="g2o_types_sba"/>
+									<listOptionValue builtIn="false" value="g2o_solver_cholmod"/>
 									<listOptionValue builtIn="false" value="g2o_types_icp"/>
-									<listOptionValue builtIn="false" value="g2o_types_slam3d"/>
+									<listOptionValue builtIn="false" value="g2o_solver_csparse"/>
 									<listOptionValue builtIn="false" value="g2o_stuff"/>
+									<listOptionValue builtIn="false" value="g2o_core"/>
+									<listOptionValue builtIn="false" value="g2o_types_slam3d"/>
 									<listOptionValue builtIn="false" value="pangolin"/>
 									<listOptionValue builtIn="false" value="GL"/>
 									<listOptionValue builtIn="false" value="opencv_cudafeatures2d"/>
@@ -343,36 +300,14 @@
 							<tool id="nvcc.linker.base.1705556584" name="NVCC Linker" superClass="nvcc.linker.base">
 								<option id="nvcc.linker.option.libs.589796071" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="opencv_core"/>
-									<listOptionValue builtIn="false" value="g2o_core"/>
 									<listOptionValue builtIn="false" value="cholmod"/>
-									<listOptionValue builtIn="false" value="csparse"/>
-									<listOptionValue builtIn="false" value="g2o_cli"/>
-									<listOptionValue builtIn="false" value="g2o_ext_freeglut_minimal"/>
-									<listOptionValue builtIn="false" value="g2o_incremental"/>
-									<listOptionValue builtIn="false" value="g2o_interactive"/>
-									<listOptionValue builtIn="false" value="g2o_interface"/>
-									<listOptionValue builtIn="false" value="g2o_opengl_helper"/>
-									<listOptionValue builtIn="false" value="g2o_parser"/>
-									<listOptionValue builtIn="false" value="g2o_simulator"/>
-									<listOptionValue builtIn="false" value="g2o_solver_csparse"/>
-									<listOptionValue builtIn="false" value="g2o_solver_dense"/>
-									<listOptionValue builtIn="false" value="g2o_solver_eigen"/>
-									<listOptionValue builtIn="false" value="g2o_solver_pcg"/>
-									<listOptionValue builtIn="false" value="g2o_solver_slam2d_linear"/>
-									<listOptionValue builtIn="false" value="g2o_solver_structure_only"/>
-									<listOptionValue builtIn="false" value="g2o_types_data"/>
-									<listOptionValue builtIn="false" value="g2o_types_icp"/>
 									<listOptionValue builtIn="false" value="g2o_types_sba"/>
-									<listOptionValue builtIn="false" value="g2o_types_sclam2d"/>
-									<listOptionValue builtIn="false" value="g2o_types_sim3"/>
-									<listOptionValue builtIn="false" value="g2o_types_slam2d_addons"/>
-									<listOptionValue builtIn="false" value="g2o_types_slam2d"/>
-									<listOptionValue builtIn="false" value="g2o_types_slam3d_addons"/>
-									<listOptionValue builtIn="false" value="g2o_types_slam3d"/>
-									<listOptionValue builtIn="false" value="g2o_viewer"/>
-									<listOptionValue builtIn="false" value="g2o_csparse_extension"/>
-									<listOptionValue builtIn="false" value="g2o_stuff"/>
 									<listOptionValue builtIn="false" value="g2o_solver_cholmod"/>
+									<listOptionValue builtIn="false" value="g2o_types_icp"/>
+									<listOptionValue builtIn="false" value="g2o_solver_csparse"/>
+									<listOptionValue builtIn="false" value="g2o_stuff"/>
+									<listOptionValue builtIn="false" value="g2o_core"/>
+									<listOptionValue builtIn="false" value="g2o_types_slam3d"/>
 									<listOptionValue builtIn="false" value="pangolin"/>
 									<listOptionValue builtIn="false" value="GL"/>
 									<listOptionValue builtIn="false" value="opencv_cudafeatures2d"/>

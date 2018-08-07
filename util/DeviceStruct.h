@@ -1,6 +1,7 @@
 #ifndef __DEVICE_STRUCT_H__
 #define __DEVICE_STRUCT_H__
 
+#include <Eigen/Dense>
 #include "DeviceArray.h"
 #include "DeviceMath.h"
 
@@ -21,7 +22,8 @@ static const int   NUM_MAX_TRIANGLES = 2000 * 2000;
 static const int MAX_RENDERING_BLOCKS = 65535 * 4;
 
 struct MapPoint {
-	float3 pos;
+	Eigen::Vector3d pos;
+	Eigen::Vector2d uv;
 	std::vector<int> visibility;
 	int counter;
 };

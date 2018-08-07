@@ -52,42 +52,42 @@ __global__ void CombineDescriptors_device(cv::cuda::PtrStepSz<char> src1,
 void FuseKeyPointsAndDescriptors(Frame& frame, std::vector<MapPoint>& mps,
 															   cv::cuda::GpuMat& mdesc,
 															   std::vector<cv::DMatch>& matches) {
-
-	int* fuseFlag = new int[frame.mNkp];
-	std::memset(&fuseFlag[0], 0, sizeof(int) * frame.mNkp);
-
-	for(int i = 0; i < matches.size(); ++i) {
-		int queryId = matches[i].queryIdx;
-		if(queryId < frame.mNkp) {
-			int trainId = matches[i].trainIdx;
-			mps[trainId].counter++;
-			fuseFlag[queryId] = 1;
-		}
-	}
-
-	Matrix3f R = frame.mRcw;
-	float3 t =  Converter::CvMatToFloat3(frame.mtcw);
-	for(int i = 0; i < frame.mNkp; ++i) {
-		if(fuseFlag[i] == 0) {
-			MapPoint& mp = frame.mMapPoints[i];
-			mp.pos = R * mp.pos + t;
-			mps.push_back(mp);
-		}
-	}
-
-	DeviceArray<int> Flag(frame.mNkp);
-	Flag.upload((void*)fuseFlag, frame.mNkp);
-
-	dim3 block(1024);
-	dim3 grid(cv::divUp(frame.mNkp, block.x));
-
-	cv::cuda::GpuMat descTemp(mdesc.rows + frame.mNkp, 32, CV_8UC1);
-	CombineDescriptors_device<<<grid, block>>>(mdesc, frame.mDescriptors, descTemp);
-	descTemp.copyTo(mdesc);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-	delete [] fuseFlag;
+//
+//	int* fuseFlag = new int[frame.mNkp];
+//	std::memset(&fuseFlag[0], 0, sizeof(int) * frame.mNkp);
+//
+//	for(int i = 0; i < matches.size(); ++i) {
+//		int queryId = matches[i].queryIdx;
+//		if(queryId < frame.mNkp) {
+//			int trainId = matches[i].trainIdx;
+//			mps[trainId].counter++;
+//			fuseFlag[queryId] = 1;
+//		}
+//	}
+//
+//	Matrix3f R = frame.mRcw;
+//	float3 t =  Converter::CvMatToFloat3(frame.mtcw);
+//	for(int i = 0; i < frame.mNkp; ++i) {
+//		if(fuseFlag[i] == 0) {
+//			MapPoint& mp = frame.mMapPoints[i];
+//			mp.pos = R * mp.pos + t;
+//			mps.push_back(mp);
+//		}
+//	}
+//
+//	DeviceArray<int> Flag(frame.mNkp);
+//	Flag.upload((void*)fuseFlag, frame.mNkp);
+//
+//	dim3 block(1024);
+//	dim3 grid(cv::divUp(frame.mNkp, block.x));
+//
+//	cv::cuda::GpuMat descTemp(mdesc.rows + frame.mNkp, 32, CV_8UC1);
+//	CombineDescriptors_device<<<grid, block>>>(mdesc, frame.mDescriptors, descTemp);
+//	descTemp.copyTo(mdesc);
+//
+//	SafeCall(cudaDeviceSynchronize());
+//	SafeCall(cudaGetLastError());
+//	delete [] fuseFlag;
 }
 
 void PickConfidentMapPoints(std::vector<MapPoint>& mps, cv::cuda::GpuMat& desc) {
