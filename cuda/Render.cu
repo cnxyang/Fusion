@@ -1,4 +1,4 @@
-#include "Map.hpp"
+#include "Mapping.hpp"
 #include "DeviceStruct.h"
 
 struct HashRayCaster
@@ -495,7 +495,7 @@ Memset_device(PtrStepSz<float> a2d, float val) {
 	a2d.ptr(y)[x] = val;
 }
 
-void Map::RenderMap(Rendering& render, int num_occupied_blocks) {
+void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 
 	if(num_occupied_blocks == 0)
 		return;

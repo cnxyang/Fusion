@@ -32,7 +32,8 @@ public:
 	static const int numPyrs = 3;
 	static cv::Mat mK[numPyrs];
 	static int N[numPyrs];
-	static std::pair<int, int> mPyrRes[numPyrs];
+	static int mCols[numPyrs];
+	static int mRows[numPyrs];
 
 	static float fx(int pyr);
 	static float fy(int pyr);
@@ -64,9 +65,6 @@ public:
 	cv::cuda::GpuMat mDescriptors;
 	Eigen::Matrix4d mPose;
 	Eigen::Matrix4d mPoseInv;
-//	cv::Mat mRcw;
-//	cv::Mat mRwc;
-//	cv::Mat mtcw;
 	int mNkp;
 };
 

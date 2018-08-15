@@ -1,14 +1,14 @@
-#include "Map.hpp"
+#include "Mapping.hpp"
 
-bool Map::mbFirstCall = true;
+bool Mapping::mbFirstCall = true;
 
-Map::Map() {}
+Mapping::Mapping() {}
 
-Map::~Map() {
+Mapping::~Mapping() {
 	ReleaseDeviceMemory();
 }
 
-void Map::AllocateDeviceMemory(MapDesc desc) {
+void Mapping::AllocateDeviceMemory(MapDesc desc) {
 	mMemory.create(NUM_SDF_BLOCKS);
 	mUsedMem.create(1);
 	mNumVisibleEntries.create(1);
@@ -18,7 +18,7 @@ void Map::AllocateDeviceMemory(MapDesc desc) {
 	mVoxelBlocks.create(NUM_SDF_BLOCKS * BLOCK_SIZE);
 }
 
-void Map::ReleaseDeviceMemory() {
+void Mapping::ReleaseDeviceMemory() {
 	mUsedMem.release();
 	mNumVisibleEntries.release();
 	mBucketMutex.release();
@@ -28,7 +28,7 @@ void Map::ReleaseDeviceMemory() {
 	mVoxelBlocks.release();
 }
 
-Map::operator DeviceMap() {
+Mapping::operator DeviceMap() {
 	DeviceMap map;
 	map.heapMem = mMemory;
 	map.heapCounter = mUsedMem;
@@ -40,12 +40,12 @@ Map::operator DeviceMap() {
 	return map;
 }
 
-void Map::SetFirstFrame(Frame& frame) {
+void Mapping::SetFirstFrame(Frame& frame) {
 	mMapPoints = frame.mMapPoints;
 	frame.mDescriptors.copyTo(mDescriptors);
 }
 
-Map::operator const DeviceMap() const {
+Mapping::operator const DeviceMap() const {
 	DeviceMap map;
 	map.heapMem = mMemory;
 	map.heapCounter = mUsedMem;

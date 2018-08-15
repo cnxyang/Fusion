@@ -1,4 +1,4 @@
-#include "Map.hpp"
+#include "Mapping.hpp"
 #include "DeviceArray.h"
 #include "DeviceMath.h"
 
@@ -318,7 +318,7 @@ void createBlocksKernel(HashIntegrator hi) {
 	hi.CreateVisibleBlocks();
 }
 
-int Map::FuseFrame(const Frame& frame) {
+int Mapping::FuseFrame(const Frame& frame) {
 
 		int pyr = 0;
 		HashIntegrator HI;
@@ -413,7 +413,7 @@ void resetMutexKernel(int * mutex)
 	mutex[idx] = EntryAvailable;
 }
 
-void Map::ResetDeviceMemory() {
+void Mapping::ResetDeviceMemory() {
 
 	dim3 block(1024);
 	dim3 grid;

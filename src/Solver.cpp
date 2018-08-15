@@ -9,7 +9,9 @@
 using namespace std;
 using namespace Eigen;
 
-bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src, vector<Vector3d>& ref, vector<bool>& outlier, Matrix4d& Td) {
+bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
+		  	  	  	  	  	  	      vector<Vector3d>& ref,
+		  	  	  	  	  	  	      vector<bool>& outlier, Matrix4d& Td) {
 
 	assert(src.size() == ref.size());
 
@@ -132,40 +134,30 @@ bool Solver::SolveICP(Frame& src, Frame& ref, Matrix4d& Td) {
 	Eigen::Matrix<float, 6, 1> host_b;
 	const int iter[3] = { 10, 5, 3 };
 
-	for(int i = 2; i >= 0; --i)
-		for(int j = 0; j < iter[i]; j++) {
+	for (int i = 2; i >= 0; --i)
+		for (int j = 0; j < iter[i]; j++) {
 
 			cost = ICPReduceSum(src, ref, i, host_a.data(), host_b.data());
-//			std::cout << "Last ICP Error: " << cost << std::endl;
 
 			Eigen::Matrix<double, 6, 6> dA_icp = host_a.cast<double>();
 			Eigen::Matrix<double, 6, 1> db_icp = host_b.cast<double>();
 
 //			cost = RGBReduceSum(mNextFrame, mLastFrame, i, host_a.data(), host_b.data());
-//			std::cout << "Last RGB Error: " << cost << std::endl;
-
 //			Eigen::Matrix<double, 6, 6> dA_rgb = host_a.cast<double>();
 //			Eigen::Matrix<double, 6, 1> db_rgb = host_b.cast<double>();
-
 //			Eigen::Matrix<double, 6, 6> dA = w * w * dA_icp + dA_rgb;
 //			Eigen::Matrix<double, 6, 1> db = w * db_icp + db_rgb;
+
 			Eigen::Matrix<double, 6, 6> dA = dA_icp;
 			Eigen::Matrix<double, 6, 1> db = db_icp;
 			result = dA.ldlt().solve(db);
 			auto e = Sophus::SE3d::exp(result);
 			auto dT = e.matrix();
 
-//			Eigen::Matrix<double, 4, 4> Tc = Converter::TransformToEigen(src.mRcw, src.mtcw);
-//			Eigen::Matrix<double, 4, 4> Tp = Converter::TransformToEigen(ref.mRcw, ref.mtcw);
 			Eigen::Matrix4d Tc = src.mPose;
 			Eigen::Matrix4d Tp = ref.mPose;
-//			std::cout << "T:\n" << Tc << std::endl;
 			Tc = Tp * (dT.inverse() * Tc.inverse() * Tp).inverse();
-//
-//			Converter::TransformToCv(Tc, src.mRcw, src.mtcw);
 			src.SetPose(Tc);
-//			src.mRwc = src.mRcw.t();
-	}
-
+		}
 	return true;
 }

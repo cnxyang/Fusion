@@ -1,5 +1,5 @@
-#ifndef __MAP_H__
-#define __MAP_H__
+#ifndef MAPPING_HPP__
+#define MAPPING_HPP__
 
 #include "Frame.hpp"
 #include "DeviceFunc.h"
@@ -9,10 +9,10 @@
 #include <vector>
 #include <opencv2/opencv.hpp>
 
-class Map {
+class Mapping {
 public:
-	Map();
-	~Map();
+	Mapping();
+	~Mapping();
 
 	void AllocateDeviceMemory(MapDesc desc);
 	void ResetDeviceMemory();

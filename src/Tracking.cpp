@@ -4,26 +4,18 @@
 #include "Tracking.hpp"
 #include "Solver.hpp"
 
-Tracking::Tracking() {
-	mpMap = nullptr;
-	mNextState = NOT_INITIALISED;
+Tracking::Tracking():
+mpMap(nullptr),
+mNextState(NOT_INITIALISED){
+
 	mORBMatcher = cv::cuda::DescriptorMatcher::createBFMatcher(cv::NORM_HAMMING);
 }
 
-bool Tracking::GrabImageRGBD(cv::Mat& imRGB, cv::Mat& imD) {
+bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 
 	mNextFrame = Frame(imRGB, imD);
+	mNextFrame.SetPose(Eigen::Matrix4d::Identity());
 
-	bool bOK = Track();
-	if(!bOK)
-		return false;
-
-	mLastFrame = Frame(mNextFrame);
-
-	return true;
-}
-
-bool Tracking::Track() {
 	bool bOK;
 	switch(mNextState) {
 	case NOT_INITIALISED:
@@ -45,10 +37,13 @@ bool Tracking::Track() {
 		mNextState = OK;
 	}
 
-	return bOK;
+	mLastFrame = Frame(mNextFrame);
+
+	return true;
 }
 
 bool Tracking::CreateInitialMap() {
+
 	mpMap->SetFirstFrame(mNextFrame);
 //	mbNeedNewKF = true;
 	mNextState = OK;
@@ -57,6 +52,7 @@ bool Tracking::CreateInitialMap() {
 }
 
 bool Tracking::TrackLastFrame() {
+
 	mNextFrame.SetPose(mLastFrame);
 	bool bOK = TrackFrame();
 	if(!bOK)
@@ -111,14 +107,15 @@ void Tracking::TrackICP() {
 
 	Eigen::Matrix4d Td;
 	Solver::SolveICP(mNextFrame, mLastFrame, Td);
-//	ShowResiduals();
 }
 
 void Tracking::AddObservation(const Rendering& render) {
+
 	mLastFrame = Frame(mLastFrame, render);
 }
 
-void Tracking::SetMap(Map* pMap) {
+void Tracking::SetMap(Mapping* pMap) {
+
 	mpMap = pMap;
 }
 

@@ -2,19 +2,23 @@
 #include "DeviceFunc.h"
 #include <Eigen/Dense>
 
+using namespace cv;
+using namespace std;
+
 int Frame::N[numPyrs];
-cv::Mat Frame::mK[numPyrs];
+Mat Frame::mK[numPyrs];
 bool Frame::mbFirstCall = true;
 float Frame::mDepthCutoff = 8.0f;
 float Frame::mDepthScale = 1000.0f;
-std::pair<int, int> Frame::mPyrRes[numPyrs];
-cv::Ptr<cv::cuda::ORB> Frame::mORB;
+int Frame::mCols[numPyrs];
+int Frame::mRows[numPyrs];
+Ptr<cuda::ORB> Frame::mORB;
 
-Frame::Frame() {}
+Frame::Frame():mNkp(0) {}
 
 Frame::~Frame() { release(); }
 
-Frame::Frame(const Frame& other) {
+Frame::Frame(const Frame& other):mNkp(0) {
 
 	for(int i = 0; i < numPyrs; ++i) {
 		other.mDepth[i].copyTo(mDepth[i]);
@@ -29,9 +33,6 @@ Frame::Frame(const Frame& other) {
 	mKeyPoints = other.mKeyPoints;
 	other.mDescriptors.copyTo(mDescriptors);
 
-//	mRcw = other.mRcw.clone();
-//	mtcw = other.mtcw.clone();
-//	mRwc = other.mRwc.clone();
 	mPose = other.mPose;
 	mPoseInv = other.mPoseInv;
 }
@@ -57,16 +58,8 @@ Frame::Frame(const Frame& other, const Rendering& observation) {
 	mMapPoints = other.mMapPoints;
 	mKeyPoints = other.mKeyPoints;
 	other.mDescriptors.copyTo(mDescriptors);
-//	mRcw = other.mRcw.clone();
-//	mtcw = other.mtcw.clone();
-//	mRwc = other.mRwc.clone();
 	mPose = other.mPose;
 	mPoseInv = other.mPoseInv;
-
-	int p = 0;
-//	cv::Mat test(mdIx[p].rows(), mdIx[p].cols(), CV_32FC1);
-//	mdIx[p].download((void*)test.data, test.step);
-//	cv::imshow("test", test);
 }
 
 Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
@@ -74,24 +67,24 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 	if(mbFirstCall) {
 		mORB = cv::cuda::ORB::create(1000, 1.2f, 8, 31, 0, 2, cv::cuda::ORB::FAST_SCORE);
 		for(int i = 0; i < numPyrs; ++i) {
-			mPyrRes[i].first = imD.cols / (1 << i);
-			mPyrRes[i].second = imD.rows / (1 << i);
-			N[i] = mPyrRes[i].first * mPyrRes[i].second;
+			mCols[i] = imD.cols / (1 << i);
+			mRows[i] = imD.rows / (1 << i);
+			N[i] = mCols[i] * mRows[i];
 		}
 		mbFirstCall = false;
 	}
 
-	DeviceArray2D<uchar3> rawRGB(mPyrRes[0].first, mPyrRes[0].second);
-	DeviceArray2D<ushort> rawDepth(mPyrRes[0].first, mPyrRes[0].second);
-	rawRGB.upload((void*)imRGB.data, imRGB.step, mPyrRes[0].first, mPyrRes[0].second);
-	rawDepth.upload((void*)imD.data, imD.step, mPyrRes[0].first, mPyrRes[0].second);
+	DeviceArray2D<uchar3> rawRGB(cols(0), rows(0));
+	DeviceArray2D<ushort> rawDepth(cols(0), rows(0));
+	rawRGB.upload((void*)imRGB.data, imRGB.step, cols(0), rows(0));
+	rawDepth.upload((void*)imD.data, imD.step, cols(0), rows(0));
 	for(int i = 0; i < numPyrs; ++i) {
-		mdIx[i].create(mPyrRes[i].first, mPyrRes[i].second);
-		mdIy[i].create(mPyrRes[i].first, mPyrRes[i].second);
-		mGray[i].create(mPyrRes[i].first, mPyrRes[i].second);
-		mVMap[i].create(mPyrRes[i].first, mPyrRes[i].second);
-		mNMap[i].create(mPyrRes[i].first, mPyrRes[i].second);
-		mDepth[i].create(mPyrRes[i].first, mPyrRes[i].second);
+		mdIx[i].create(cols(i), rows(i));
+		mdIy[i].create(cols(i), rows(i));
+		mGray[i].create(cols(i), rows(i));
+		mVMap[i].create(cols(i), rows(i));
+		mNMap[i].create(cols(i), rows(i));
+		mDepth[i].create(cols(i), rows(i));
 		if(i == 0) {
 			BilateralFiltering(rawDepth, mDepth[0], mDepthScale);
 			ColourImageToIntensity(rawRGB, mGray[0]);
@@ -105,17 +98,13 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 		ComputeDerivativeImage(mGray[i], mdIx[i], mdIy[i]);
 	}
 
-	cv::cuda::GpuMat GrayTemp, DescTemp;
-	std::vector<cv::KeyPoint> KPTemp;
+	cuda::GpuMat GrayTemp, DescTemp;
+	vector<KeyPoint> KPTemp;
 	GrayTemp.create(rows(0), cols(0), CV_8UC1);
 	SafeCall(cudaMemcpy2D((void*)GrayTemp.data, GrayTemp.step,
-				 (void*)mGray[0], mGray[0].step(), sizeof(char) * mGray[0].cols(),
-				 mGray[0].rows(), cudaMemcpyDeviceToDevice));
-	mORB->detectAndCompute(GrayTemp, cv::cuda::GpuMat(), KPTemp, DescTemp);
-
-	cv::Mat out;
-	cv::drawKeypoints(imRGB, KPTemp, out);
-	cv::imshow("kp", out);
+			(void*)mGray[0], mGray[0].step(), sizeof(char) * mGray[0].cols(),
+			 mGray[0].rows(), cudaMemcpyDeviceToDevice));
+	mORB->detectAndCompute(GrayTemp, cuda::GpuMat(), KPTemp, DescTemp);
 
 	mNkp = KPTemp.size();
 	std::vector<int> index;
@@ -146,18 +135,9 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 		mNkp = mMapPoints.size();
 		RemoveBadDescriptors(DescTemp, mDescriptors, index);
 	}
-
-//	mRcw = cv::Mat::eye(3, 3, CV_32FC1);
-//	mtcw = cv::Mat::zeros(3, 1, CV_32FC1);
-//	mRwc = mRcw.t();
-	mPose = Eigen::Matrix4d::Identity();
-	mPoseInv = Eigen::Matrix4d::Identity();
 }
 
 void Frame::SetPose(const Frame& frame) {
-//	mRcw = frame.mRcw.clone();
-//	mRwc = frame.mRwc.clone();
-//	mtcw = frame.mtcw.clone();
 	mPose = frame.mPose;
 	mPoseInv = frame.mPoseInv;
 }
@@ -242,12 +222,12 @@ float Frame::cy(int pyr) {
 
 int Frame::cols(int pyr) {
 	assert(pyr >= 0 && pyr <= numPyrs);
-	return mPyrRes[pyr].first;
+	return mCols[pyr];
 }
 
 int Frame::rows(int pyr) {
 	assert(pyr >= 0 && pyr <= numPyrs);
-	return mPyrRes[pyr].second;
+	return mRows[pyr];
 }
 
 int Frame::pixels(int pyr) {
