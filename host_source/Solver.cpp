@@ -29,6 +29,7 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 	float ratio = 0.0f;
 	float confidence = 0.0f;
 	float threshold = 0.05f;
+	const float confi = 0.05f;
 	const int maxIter = 100;
 	const int minIter = 20;
 	while (nIter < maxIter) {
@@ -83,18 +84,18 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 		Matrix3d R = (V * U.transpose()).transpose();
 		Vector3d t = src_mean - R * ref_mean;
 
-		int inliers = 0;
+		int nInliers = 0;
 		outlier.resize(src.size());
 		fill(outlier.begin(), outlier.end(), true);
 		for (int i = 0; i < src.size(); ++i) {
 			double d = (src[i] - (R * ref[i] + t)).norm();
 			if (d <= threshold) {
-				inliers++;
+				nInliers++;
 				outlier[i] = false;
 			}
 		}
 
-		if (inliers > inliers_best) {
+		if (nInliers > inliers_best) {
 
 			Ab = Matrix3d::Zero();
 			src_mean = Vector3d::Zero();
@@ -106,8 +107,8 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 				}
 			}
 
-			src_mean /= inliers;
-			ref_mean /= inliers;
+			src_mean /= nInliers;
+			ref_mean /= nInliers;
 
 			for (int i = 0; i < outlier.size(); ++i) {
 				if (!outlier[i]) {
@@ -120,22 +121,24 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 			U = svd.matrixU();
 			R_best = (V * U.transpose()).transpose();
 			t_best = src_mean - R_best * ref_mean;
-			inliers_best = inliers;
+			inliers_best = nInliers;
 
-			ratio = (float)inliers / src.size();
+			ratio = (float)nInliers / src.size();
 			confidence = log(1 - 0.99) / log(1 - pow(ratio, 3));
 			cout << "inliers: " << ratio << endl;
-			cout << "confi:" << confidence << endl;
+			cout << "confidence:" << confidence << endl;
 
-			int nOutlier = src.size() - inliers;
-			int nExpInlier = (int)(src.size() * 0.5);
-			int nExpOutlier = src.size() - nExpInlier;
+			float config = pow((1 - pow(ratio, 3)), nIter + 1);
 
-			float chi2 = pow(inliers - nExpInlier, 2) / (float)nExpInlier;
+			int nOutliers = src.size() - nInliers;
+			int nExpInliers = (int)(src.size() * 0.5);
+			int nExpOutliers = src.size() - nExpInliers;
+
+			float chi2 = pow(nInliers - nExpInliers, 2) / (float)nExpInliers;
 			float t = sqrtf(0.95 * 0.5 / chi2);
 			cout << "t:" << t << " chi2:" << chi2 << endl;
 
-			if(nIter > minIter && nIter > (int)confidence) {
+			if(nIter > minIter && nIter > (int)confidence && config < confi) {
 				break;
 			}
 		}

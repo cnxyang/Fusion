@@ -54,11 +54,19 @@ bool Tracking::TrackLastFrame() {
 	bool bOK = TrackFrame();
 	if(!bOK)
 		return false;
-//	TrackICP();
+	TrackICP();
 	return true;
 }
 
 bool Tracking::TrackFrame() {
+
+//	MatchSiftData(mNextFrame.mSiftKeys, mLastFrame.mSiftKeys);
+//	SiftPoint* data = mNextFrame.mSiftKeys.d_data;
+//	cout << mNextFrame.mSiftKeys.numPts << endl;
+//	for(int i = 0; i < mNextFrame.mSiftKeys.numPts; ++i) {
+//		SiftPoint* ptr = &data[i];
+//		cout << ptr->ambiguity << endl;
+//	}
 
 	std::vector<cv::DMatch> Matches;
 	std::vector<std::vector<cv::DMatch>> matches;
