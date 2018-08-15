@@ -1,4 +1,4 @@
-#include "Map.h"
+#include "Map.hpp"
 #include "DeviceStruct.h"
 
 struct HashRayCaster

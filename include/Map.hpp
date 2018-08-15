@@ -1,8 +1,7 @@
 #ifndef __MAP_H__
 #define __MAP_H__
 
-#include "Frame.h"
-#include "KeyFrame.h"
+#include "Frame.hpp"
 #include "DeviceFunc.h"
 #include "DeviceArray.h"
 #include "DeviceStruct.h"
@@ -48,7 +47,6 @@ public:
 	std::vector<MapPoint> mMapPoints_new;
 	cv::cuda::GpuMat mDescriptors;
 	cv::cuda::GpuMat mDescriptors_new;
-	std::vector<KeyFrame> mvKeyFrames;
 };
 
 #endif

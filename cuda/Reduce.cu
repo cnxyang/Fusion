@@ -1,5 +1,4 @@
-#include "Frame.h"
-#include "Converter.h"
+#include "Frame.hpp"
 #include "DeviceMath.h"
 #include "DeviceFunc.h"
 #include "DeviceArray.h"
@@ -183,11 +182,11 @@ float ICPReduceSum(Frame& NextFrame, Frame& LastFrame,
 	icp.cols = Frame::cols(pyr);
 	icp.rows = Frame::rows(pyr);
 	icp.N = Frame::pixels(pyr);
-	icp.Rcurr = NextFrame.mRcw;
-	icp.tcurr = Converter::CvMatToFloat3(NextFrame.mtcw);
-	icp.Rlast = LastFrame.mRcw;
-	icp.invRlast = LastFrame.mRwc;
-	icp.tlast = Converter::CvMatToFloat3(LastFrame.mtcw);
+	icp.Rcurr = NextFrame.Rot_gpu();
+	icp.tcurr = NextFrame.Trans_gpu();
+	icp.Rlast = LastFrame.Rot_gpu();
+	icp.invRlast = LastFrame.RotInv_gpu();
+	icp.tlast = LastFrame.Trans_gpu();
 	icp.angleThresh = 0.6;
 	icp.distThresh = 0.1;
 	icp.fx = Frame::fx(pyr);
@@ -339,11 +338,11 @@ float RGBReduceSum(Frame& NextFrame, Frame& LastFrame,
 	rgb.cols = Frame::cols(pyr);
 	rgb.rows = Frame::rows(pyr);
 	rgb.N = Frame::pixels(pyr);
-	rgb.Rcurr = NextFrame.mRcw;
-	rgb.tcurr = Converter::CvMatToFloat3(NextFrame.mtcw);
-	rgb.Rlast = LastFrame.mRcw;
-	rgb.invRlast = LastFrame.mRwc;
-	rgb.tlast = Converter::CvMatToFloat3(LastFrame.mtcw);
+	rgb.Rcurr = NextFrame.Rot_gpu();
+	rgb.tcurr = NextFrame.Trans_gpu();
+	rgb.Rlast = LastFrame.Rot_gpu();
+	rgb.invRlast = LastFrame.RotInv_gpu();
+	rgb.tlast = LastFrame.Trans_gpu();
 	rgb.fx = Frame::fx(pyr);
 	rgb.fy = Frame::fy(pyr);
 	rgb.cx = Frame::cx(pyr);

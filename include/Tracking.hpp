@@ -1,26 +1,24 @@
 #ifndef __TRACKING_H__
 #define __TRACKING_H__
 
-#include "Map.h"
-#include "Frame.h"
+#include "Map.hpp"
+#include "Frame.hpp"
 #include <vector>
+
+using namespace cv;
 
 class Tracking {
 public:
 	Tracking();
 	void SetMap(Map* pMap);
-	bool GrabImageRGBD(cv::Mat& imRGB, cv::Mat& imD);
+	bool GrabImageRGBD(Mat& imRGB, Mat& imD);
 	void AddObservation(const Rendering& render);
 
 public:
 	bool Track();
-	bool TrackMap();
 	void TrackICP();
 	bool TrackFrame();
 	bool CreateInitialMap();
-	void NeedNewKeyFrame();
-	void CreateKeyFrame();
-	bool Relocalisation();
 	bool TrackLastFrame();
 	void ShowResiduals();
 
@@ -30,17 +28,12 @@ public:
 		LOST
 	};
 
-	int mNoFrames;
-	bool mbNeedNewKF;
-	float cost;
-	const int iter[3] = { 10, 5, 3 };
 	Frame mLastFrame;
 	Frame mNextFrame;
-	KeyFrame mLastKeyFrame;
 	State mNextState;
-	cv::Mat mK;
+	Mat mK;
 	Map* mpMap;
-	cv::Ptr<cv::cuda::DescriptorMatcher> mORBMatcher;
+	Ptr<cuda::DescriptorMatcher> mORBMatcher;
 };
 
 #endif

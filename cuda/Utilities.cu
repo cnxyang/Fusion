@@ -1,4 +1,3 @@
-#include "Converter.h"
 #include "DeviceFunc.h"
 #include "DeviceMath.h"
 #include "DeviceArray.h"
@@ -106,15 +105,17 @@ void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2,
 	dim3 block(8, 8);
 	dim3 grid(cv::divUp(diff.cols(), block.x), cv::divUp(diff.rows(), block.y));
 
-	float3 t1 = Converter::CvMatToFloat3(frame1.mtcw);
-	float3 t2 = Converter::CvMatToFloat3(frame2.mtcw);
+//	Matrix3f
+//	float3 t1 = Converter::CvMatToFloat3(frame1.mtcw);
+//	float3 t2 = Converter::CvMatToFloat3(frame2.mtcw);
 
 	const int pyrlvl = 0;
 
 	WarpGrayScaleImage_device<<<grid, block>>>(frame1.mVMap[pyrlvl], frame2.mGray[pyrlvl],
-																				frame1.mRcw, frame2.mRwc, t1, t2,
-																				Frame::fx(pyrlvl), Frame::fy(pyrlvl),
-																				Frame::cx(pyrlvl), Frame::cy(pyrlvl), diff);
+											   frame1.Rot_gpu(), frame2.RotInv_gpu(),
+											   frame1.Trans_gpu(), frame2.Trans_gpu(),
+											   Frame::fx(pyrlvl), Frame::fy(pyrlvl),
+											   Frame::cx(pyrlvl), Frame::cy(pyrlvl), diff);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());

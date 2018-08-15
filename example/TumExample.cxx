@@ -8,9 +8,8 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
 
-#include "Frame.h"
-#include "Tracking.h"
-#include "Converter.h"
+#include "Frame.hpp"
+#include "Tracking.hpp"
 
 enum MemRepType {
 	Byte = 1,
@@ -123,11 +122,11 @@ int main(int argc, char ** argv) {
 			rd.fy = K.at<float>(1, 1);
 			rd.cx = K.at<float>(0, 2);
 			rd.cy = K.at<float>(1, 2);
-			rd.Rview = Tracker.mLastFrame.mRcw;
-			rd.invRview = Tracker.mLastFrame.mRwc;
+			rd.Rview = Tracker.mLastFrame.Rot_gpu();
+			rd.invRview = Tracker.mLastFrame.RotInv_gpu();
 			rd.maxD = 5.0f;
 			rd.minD = 0.1f;
-			rd.tview = Converter::CvMatToFloat3(Tracker.mLastFrame.mtcw);
+			rd.tview = Tracker.mLastFrame.Trans_gpu();
 
 			map.RenderMap(rd, no);
 			Tracker.AddObservation(rd);
@@ -141,11 +140,12 @@ int main(int argc, char ** argv) {
 			// Render some stuff
 			glColor3f(0.5, 1.0, 1.0);
 
-			vertices.push_back(5 * Tracker.mNextFrame.mtcw.at<float>(0));
-			vertices.push_back(5 * Tracker.mNextFrame.mtcw.at<float>(1));
-			vertices.push_back(5 * Tracker.mNextFrame.mtcw.at<float>(2));
+			vertices.push_back(5 * rd.tview.x);
+			vertices.push_back(5 * rd.tview.y);
+			vertices.push_back(5 * rd.tview.z);
 
-			Eigen::Matrix4d Tc = Converter::TransformToEigen(Tracker.mNextFrame.mRcw, Tracker.mNextFrame.mtcw);
+			Eigen::Matrix4d& Tc = Tracker.mNextFrame.mPose;
+//			Eigen::Matrix4d Tc = Converter::TransformToEigen(Tracker.mNextFrame.mRcw, Tracker.mNextFrame.mtcw);
 			for(int j = 0; j < Tracker.mNextFrame.mMapPoints.size(); ++j) {
 				Eigen::Vector3d f = Tc.topLeftCorner(3, 3) * Tracker.mNextFrame.mMapPoints[j].pos + Tc.topRightCorner(3, 1);
 				features.push_back(5 * f(0));

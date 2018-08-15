@@ -1,4 +1,4 @@
-#include "Camera.h"
+#include "Camera.hpp"
 
 CameraNI::CameraNI()
 :mCols(640), mRows(480), mFPS(30), mpDevice(nullptr),

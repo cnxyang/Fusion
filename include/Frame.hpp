@@ -17,8 +17,17 @@ public:
 	Frame(const Frame& other, const Rendering& observation);
 	Frame(const cv::Mat& imRGB, const cv::Mat& imD);
 
-	void SetPose(const Frame& frame);
 	void release();
+
+	void SetPose(const Frame& frame);
+	void SetPose(const Eigen::Matrix4d T);
+
+	Eigen::Matrix3d Rotation();
+	Eigen::Vector3d Translation();
+
+	float3 Trans_gpu() const;
+	Matrix3f Rot_gpu() const;
+	Matrix3f RotInv_gpu() const;
 
 	static const int numPyrs = 3;
 	static cv::Mat mK[numPyrs];
@@ -53,9 +62,11 @@ public:
 	std::vector<MapPoint> mMapPoints;
 	std::vector<cv::KeyPoint> mKeyPoints;
 	cv::cuda::GpuMat mDescriptors;
-	cv::Mat mRcw;
-	cv::Mat mRwc;
-	cv::Mat mtcw;
+	Eigen::Matrix4d mPose;
+	Eigen::Matrix4d mPoseInv;
+//	cv::Mat mRcw;
+//	cv::Mat mRwc;
+//	cv::Mat mtcw;
 	int mNkp;
 };
 

@@ -1,5 +1,4 @@
-#include "Map.h"
-#include "Converter.h"
+#include "Map.hpp"
 #include "DeviceArray.h"
 #include "DeviceMath.h"
 
@@ -324,9 +323,9 @@ int Map::FuseFrame(const Frame& frame) {
 		int pyr = 0;
 		HashIntegrator HI;
 		HI.map = *this;
-		HI.R_curr = frame.mRcw;
-		HI.R_inv = frame.mRwc;
-		HI.t_curr = Converter::CvMatToFloat3(frame.mtcw);
+		HI.R_curr = frame.Rot_gpu();
+		HI.R_inv = frame.RotInv_gpu();
+		HI.t_curr = frame.Trans_gpu();
 		HI.fx = Frame::fx(pyr);
 		HI.fy = Frame::fy(pyr);
 		HI.cx = Frame::cx(pyr);

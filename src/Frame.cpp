@@ -1,6 +1,6 @@
-#include "Frame.h"
-#include "Converter.h"
+#include "Frame.hpp"
 #include "DeviceFunc.h"
+#include <Eigen/Dense>
 
 int Frame::N[numPyrs];
 cv::Mat Frame::mK[numPyrs];
@@ -29,9 +29,11 @@ Frame::Frame(const Frame& other) {
 	mKeyPoints = other.mKeyPoints;
 	other.mDescriptors.copyTo(mDescriptors);
 
-	mRcw = other.mRcw.clone();
-	mtcw = other.mtcw.clone();
-	mRwc = other.mRwc.clone();
+//	mRcw = other.mRcw.clone();
+//	mtcw = other.mtcw.clone();
+//	mRwc = other.mRwc.clone();
+	mPose = other.mPose;
+	mPoseInv = other.mPoseInv;
 }
 
 Frame::Frame(const Frame& other, const Rendering& observation) {
@@ -55,14 +57,16 @@ Frame::Frame(const Frame& other, const Rendering& observation) {
 	mMapPoints = other.mMapPoints;
 	mKeyPoints = other.mKeyPoints;
 	other.mDescriptors.copyTo(mDescriptors);
-	mRcw = other.mRcw.clone();
-	mtcw = other.mtcw.clone();
-	mRwc = other.mRwc.clone();
+//	mRcw = other.mRcw.clone();
+//	mtcw = other.mtcw.clone();
+//	mRwc = other.mRwc.clone();
+	mPose = other.mPose;
+	mPoseInv = other.mPoseInv;
 
 	int p = 0;
-	cv::Mat test(mdIx[p].rows(), mdIx[p].cols(), CV_32FC1);
-	mdIx[p].download((void*)test.data, test.step);
-	cv::imshow("test", test);
+//	cv::Mat test(mdIx[p].rows(), mdIx[p].cols(), CV_32FC1);
+//	mdIx[p].download((void*)test.data, test.step);
+//	cv::imshow("test", test);
 }
 
 Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
@@ -143,15 +147,19 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 		RemoveBadDescriptors(DescTemp, mDescriptors, index);
 	}
 
-	mRcw = cv::Mat::eye(3, 3, CV_32FC1);
-	mtcw = cv::Mat::zeros(3, 1, CV_32FC1);
-	mRwc = mRcw.t();
+//	mRcw = cv::Mat::eye(3, 3, CV_32FC1);
+//	mtcw = cv::Mat::zeros(3, 1, CV_32FC1);
+//	mRwc = mRcw.t();
+	mPose = Eigen::Matrix4d::Identity();
+	mPoseInv = Eigen::Matrix4d::Identity();
 }
 
 void Frame::SetPose(const Frame& frame) {
-	mRcw = frame.mRcw.clone();
-	mRwc = frame.mRwc.clone();
-	mtcw = frame.mtcw.clone();
+//	mRcw = frame.mRcw.clone();
+//	mRwc = frame.mRwc.clone();
+//	mtcw = frame.mtcw.clone();
+	mPose = frame.mPose;
+	mPoseInv = frame.mPoseInv;
 }
 
 void Frame::release() {
@@ -164,6 +172,42 @@ void Frame::release() {
 		mDepth[i].release();
 		mDescriptors.release();
 	}
+}
+
+Matrix3f Frame::Rot_gpu() const {
+	Matrix3f Rot;
+	Rot.rowx = make_float3(mPose(0, 0), mPose(0, 1), mPose(0, 2));
+	Rot.rowy = make_float3(mPose(1, 0), mPose(1, 1), mPose(1, 2));
+	Rot.rowz = make_float3(mPose(2, 0), mPose(2, 1), mPose(2, 2));
+	return Rot;
+}
+
+Matrix3f Frame::RotInv_gpu() const {
+	Matrix3f Rot;
+	Rot.rowx = make_float3(mPoseInv(0, 0), mPoseInv(0, 1), mPoseInv(0, 2));
+	Rot.rowy = make_float3(mPoseInv(1, 0), mPoseInv(1, 1), mPoseInv(1, 2));
+	Rot.rowz = make_float3(mPoseInv(2, 0), mPoseInv(2, 1), mPoseInv(2, 2));
+	return Rot;
+}
+
+float3 Frame::Trans_gpu() const {
+	return make_float3(mPose(0, 3), mPose(1, 3), mPose(2, 3));
+}
+
+void Frame::SetPose(const Eigen::Matrix4d T) {
+	mPose = T;
+	Eigen::Matrix3d R = Rotation().transpose();
+	Eigen::Vector3d t = -R * Translation();
+	mPoseInv.topLeftCorner(3, 3) = R;
+	mPoseInv.topRightCorner(3, 1) = t;
+}
+
+Eigen::Matrix3d Frame::Rotation() {
+	return mPose.topLeftCorner(3, 3);
+}
+
+Eigen::Vector3d Frame::Translation() {
+	return mPose.topRightCorner(3, 1);
 }
 
 void Frame::SetK(cv::Mat& K) {

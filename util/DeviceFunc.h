@@ -1,7 +1,7 @@
 #ifndef __IMAGE_PROC__
 #define __IMAGE_PROC__
 
-#include "Frame.h"
+#include "Frame.hpp"
 #include "DeviceArray.h"
 #include "DeviceStruct.h"
 

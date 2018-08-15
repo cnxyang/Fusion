@@ -1,4 +1,3 @@
-#include "Converter.h"
 #include "DeviceArray.h"
 #include "DeviceMath.h"
 #include "DeviceFunc.h"
