@@ -1,15 +1,12 @@
-/*
- * CameraNI.h
- *
- *  Created on: 18 Feb 2018
- *      Author: xy
- */
-
-#ifndef CameraNI_H
-#define CameraNI_H
+#ifndef __CAMERA__
+#define __CAMERA__
 
 #include <OpenNI.h>
 #include <opencv2/opencv.hpp>
+
+using openni::Device;
+using openni::VideoStream;
+using openni::VideoFrameRef;
 
 class CameraNI
 {
@@ -31,11 +28,11 @@ private:
 	void FetchDepthFrame(cv::Mat&);
 
 	int mCols, mRows, mFPS;
-	openni::Device * mpDevice;
-	openni::VideoStream * mpColorStream;
-	openni::VideoStream * mpDepthStream;
-	openni::VideoFrameRef * mpColorFrame;
-	openni::VideoFrameRef * mpDepthFrame;
+	Device* 			mpDevice;
+	VideoStream* 		mpColorStream;
+	VideoStream* 		mpDepthStream;
+	VideoFrameRef* 		mpColorFrame;
+	VideoFrameRef* 		mpDepthFrame;
 };
 
 #endif

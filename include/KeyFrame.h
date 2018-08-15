@@ -8,7 +8,7 @@ public:
 	KeyFrame(const Frame& frame);
 
 public:
-	std::vector<MapPoint> mMapPoints;
+	std::vector<MapPoint> mvpMapPoints;
 	cv::cuda::GpuMat mDescriptors;
 	cv::Mat mRcw, mRwc;
 	cv::Mat mtcw;

@@ -48,7 +48,7 @@ bool Tracking::Track() {
 	bool bOK;
 	switch(mNextState) {
 	case NOT_INITIALISED:
-		bOK = InitTracking();
+		bOK = CreateInitialMap();
 		break;
 
 	case OK:
@@ -71,7 +71,7 @@ bool Tracking::Track() {
 	return bOK;
 }
 
-bool Tracking::InitTracking() {
+bool Tracking::CreateInitialMap() {
 	mpMap->SetFirstFrame(mNextFrame);
 	mbNeedNewKF = true;
 	mNextState = OK;
@@ -152,7 +152,7 @@ bool Tracking::TrackFrame() {
 		int queryId = Matches[i].queryIdx;
 		int trainId = Matches[i].trainIdx;
 		MapPoint& queryPt = mNextFrame.mMapPoints[queryId];
-		MapPoint& trainPt = mLastKeyFrame.mMapPoints[trainId];
+		MapPoint& trainPt = mLastKeyFrame.mvpMapPoints[trainId];
 
 //		Eigen::Vector3d p, q;
 //		p << queryPt.pos.x, queryPt.pos.y,  queryPt.pos.z;
@@ -286,92 +286,92 @@ bool Tracking::TrackFrame() {
 	Eigen::Matrix4d Tc = Eigen::Matrix4d::Identity();
 	Td.topLeftCorner(3, 3) = best_R;
 	Td.topRightCorner(3, 1) = best_t;
-//	Tc =  Td.inverse() * Tp;
+	Tc =  Td.inverse() * Tp;
 
-	g2o::SparseOptimizer optimizer;
-	std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver = g2o::make_unique<g2o::LinearSolverDense<g2o::BlockSolver_6_3::PoseMatrixType>>();
-	g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(
-	    g2o::make_unique<g2o::BlockSolver_6_3>(std::move(linearSolver))
-	);
-	optimizer.setAlgorithm(solver);
-	optimizer.setVerbose(true);
-
-	g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
-	g2o::SE3Quat pose(best_R, best_t);
-//	g2o::SE3Quat pose(Eigen::Matrix3d::Identity(), Eigen::Vector3d::Zero());
-	std::cout << "Pose Before Optimize: \n" << Td << std::endl;
-	vSE3->setEstimate(pose);
-	vSE3->setId(0);
-	vSE3->setFixed(false);
-	optimizer.addVertex(vSE3);
-
-	std::vector<g2o::EdgeSE3ProjectXYZ*> edgeList;
-	for(int i = 0; i < Matches.size(); i++) {
-		int queryId = Matches[i].queryIdx;
-		int trainId = Matches[i].trainIdx;
-		MapPoint& queryPt = mNextFrame.mMapPoints[queryId];
-		MapPoint& trainPt = mLastKeyFrame.mMapPoints[trainId];
-
-		g2o::VertexSBAPointXYZ * vp = new g2o::VertexSBAPointXYZ();
-		vp->setId(i+1);
-		vp->setFixed(true);
-		vp->setEstimate(trainPt.pos);
-		optimizer.addVertex(vp);
-
-        g2o::EdgeSE3ProjectXYZ* e = new g2o::EdgeSE3ProjectXYZ();
-
-        e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(i+1)));
-        e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(0)));
-        e->setMeasurement(queryPt.uv);
-        e->setInformation(Eigen::Matrix2d::Identity());
-        g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
-        e->setRobustKernel(rk);
-
-        e->fx = Frame::fx(0);
-        e->fy = Frame::fy(0);
-        e->cx = Frame::cx(0);
-        e->cy = Frame::cy(0);
-
-//        std::cout << "true pose: \n" << trainPt.pos << "\n"
-//        		  << "observation : \n " << queryPt.uv << "\n"
-//        		  << "estimation: \n " << e->cam_project(vSE3->estimate().map(vp->estimate())) << std::endl;
-
-        optimizer.addEdge(e);
-        edgeList.push_back(e);
-	}
-
-
-	for(size_t it=0; it<4; it++) {
-
-		vSE3->setEstimate(pose);
-		optimizer.initializeOptimization(0);
-		optimizer.optimize(10);
-		for(size_t i=0, iend=edgeList.size(); i<iend; i++) {
-			g2o::EdgeSE3ProjectXYZ* e = edgeList[i];
-			if(e->level() == 0) {
-				e->computeError();
-			}
-			const float chi2 = e->chi2();
-			if(chi2 > 0.89) {
-				e->setLevel(1);
-			}
-		}
-	}
-
-	int inliners = 0;
-	for(size_t i=0, iend=edgeList.size(); i<iend; i++) {
-		g2o::EdgeSE3ProjectXYZ* e = edgeList[i];
-		if(e->level() == 0) {
-			inliners++;
-		}
-	}
-
-	std::cout << "inliners: " << inliners << std::endl;
-
-    g2o::VertexSE3Expmap* vSE3_recov = static_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(0));
-    g2o::SE3Quat SE3quat_recov = vSE3_recov->estimate();
-    Eigen::Matrix<double,4,4> eigMat = SE3quat_recov.to_homogeneous_matrix();
-    Tc = eigMat.inverse() * Tp;
+//	g2o::SparseOptimizer optimizer;
+//	std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver = g2o::make_unique<g2o::LinearSolverDense<g2o::BlockSolver_6_3::PoseMatrixType>>();
+//	g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(
+//	    g2o::make_unique<g2o::BlockSolver_6_3>(std::move(linearSolver))
+//	);
+//	optimizer.setAlgorithm(solver);
+//	optimizer.setVerbose(true);
+//
+//	g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
+//	g2o::SE3Quat pose(best_R, best_t);
+////	g2o::SE3Quat pose(Eigen::Matrix3d::Identity(), Eigen::Vector3d::Zero());
+//	std::cout << "Pose Before Optimize: \n" << Td << std::endl;
+//	vSE3->setEstimate(pose);
+//	vSE3->setId(0);
+//	vSE3->setFixed(false);
+//	optimizer.addVertex(vSE3);
+//
+//	std::vector<g2o::EdgeSE3ProjectXYZ*> edgeList;
+//	for(int i = 0; i < Matches.size(); i++) {
+//		int queryId = Matches[i].queryIdx;
+//		int trainId = Matches[i].trainIdx;
+//		MapPoint& queryPt = mNextFrame.mMapPoints[queryId];
+//		MapPoint& trainPt = mLastKeyFrame.mvpMapPoints[trainId];
+//
+//		g2o::VertexSBAPointXYZ * vp = new g2o::VertexSBAPointXYZ();
+//		vp->setId(i+1);
+//		vp->setFixed(true);
+//		vp->setEstimate(trainPt.pos);
+//		optimizer.addVertex(vp);
+//
+//        g2o::EdgeSE3ProjectXYZ* e = new g2o::EdgeSE3ProjectXYZ();
+//
+//        e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(i+1)));
+//        e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(0)));
+//        e->setMeasurement(queryPt.uv);
+//        e->setInformation(Eigen::Matrix2d::Identity());
+//        g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+//        e->setRobustKernel(rk);
+//
+//        e->fx = Frame::fx(0);
+//        e->fy = Frame::fy(0);
+//        e->cx = Frame::cx(0);
+//        e->cy = Frame::cy(0);
+//
+////        std::cout << "true pose: \n" << trainPt.pos << "\n"
+////        		  << "observation : \n " << queryPt.uv << "\n"
+////        		  << "estimation: \n " << e->cam_project(vSE3->estimate().map(vp->estimate())) << std::endl;
+//
+//        optimizer.addEdge(e);
+//        edgeList.push_back(e);
+//	}
+//
+//
+//	for(size_t it=0; it<4; it++) {
+//
+//		vSE3->setEstimate(pose);
+//		optimizer.initializeOptimization(0);
+//		optimizer.optimize(10);
+//		for(size_t i=0, iend=edgeList.size(); i<iend; i++) {
+//			g2o::EdgeSE3ProjectXYZ* e = edgeList[i];
+//			if(e->level() == 0) {
+//				e->computeError();
+//			}
+//			const float chi2 = e->chi2();
+//			if(chi2 > 0.89) {
+//				e->setLevel(1);
+//			}
+//		}
+//	}
+//
+//	int inliners = 0;
+//	for(size_t i=0, iend=edgeList.size(); i<iend; i++) {
+//		g2o::EdgeSE3ProjectXYZ* e = edgeList[i];
+//		if(e->level() == 0) {
+//			inliners++;
+//		}
+//	}
+//
+//	std::cout << "inliners: " << inliners << std::endl;
+//
+//    g2o::VertexSE3Expmap* vSE3_recov = static_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(0));
+//    g2o::SE3Quat SE3quat_recov = vSE3_recov->estimate();
+//    Eigen::Matrix<double,4,4> eigMat = SE3quat_recov.to_homogeneous_matrix();
+//    Tc = eigMat.inverse() * Tp;
     Converter::TransformToCv(Tc, mNextFrame.mRcw, mNextFrame.mtcw);
     mNextFrame.mRwc = mNextFrame.mRcw.t();
 

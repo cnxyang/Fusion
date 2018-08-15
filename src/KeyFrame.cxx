@@ -9,5 +9,5 @@ KeyFrame::KeyFrame(const Frame& frame) {
 	mtcw = frame.mtcw.clone();
 	mRwc = frame.mRwc.clone();
 	frame.mDescriptors.copyTo(mDescriptors);
-	mMapPoints = frame.mMapPoints;
+	mvpMapPoints = frame.mMapPoints;
 }

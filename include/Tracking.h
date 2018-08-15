@@ -17,7 +17,7 @@ public:
 	bool TrackMap();
 	void TrackICP();
 	bool TrackFrame();
-	bool InitTracking();
+	bool CreateInitialMap();
 	void NeedNewKeyFrame();
 	void CreateKeyFrame();
 	bool Relocalisation();

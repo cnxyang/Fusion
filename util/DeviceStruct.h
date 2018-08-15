@@ -18,7 +18,7 @@ static const uint  NUM_ENTRIES		 = BUCKET_SIZE * NUM_BUCKETS;
 static const float DEPTH_MIN		 = 0.1f;
 static const float DEPTH_MAX		 = 3.0f;
 static const float TRUNC_DIST		 = 0.03f;
-static const int   NUM_MAX_TRIANGLES = 2000 * 2000;
+static const int NUM_MAX_TRIANGLES = 2000 * 2000;
 static const int MAX_RENDERING_BLOCKS = 65535 * 4;
 
 struct MapPoint {
