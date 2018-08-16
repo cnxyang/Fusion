@@ -12,8 +12,10 @@
 #include "Tracking.hpp"
 
 enum MemRepType {
-	Byte = 1, KiloByte = 1024, MegaByte = 1024 * 1024, GigaByte = 1024 * 1024
-			* 1024
+	Byte = 1,
+	KiloByte = 1024,
+	MegaByte = 1024 * 1024,
+	GigaByte = 1024 * 1024 * 1024
 };
 
 void CudaCheckMemory(float & free, float & total, const MemRepType factor) {
@@ -49,20 +51,6 @@ int main(int argc, char ** argv) {
 				<< "Please check your input parameters." << std::endl;
 		exit(-1);
 	}
-
-	pangolin::CreateWindowAndBind("main", 1280, 960);
-	// 3D Mouse handler requires depth testing to be enabled
-	glEnable(GL_DEPTH_TEST);
-
-	// Define Camera Render Object (for view / scene browsing)
-	pangolin::OpenGlRenderState s_cam(
-			pangolin::ProjectionMatrix(1280, 960, 840, 840, 640, 480, 0.1,
-					1000),
-			pangolin::ModelViewLookAt(-0, 0.5, -3, 0, 0, 0, pangolin::AxisX));
-
-	// Add named OpenGL viewport to window and provide 3D Handler
-	pangolin::View& d_cam = pangolin::CreateDisplay().SetBounds(0.0, 1.0, 0.0,
-			1.0, -1280.0f / 960.0f).SetHandler(new pangolin::Handler3D(s_cam));
 
 	Tracking Tracker;
 	Mapping map;
@@ -101,11 +89,9 @@ int main(int argc, char ** argv) {
 	std::cout << "----------------------------------------------\n"
 			<< "Total Images to be processed: " << nImages << std::endl;
 	for (int i = 0; i < nImages; ++i) {
+
 		cv::Mat imD = cv::imread(vsDList[i], cv::IMREAD_UNCHANGED);
 		cv::Mat imRGB = cv::imread(vsRGBList[i], cv::IMREAD_UNCHANGED);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		// Activate efficiently by object
-		d_cam.Activate(s_cam);
 
 		auto t1 = std::chrono::steady_clock::now();
 		bool bOK = Tracker.Track(imRGB, imD);
@@ -132,36 +118,10 @@ int main(int argc, char ** argv) {
 			cv::resize(tmp, tmp, cv::Size(tmp.cols * 2, tmp.rows * 2));
 			cv::imshow("img", tmp);
 			cv::imshow("depth", imD);
-
-			// Render some stuff
-			glColor3f(0.5, 1.0, 1.0);
-
-			vertices.push_back(5 * rd.tview.x);
-			vertices.push_back(5 * rd.tview.y);
-			vertices.push_back(5 * rd.tview.z);
-
-			Eigen::Matrix4d& Tc = Tracker.mNextFrame.mPose;
-//			Eigen::Matrix4d Tc = Converter::TransformToEigen(Tracker.mNextFrame.mRcw, Tracker.mNextFrame.mtcw);
-			for (int j = 0; j < Tracker.mNextFrame.mMapPoints.size(); ++j) {
-				Eigen::Vector3d f = Tc.topLeftCorner(3, 3)
-						* Tracker.mNextFrame.mMapPoints[j].pos
-						+ Tc.topRightCorner(3, 1);
-				features.push_back(5 * f(0));
-				features.push_back(5 * f(1));
-				features.push_back(5 * f(2));
-			}
-
-			pangolin::glDrawVertices(vertices.size() / 3,
-					(GLfloat*) &vertices[0], GL_LINE_STRIP, 3);
-			glColor3f(1.0, 0.5, 1.0);
-			pangolin::glDrawVertices(features.size() / 3,
-					(GLfloat*) &features[0], GL_POINTS, 3);
-
-			pangolin::FinishFrame();
 		}
 
 		auto t2 = std::chrono::steady_clock::now();
-		int key = cv::waitKey(0);
+		int key = cv::waitKey(10);
 
 		switch (key) {
 

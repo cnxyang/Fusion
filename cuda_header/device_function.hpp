@@ -23,7 +23,4 @@ void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2, DeviceArray2D<
 void ComputeResidualImage(const DeviceArray2D<uchar>& src, DeviceArray2D<uchar>& residual, const Frame& frame);
 void RenderImage(const DeviceArray2D<float4>& points, const DeviceArray2D<float3>& normals, const float3 & light_pose, DeviceArray2D<uchar4>& image);
 
-//float ICPReduceSum(Frame& NextFrame, Frame& LastFrame, int pyr, float* host_a, float* host_b);
-//float RGBReduceSum(Frame& NextFrame, Frame& LastFrame,  int pyr, float* host_a, float* host_b);
-
 #endif

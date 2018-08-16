@@ -1,5 +1,5 @@
-#ifndef __FRAME_H__
-#define __FRAME_H__
+#ifndef FRAME_HPP__
+#define FRAME_HPP__
 
 #include "device_array.hpp"
 #include "device_struct.hpp"
@@ -61,7 +61,7 @@ public:
 	DeviceArray2D<float> mdIx[numPyrs];
 	DeviceArray2D<float> mdIy[numPyrs];
 
-	std::vector<MapPoint> mMapPoints;
+	std::vector<Eigen::Vector3d> mPoints;
 	std::vector<cv::KeyPoint> mKeyPoints;
 	cv::cuda::GpuMat mDescriptors;
 
@@ -69,6 +69,9 @@ public:
 	Eigen::Matrix4d mPose;
 	Eigen::Matrix4d mPoseInv;
 	int mNkp;
+
+	float mTotalIter;
+	float mConfidence;
 };
 
 #endif

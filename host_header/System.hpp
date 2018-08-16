@@ -9,6 +9,8 @@
 class Viewer;
 class Tracking;
 
+using namespace std;
+
 struct SysDesc {
 	int cols, rows;
 	float fx;
@@ -17,6 +19,9 @@ struct SysDesc {
 	float cy;
 	float DepthCutoff;
 	float DepthScale;
+	bool TrackModel;
+	string path;
+	bool bUseDataset;
 };
 
 class System {
@@ -25,7 +30,7 @@ public:
 	System(SysDesc* pParam);
 	void GrabImageRGBD(cv::Mat& imRGB, cv::Mat& imD);
 	void SetParameters(SysDesc& desc);
-	void RenderScene(cv::Mat& img);
+	void PrintTimings();
 
 private:
 	Mapping* mpMap;

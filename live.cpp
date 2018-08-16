@@ -10,10 +10,10 @@
 
 #include "Camera.hpp"
 #include "Tracking.hpp"
+#include "Timer.hpp"
 
 enum MemRepType {
-	Byte = 1, KiloByte = 1024, MegaByte = 1024 * 1024, GigaByte = 1024 * 1024
-			* 1024
+	Byte = 1, KiloByte = 1024, MegaByte = 1024 * 1024, GigaByte = 1024 * 1024 * 1024
 };
 
 void CudaCheckMemory(float & free, float & total, const MemRepType factor) {
@@ -25,17 +25,10 @@ void CudaCheckMemory(float & free, float & total, const MemRepType factor) {
 }
 
 void PrintMemoryConsumption();
-void SaveTrajectoryTUM(const std::string& filename, Tracking* pTracker,
-		std::vector<double>& vdTimeList);
-void LoadDatasetTUM(std::string & sRootPath, std::vector<std::string> & vsDList,
-		std::vector<std::string> & vsRGBList,
-		std::vector<double> & vdTimeStamp);
 
 int main(int argc, char ** argv) {
 
 	CameraNI camera;
-	camera.InitCamera();
-	camera.StartStreaming();
 	cv::Mat imD, imRGB;
 	Tracking Tracker;
 	Mapping map;
@@ -81,6 +74,8 @@ int main(int argc, char ** argv) {
 				cv::imshow("img", tmp);
 				cv::imshow("depth", imD);
 			}
+
+//			Timer::PrintTiming();
 		}
 		auto t2 = std::chrono::steady_clock::now();
 

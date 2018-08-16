@@ -1,4 +1,5 @@
 #include "System.hpp"
+#include "Timer.hpp"
 
 using namespace std;
 
@@ -7,7 +8,7 @@ mpMap(nullptr), mpViewer(nullptr),
 mpTracker(nullptr), mpParam(nullptr),
 mptViewer(nullptr) {
 	if(!str)
-		return;
+		System(static_cast<SysDesc*>(nullptr));
 }
 
 System::System(SysDesc* pParam):
@@ -40,12 +41,14 @@ mpTracker(nullptr){
 		mpParam->cy = 240.0f;
 		mpParam->cols = 640;
 		mpParam->rows = 480;
+		mpParam->TrackModel = true;
 	}
 
 	mptViewer = new thread(&Viewer::Spin, mpViewer);
 
-	Frame::mDepthCutoff = mpParam->DepthCutoff;
 	Frame::mDepthScale = mpParam->DepthScale;
+	Frame::mDepthCutoff = mpParam->DepthCutoff;
+	Tracking::mbTrackModel = mpParam->TrackModel;
 }
 
 void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
@@ -53,6 +56,7 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 	mpTracker->Track(imRGB, imD);
 }
 
-void System::RenderScene(Mat& img) {
+void System::PrintTimings() {
 
+	Timer::PrintTiming();
 }

@@ -19,10 +19,15 @@ public:
 	void AddObservation(const Rendering& render);
 
 public:
+	bool TrackMap();
 	void TrackICP();
 	bool TrackFrame();
-	bool CreateInitialMap();
+	bool InitTracking();
+	void UpdateMap();
+	void UpdateFrame();
 	bool TrackLastFrame();
+
+	/* For debugging purposes */
 	void ShowResiduals();
 
 	enum State {
@@ -36,6 +41,8 @@ public:
 	State mNextState;
 	Mapping* mpMap;
 	Viewer* mpViewer;
+
+	static bool mbTrackModel;
 	Ptr<cuda::DescriptorMatcher> mORBMatcher;
 };
 

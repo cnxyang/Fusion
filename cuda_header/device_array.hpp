@@ -1,5 +1,5 @@
-#ifndef DEVICE_ARRAY_H_
-#define DEVICE_ARRAY_H_
+#ifndef DEVICE_ARRAY_CUH__
+#define DEVICE_ARRAY_CUH__
 
 #include <atomic>
 #include <cstdlib>

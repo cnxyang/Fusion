@@ -30,7 +30,7 @@ Frame::Frame(const Frame& other):mNkp(0) {
 		other.mdIy[i].copyTo(mdIy[i]);
 	}
 
-	mMapPoints = other.mMapPoints;
+	mPoints = other.mPoints;
 	mKeyPoints = other.mKeyPoints;
 	other.mDescriptors.copyTo(mDescriptors);
 
@@ -56,7 +56,8 @@ Frame::Frame(const Frame& other, const Rendering& observation) {
 		other.mdIy[i].copyTo(mdIy[i]);
 	}
 
-	mMapPoints = other.mMapPoints;
+	mPoints = other.mPoints;
+//	mMapPoints = other.mMapPoints;
 	mKeyPoints = other.mKeyPoints;
 	other.mDescriptors.copyTo(mDescriptors);
 	mPose = other.mPose;
@@ -120,21 +121,19 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 			float x = kp.pt.x;
 			float y = kp.pt.y;
 			float dp = (float)imD.at<unsigned short>((int)(y + 0.5), (int)(x + 0.5)) / mDepthScale;
-			float3 pos = make_float3(nanf("0x7fffffff"));
+			Eigen::Vector3d pos = Eigen::Vector3d::Zero();
 			if (dp > 1e-1 && dp < mDepthCutoff) {
-				pos.z = dp;
-				pos.x = dp * (x - cx0) * invfx;
-				pos.y = dp * (y - cy0) * invfy;
-				MapPoint mp;
-				mp.pos << pos.x, pos.y, pos.z;
-				mp.uv << x, y;
 
+				pos(2) = dp;
+				pos(0) = dp * (x - cx0) * invfx;
+				pos(1) = dp * (y - cy0) * invfy;
+
+				mPoints.push_back(pos);
 				mKeyPoints.push_back(kp);
-				mMapPoints.push_back(mp);
 				desc.push_back(descTemp.row(i));
 			}
 		}
-		mNkp = mMapPoints.size();
+		mNkp = mKeyPoints.size();
 		mDescriptors.upload(desc);
 	}
 

@@ -3,23 +3,29 @@
 
 #include "Tracking.hpp"
 #include "Solver.hpp"
+#include "Timer.hpp"
 
-Tracking::Tracking():
-mpMap(nullptr),
-mNextState(NOT_INITIALISED){
+bool Tracking::mbTrackModel = true;
 
-	mORBMatcher = cv::cuda::DescriptorMatcher::createBFMatcher(cv::NORM_HAMMING);
+Tracking::Tracking() :
+		mpMap(nullptr), mpViewer(nullptr), mNextState(NOT_INITIALISED) {
+
+	mORBMatcher = cv::cuda::DescriptorMatcher::createBFMatcher(
+			cv::NORM_HAMMING);
 }
 
 bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 
+	Timer::StartTiming("Tracking", "Create Frame");
 	mNextFrame = Frame(imRGB, imD);
+	Timer::StopTiming("Tracking", "Create Frame");
+
 	mNextFrame.SetPose(Eigen::Matrix4d::Identity());
 
 	bool bOK;
-	switch(mNextState) {
+	switch (mNextState) {
 	case NOT_INITIALISED:
-		bOK = CreateInitialMap();
+		bOK = InitTracking();
 		break;
 
 	case OK:
@@ -27,100 +33,104 @@ bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 		break;
 
 	case LOST:
+		bOK = TrackMap();
 		break;
 	}
 
-	if(!bOK) {
+	if (!bOK) {
 		mNextState = LOST;
-	}
-	else {
+	} else {
 		mNextState = OK;
 	}
 
+	Timer::StartTiming("Tracking", "Copy Frame");
 	mLastFrame = Frame(mNextFrame);
+	Timer::StopTiming("Tracking", "Copy Frame");
 
 	return true;
 }
 
-bool Tracking::CreateInitialMap() {
+bool Tracking::InitTracking() {
 
 	mNextState = OK;
 	return true;
 }
 
+bool Tracking::TrackMap() {
+
+	return true;
+}
+
+void Tracking::UpdateMap() {
+	mpMap->FuseFrame(mNextFrame);
+}
+
+void Tracking::UpdateFrame() {
+}
+
 bool Tracking::TrackLastFrame() {
 
 	mNextFrame.SetPose(mLastFrame);
+
+	Timer::StartTiming("Tracking", "Track Frame");
 	bool bOK = TrackFrame();
-	if(!bOK)
+	Timer::StopTiming("Tracking", "Track Frame");
+
+	if (!bOK)
 		return false;
+
+	Timer::StartTiming("Tracking", "ICP");
 	TrackICP();
+	Timer::StopTiming("Tracking", "ICP");
 	return true;
 }
 
 bool Tracking::TrackFrame() {
 
-//	MatchSiftData(mNextFrame.mSiftKeys, mLastFrame.mSiftKeys);
-//	SiftPoint* data = mNextFrame.mSiftKeys.d_data;
-//	cout << mNextFrame.mSiftKeys.numPts << endl;
-//	for(int i = 0; i < mNextFrame.mSiftKeys.numPts; ++i) {
-//		SiftPoint* ptr = &data[i];
-//		cout << ptr->ambiguity << endl;
-//	}
-
 	std::vector<cv::DMatch> Matches;
 	std::vector<std::vector<cv::DMatch>> matches;
-	mORBMatcher->knnMatch(mNextFrame.mDescriptors, mLastFrame.mDescriptors, matches, 2);
+	mORBMatcher->knnMatch(mNextFrame.mDescriptors, mLastFrame.mDescriptors,
+			matches, 2);
 
-	for(int i = 0; i < matches.size(); ++i) {
+	for (int i = 0; i < matches.size(); ++i) {
 		cv::DMatch& firstMatch = matches[i][0];
 		cv::DMatch& secondMatch = matches[i][1];
-		if(firstMatch.distance < 0.7 *  secondMatch.distance) {
-				Matches.push_back(firstMatch);
+		if (firstMatch.distance < 0.85 * secondMatch.distance) {
+			Matches.push_back(firstMatch);
 		}
 	}
 
-	if(Matches.size() < 3)
-		return false;
-
 	std::vector<Eigen::Vector3d> p;
 	std::vector<Eigen::Vector3d> q;
-	for(int i = 0; i < Matches.size(); ++i) {
-		int queryId = Matches[i].queryIdx;
-		int trainId = Matches[i].trainIdx;
-		MapPoint& queryPt = mNextFrame.mMapPoints[queryId];
-		MapPoint& trainPt = mLastFrame.mMapPoints[trainId];
-
-		p.push_back(queryPt.pos);
-		q.push_back(trainPt.pos);
+	for (int i = 0; i < Matches.size(); ++i) {
+		p.push_back(mNextFrame.mPoints[Matches[i].queryIdx]);
+		q.push_back(mLastFrame.mPoints[Matches[i].trainIdx]);
 	}
 
 	vector<bool> outliers;
 	Eigen::Matrix4d Td = Eigen::Matrix4d::Identity();
-	Solver::SolveAbsoluteOrientation(p, q, outliers, Td);
+	bool bOK = Solver::SolveAbsoluteOrientation(p, q, outliers, Td);
+
+//	if(!bOK)
+//		return false;
 
 	Eigen::Matrix4d Tp = mLastFrame.mPose;
 	Eigen::Matrix4d Tc = Eigen::Matrix4d::Identity();
-	Tc =  Td.inverse() * Tp;
-
+	Tc = Td.inverse() * Tp;
 	mNextFrame.SetPose(Tc);
-
 	return true;
 }
 
 void Tracking::TrackICP() {
-
 	Eigen::Matrix4d Td;
 	Solver::SolveICP(mNextFrame, mLastFrame, Td);
 }
 
 void Tracking::AddObservation(const Rendering& render) {
-
 	mLastFrame = Frame(mLastFrame, render);
 }
 
 void Tracking::SetMap(Mapping* pMap) {
-
 	mpMap = pMap;
 }
 
@@ -137,6 +147,6 @@ void Tracking::ShowResiduals() {
 	WarpGrayScaleImage(mNextFrame, mLastFrame, residual);
 	ComputeResidualImage(residual, warpImg, mNextFrame);
 	cv::Mat cvresidual(480, 640, CV_8UC1);
-	warpImg.download((void*)cvresidual.data, cvresidual.step);
+	warpImg.download((void*) cvresidual.data, cvresidual.step);
 	cv::imshow("residual", cvresidual);
 }

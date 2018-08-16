@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cmath>
 
+#include "Timer.hpp"
 #include "Solver.hpp"
 #include "device_struct.hpp"
 #include "device_tracking.cuh"
@@ -9,6 +10,11 @@
 
 using namespace std;
 using namespace Eigen;
+
+typedef Eigen::Matrix<double, 6, 1> Vector6d;
+typedef Eigen::Matrix<double, 6, 6> Matrix6d;
+typedef Eigen::Matrix<float, 6, 1> Vector6f;
+typedef Eigen::Matrix<float, 6, 6> Matrix6f;
 
 bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 		vector<Vector3d>& ref, vector<bool>& outlier, Matrix4d& Td) {
@@ -21,15 +27,16 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 	int nMatches = src.size();
 
 	auto now = chrono::system_clock::now();
-	int seed = chrono::duration_cast<chrono::microseconds>(now.time_since_epoch()).count();
+	int seed = chrono::duration_cast<chrono::microseconds>(
+			now.time_since_epoch()).count();
 	srand(seed);
 
 	int nIter = 0;
 	int nBadSamples = 0;
 	float ratio = 0.0f;
 	float confidence = 0.0f;
-	float threshold = 0.05f;
-	const float confi = 0.05f;
+	float thresh_inlier = 0.05f;
+	const float thresh_confidence = 0.95f;
 	const int maxIter = 100;
 	const int minIter = 20;
 	while (nIter < maxIter) {
@@ -41,9 +48,8 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 			samples.push_back(s);
 		}
 
-		if (samples[0] == samples[1] ||
-			samples[1] == samples[2] ||
-			samples[2] == samples[0])
+		if (samples[0] == samples[1] || samples[1] == samples[2]
+				|| samples[2] == samples[0])
 			badSample = true;
 
 		Vector3d src_a = src[samples[0]];
@@ -89,7 +95,7 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 		fill(outlier.begin(), outlier.end(), true);
 		for (int i = 0; i < src.size(); ++i) {
 			double d = (src[i] - (R * ref[i] + t)).norm();
-			if (d <= threshold) {
+			if (d <= thresh_inlier) {
 				nInliers++;
 				outlier[i] = false;
 			}
@@ -123,32 +129,24 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 			t_best = src_mean - R_best * ref_mean;
 			inliers_best = nInliers;
 
-			ratio = (float)nInliers / src.size();
-			confidence = log(1 - 0.99) / log(1 - pow(ratio, 3));
-			cout << "inliers: " << ratio << endl;
-			cout << "confidence:" << confidence << endl;
+			ratio = (float) nInliers / src.size();
 
-			float config = pow((1 - pow(ratio, 3)), nIter + 1);
+			confidence = 1 - pow((1 - pow(ratio, 3)), nIter + 1);
 
-			int nOutliers = src.size() - nInliers;
-			int nExpInliers = (int)(src.size() * 0.5);
-			int nExpOutliers = src.size() - nExpInliers;
-
-			float chi2 = pow(nInliers - nExpInliers, 2) / (float)nExpInliers;
-			float t = sqrtf(0.95 * 0.5 / chi2);
-			cout << "t:" << t << " chi2:" << chi2 << endl;
-
-			if(nIter > minIter && nIter > (int)confidence && config < confi) {
+			if (nIter >= minIter && confidence >= thresh_confidence)
 				break;
-			}
 		}
 
 		nIter++;
 	}
-	cout << "_______________" << endl;
 
 	Td.topLeftCorner(3, 3) = R_best;
 	Td.topRightCorner(3, 1) = t_best;
+
+	float dist = (Td - Eigen::Matrix4d::Identity()).norm();
+	if (nIter == maxIter || confidence < 0.5 || dist >= 0.1) {
+		return false;
+	}
 
 	return true;
 }
@@ -157,27 +155,27 @@ bool Solver::SolveICP(Frame& src, Frame& ref, Matrix4d& Td) {
 
 	float cost = 0;
 	const float w = 0.1;
-	Eigen::Matrix<double, 6, 1> result;
-	Eigen::Matrix<float, 6, 6> host_a;
-	Eigen::Matrix<float, 6, 1> host_b;
 	const int iter[3] = { 10, 5, 3 };
 
+	Vector6d result;
+	Matrix6f host_a;
+	Vector6f host_b;
 	for (int i = 2; i >= 0; --i) {
 		for (int j = 0; j < iter[i]; j++) {
 
 			cost = ICPReduceSum(src, ref, i, host_a.data(), host_b.data());
 
-			Eigen::Matrix<double, 6, 6> dA_icp = host_a.cast<double>();
-			Eigen::Matrix<double, 6, 1> db_icp = host_b.cast<double>();
+			Matrix6d dA_icp = host_a.cast<double>();
+			Vector6d db_icp = host_b.cast<double>();
 
-//			cost = RGBReduceSum(mNextFrame, mLastFrame, i, host_a.data(), host_b.data());
-//			Eigen::Matrix<double, 6, 6> dA_rgb = host_a.cast<double>();
-//			Eigen::Matrix<double, 6, 1> db_rgb = host_b.cast<double>();
-//			Eigen::Matrix<double, 6, 6> dA = w * w * dA_icp + dA_rgb;
-//			Eigen::Matrix<double, 6, 1> db = w * db_icp + db_rgb;
+//			cost = RGBReduceSum(src, ref, i, host_a.data(), host_b.data());
+//			Matrix6d dA_rgb = host_a.cast<double>();
+//			Vector6d db_rgb = host_b.cast<double>();
+//			Matrix6d dA = w * w * dA_icp + dA_rgb;
+//			Vector6d db = w * db_icp + db_rgb;
 
-			Eigen::Matrix<double, 6, 6> dA = dA_icp;
-			Eigen::Matrix<double, 6, 1> db = db_icp;
+			Matrix6d dA = dA_icp;
+			Vector6d db = db_icp;
 			result = dA.ldlt().solve(db);
 			auto e = Sophus::SE3d::exp(result);
 			auto dT = e.matrix();

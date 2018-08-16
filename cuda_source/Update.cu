@@ -326,7 +326,7 @@ int Mapping::FuseFrame(const Frame& frame) {
 
 	dim3 block(32, 8);
 	dim3 grid(cv::divUp(Frame::cols(pyr), block.x),
-			cv::divUp(Frame::rows(pyr), block.y));
+			  cv::divUp(Frame::rows(pyr), block.y));
 
 	createBlocksKernel<<<grid, block>>>(HI);
 
