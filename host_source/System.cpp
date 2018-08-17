@@ -1,6 +1,7 @@
 #include "System.hpp"
 #include "Timer.hpp"
 
+using namespace cv;
 using namespace std;
 
 System::System(const char* str):
@@ -17,6 +18,7 @@ mpViewer(nullptr),
 mpTracker(nullptr){
 
 	mpMap = new Mapping();
+	mpMap->AllocateDeviceMemory(MapDesc());
 
 	mpViewer = new Viewer();
 	mpTracker = new Tracking();
@@ -44,6 +46,13 @@ mpTracker(nullptr){
 		mpParam->TrackModel = true;
 	}
 
+	mK = Mat::eye(3, 3, CV_32FC1);
+	mK.at<float>(0, 0) = mpParam->fx;
+	mK.at<float>(1, 1) = mpParam->fy;
+	mK.at<float>(0, 2) = mpParam->cx;
+	mK.at<float>(1, 2) = mpParam->cy;
+	Frame::SetK(mK);
+
 	mptViewer = new thread(&Viewer::Spin, mpViewer);
 
 	Frame::mDepthScale = mpParam->DepthScale;
@@ -53,7 +62,30 @@ mpTracker(nullptr){
 
 void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 
-	mpTracker->Track(imRGB, imD);
+	bool bOK = mpTracker->Track(imRGB, imD);
+
+	if (bOK) {
+		int no = mpMap->FuseFrame(mpTracker->mLastFrame);
+		Rendering rd;
+		rd.cols = 640;
+		rd.rows = 480;
+		rd.fx = mK.at<float>(0, 0);
+		rd.fy = mK.at<float>(1, 1);
+		rd.cx = mK.at<float>(0, 2);
+		rd.cy = mK.at<float>(1, 2);
+		rd.Rview = mpTracker->mLastFrame.Rot_gpu();
+		rd.invRview = mpTracker->mLastFrame.RotInv_gpu();
+		rd.maxD = 5.0f;
+		rd.minD = 0.1f;
+		rd.tview = mpTracker->mLastFrame.Trans_gpu();
+
+		mpMap->RenderMap(rd, no);
+		mpTracker->AddObservation(rd);
+		Mat tmp(rd.rows, rd.cols, CV_8UC4);
+		rd.Render.download((void*) tmp.data, tmp.step);
+		resize(tmp, tmp, cv::Size(tmp.cols * 2, tmp.rows * 2));
+		imshow("img", tmp);
+	}
 }
 
 void System::PrintTimings() {

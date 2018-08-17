@@ -56,6 +56,8 @@ public:
 
 	void download(void* host_ptr);
 
+	void download(void* host_ptr, size_t size);
+
 	void zero();
 
 	void release();
@@ -228,6 +230,11 @@ DeviceArray<T>::upload(void* host_ptr, size_t size) {
 template<class T> inline void
 DeviceArray<T>::download(void* host_ptr) {
 	SafeCall(cudaMemcpy(host_ptr, mpData, sizeof(T) * mSize,	cudaMemcpyDeviceToHost));
+}
+
+template<class T> inline void
+DeviceArray<T>::download(void* host_ptr, size_t size) {
+	SafeCall(cudaMemcpy(host_ptr, mpData, sizeof(T) * size,	cudaMemcpyDeviceToHost));
 }
 
 template<class T> inline void

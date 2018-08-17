@@ -44,18 +44,34 @@ void Timer::PrintTiming() {
 		for (; inner_iter != inner_lend; ++inner_iter) {
 			total_time += inner_iter->second;
 		}
+
+		string unit;
+		if(total_time >= 1000) {
+			total_time /= 1000;
+			unit = " ms";
+		}
+		else
+			unit = " us";
+
 		cout << counter++
 			 << ". " << iter->first << " : "
-			 << total_time << " us" << endl;
+			 << total_time << unit << endl;
 
 		inner_iter = mDuration[iter->first].begin();
 		for (; inner_iter != inner_lend; ++inner_iter) {
+			int time = inner_iter->second;
+			if (time >= 1000) {
+				time /= 1000;
+				unit = " ms";
+			} else
+				unit = " us";
+
 			cout << "\t"
 				 << inner_counter++ << ". "
 				 << inner_iter->first
 			     << " : "
-			     << inner_iter->second
-			     << " us" << endl;
+			     << time
+			     << unit << endl;
 		}
 	}
 }

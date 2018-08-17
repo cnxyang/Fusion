@@ -38,6 +38,7 @@ private:
 	SysDesc* mpParam;
 	Tracking* mpTracker;
 
+	cv::Mat mK;
 	std::thread* mptViewer;
 };
 

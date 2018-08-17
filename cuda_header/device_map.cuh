@@ -18,7 +18,6 @@ struct HVoxel {
 struct ORBKey {
 	bool valid;
 	float3 pos;
-	float3 normal;
 	uint nextKey;
 	uint referenceKF;
 	char descriptor[32];
@@ -48,19 +47,22 @@ private:
 	PtrSz<HVoxel> Voxels;
 };
 
-class KeyMap {
+struct KeyMap {
 
-	static constexpr float GridSize = 0.05;
-	const int MaxKeys = 1000000;
-	const int nBuckets = 5;
+	static constexpr float GridSize = 0.01;
+	static const int MaxKeys = 1000000;
+	static const int nBuckets = 5;
 
 public:
 	__device__ int Hash(const int3& pos);
 	__device__ ORBKey* FindKey(const float3& pos);
+	__device__ ORBKey* FindKey(const float3& pos, int& first, int& buck);
 	__device__ void InsertKey(ORBKey* key);
+	__device__ void ResetKeys(int index);
 
 public:
 	PtrSz<ORBKey> Keys;
+	PtrSz<int> Mutex;
 };
 
 #endif

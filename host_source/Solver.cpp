@@ -39,6 +39,9 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 	const float thresh_confidence = 0.95f;
 	const int maxIter = 100;
 	const int minIter = 20;
+	if(nMatches < 3)
+		return false;
+
 	while (nIter < maxIter) {
 
 		bool badSample = false;
@@ -48,8 +51,9 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 			samples.push_back(s);
 		}
 
-		if (samples[0] == samples[1] || samples[1] == samples[2]
-				|| samples[2] == samples[0])
+		if (samples[0] == samples[1] ||
+			samples[1] == samples[2] ||
+			samples[2] == samples[0])
 			badSample = true;
 
 		Vector3d src_a = src[samples[0]];
@@ -65,6 +69,7 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 
 		if (badSample || src_d < 1e-6 || ref_d < 1e-6) {
 			nBadSamples++;
+			nIter++;
 			continue;
 		}
 

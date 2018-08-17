@@ -1,17 +1,21 @@
 #include <iostream>
 #include <vector>
 
+#include "device_mapping.cuh"
 #include "Tracking.hpp"
 #include "Solver.hpp"
 #include "Timer.hpp"
 
 bool Tracking::mbTrackModel = true;
 
-Tracking::Tracking() :
-		mpMap(nullptr), mpViewer(nullptr), mNextState(NOT_INITIALISED) {
+using namespace cv;
 
-	mORBMatcher = cv::cuda::DescriptorMatcher::createBFMatcher(
-			cv::NORM_HAMMING);
+Tracking::Tracking():
+mpMap(nullptr),
+mpViewer(nullptr),
+mNextState(NOT_INITIALISED) {
+
+	mORBMatcher = cuda::DescriptorMatcher::createBFMatcher(NORM_HAMMING);
 }
 
 bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
@@ -47,25 +51,74 @@ bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 	mLastFrame = Frame(mNextFrame);
 	Timer::StopTiming("Tracking", "Copy Frame");
 
-	return true;
+	mpMap->IntegrateKeys(mNextFrame);
+
+	return bOK;
 }
 
 bool Tracking::InitTracking() {
 
+	mNextFrame.mOutliers.resize(mNextFrame.mNkp);
+	fill(mNextFrame.mOutliers.begin(), mNextFrame.mOutliers.end(), false);
 	mNextState = OK;
 	return true;
 }
 
 bool Tracking::TrackMap() {
 
-	return true;
+	Timer::StartTiming("Tracking", "Relocalisation");
+	mpMap->GetORBKeys(mMapPoints, mnMapPoints);
+	cv::Mat desc(mnMapPoints, 32, CV_8UC1);
+	if(mnMapPoints == 0)
+		return false;
+
+	vector<Eigen::Vector3d> Points;
+	ORBKey* MapKeys = (ORBKey*)malloc(sizeof(ORBKey)*mnMapPoints);
+	mMapPoints.download((void*)MapKeys, mnMapPoints);
+	for(int i = 0; i < mnMapPoints; ++i) {
+		ORBKey& key = MapKeys[i];
+		for(int j = 0; j < 32; ++j) {
+			desc.at<char>(i, j) = key.descriptor[j];
+		}
+		Eigen::Vector3d p;
+		p << key.pos.x, key.pos.y, key.pos.z;
+		Points.push_back(p);
+	}
+
+	cv::cuda::GpuMat mMapDesc(desc);
+	std::vector<cv::DMatch> Matches;
+	std::vector<std::vector<cv::DMatch>> matches;
+	mORBMatcher->knnMatch(mNextFrame.mDescriptors, mMapDesc, matches, 2);
+
+	for (int i = 0; i < matches.size(); ++i) {
+		cv::DMatch& firstMatch = matches[i][0];
+		cv::DMatch& secondMatch = matches[i][1];
+		if (firstMatch.distance < 0.85 * secondMatch.distance) {
+			Matches.push_back(firstMatch);
+		}
+	}
+
+	std::vector<Eigen::Vector3d> p;
+	std::vector<Eigen::Vector3d> q;
+	for (int i = 0; i < Matches.size(); ++i) {
+		p.push_back(mNextFrame.mPoints[Matches[i].queryIdx]);
+		q.push_back(Points[Matches[i].trainIdx]);
+	}
+
+	Eigen::Matrix4d Td = Eigen::Matrix4d::Identity();
+	bool bOK = Solver::SolveAbsoluteOrientation(p, q, mNextFrame.mOutliers, Td);
+
+	mNextFrame.SetPose(Td.inverse());
+	Timer::StopTiming("Tracking", "Relocalisation");
+
+	if(!bOK)
+		cout << "relocalisaton failed" << endl;
+
+	return bOK;
 }
 
 void Tracking::UpdateMap() {
 	mpMap->FuseFrame(mNextFrame);
-}
-
-void Tracking::UpdateFrame() {
 }
 
 bool Tracking::TrackLastFrame() {
@@ -82,6 +135,8 @@ bool Tracking::TrackLastFrame() {
 	Timer::StartTiming("Tracking", "ICP");
 	TrackICP();
 	Timer::StopTiming("Tracking", "ICP");
+
+
 	return true;
 }
 
@@ -107,18 +162,15 @@ bool Tracking::TrackFrame() {
 		q.push_back(mLastFrame.mPoints[Matches[i].trainIdx]);
 	}
 
-	vector<bool> outliers;
 	Eigen::Matrix4d Td = Eigen::Matrix4d::Identity();
-	bool bOK = Solver::SolveAbsoluteOrientation(p, q, outliers, Td);
-
-//	if(!bOK)
-//		return false;
+	bool bOK = Solver::SolveAbsoluteOrientation(p, q, mNextFrame.mOutliers, Td);
 
 	Eigen::Matrix4d Tp = mLastFrame.mPose;
 	Eigen::Matrix4d Tc = Eigen::Matrix4d::Identity();
 	Tc = Td.inverse() * Tp;
 	mNextFrame.SetPose(Tc);
-	return true;
+
+	return bOK;
 }
 
 void Tracking::TrackICP() {

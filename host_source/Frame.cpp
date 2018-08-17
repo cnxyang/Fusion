@@ -121,6 +121,7 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 			float x = kp.pt.x;
 			float y = kp.pt.y;
 			float dp = (float)imD.at<unsigned short>((int)(y + 0.5), (int)(x + 0.5)) / mDepthScale;
+
 			Eigen::Vector3d pos = Eigen::Vector3d::Zero();
 			if (dp > 1e-1 && dp < mDepthCutoff) {
 
