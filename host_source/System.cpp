@@ -7,7 +7,7 @@ using namespace std;
 System::System(const char* str):
 mpMap(nullptr), mpViewer(nullptr),
 mpTracker(nullptr), mpParam(nullptr),
-mptViewer(nullptr) {
+mptViewer(nullptr), mbStop(false) {
 	if(!str)
 		System(static_cast<SysDesc*>(nullptr));
 }
@@ -15,7 +15,8 @@ mptViewer(nullptr) {
 System::System(SysDesc* pParam):
 mpMap(nullptr),
 mpViewer(nullptr),
-mpTracker(nullptr){
+mpTracker(nullptr),
+mbStop(false){
 
 	mpMap = new Mapping();
 	mpMap->AllocateDeviceMemory(MapDesc());
@@ -86,6 +87,9 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 		resize(tmp, tmp, cv::Size(tmp.cols * 2, tmp.rows * 2));
 		imshow("img", tmp);
 	}
+
+	if(mbStop)
+		exit(0);
 }
 
 void System::Reboot() {
@@ -94,6 +98,16 @@ void System::Reboot() {
 }
 
 void System::PrintTimings() {
-
 	Timer::PrintTiming();
+}
+
+void System::Stop() {
+	mbStop = true;
+}
+
+void System::JoinViewer() {
+
+	while(!mbStop) {
+		usleep(3000);
+	}
 }

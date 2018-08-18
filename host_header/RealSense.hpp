@@ -1,10 +1,11 @@
 #include "rs.hpp"
+#include "opencv.hpp"
 
 class RealSense {
 public:
 
 	RealSense(int cols, int rows);
-	bool Poll_for_frame(void*& color, void*& depth);
+	bool Poll_for_frame(cv::Mat& imRGB, cv::Mat& imD);
 
 	float fx;
 	float fy;

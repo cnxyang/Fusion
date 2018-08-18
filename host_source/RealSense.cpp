@@ -16,15 +16,14 @@ RealSense::RealSense(int cols, int rows) :
 	cy = i.ppy;
 }
 
-bool RealSense::Poll_for_frame(void*& rgb, void*& d) {
+bool RealSense::Poll_for_frame(cv::Mat& imRGB, cv::Mat& imD) {
 	if (pipe.poll_for_frames(&frames)) {
 		color = frames.first(RS2_STREAM_COLOR);
 		depth = frames.first(RS2_STREAM_DEPTH);
 
-		std::memcpy((void*) rgb, color.get_data(),
-				sizeof(unsigned char) * 3 * mcols * mrows);
-		std::memcpy((void*) d, depth.get_data(),
-				sizeof(ushort) * mcols * mrows);
+		imRGB = cv::Mat(mrows, mcols, CV_8UC3, const_cast<void*>(color.get_data()));
+		imD = cv::Mat(mrows, mcols, CV_16UC1, const_cast<void*>(depth.get_data()));
+
 		return true;
 	} else {
 		return false;

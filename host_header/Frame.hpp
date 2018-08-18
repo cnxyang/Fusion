@@ -69,9 +69,6 @@ public:
 	Eigen::Matrix4d mPose;
 	Eigen::Matrix4d mPoseInv;
 	int mNkp;
-
-	float mTotalIter;
-	float mConfidence;
 };
 
 #endif

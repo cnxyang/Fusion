@@ -39,6 +39,7 @@ void Viewer::Spin() {
 	while (1) {
 
 		if (ShouldQuit()) {
+			mpSystem->Stop();
 			return;
 		}
 
@@ -86,10 +87,10 @@ void Viewer::DrawCamera() {
 
 	vector<GLfloat> cam;
 	Eigen::Vector3d p[5];
-	p[0] << 0.05, 0.05, 0;
-	p[1] << 0.05, -0.05, 0;
-	p[2] << -0.05, 0.05, 0;
-	p[3] << -0.05, -0.05, 0;
+	p[0] << 0.05, 0.04, 0;
+	p[1] << 0.05, -0.04, 0;
+	p[2] << -0.05, 0.04, 0;
+	p[3] << -0.05, -0.04, 0;
 	p[4]<< 0, 0, -0.04;
 
 	Eigen::Matrix3d R = mpTracker->mLastFrame.Rotation();
