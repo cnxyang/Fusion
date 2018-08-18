@@ -1,0 +1,11 @@
+#ifndef DEVICE_MAPPING_HPP__
+#define DEVICE_MAPPING_HPP__
+
+#include "device_map.cuh"
+
+void ResetKeys(KeyMap map);
+void CollectKeys(KeyMap, DeviceArray<ORBKey>&, int&);
+void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys);
+
+
+#endif
