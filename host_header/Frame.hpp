@@ -3,7 +3,6 @@
 
 #include "device_array.hpp"
 #include "device_struct.hpp"
-#include "device_sift.cuh"
 
 #include <vector>
 #include <opencv.hpp>
@@ -67,7 +66,6 @@ public:
 	std::vector<cv::KeyPoint> mKeyPoints;
 	cv::cuda::GpuMat mDescriptors;
 
-	SiftData mSiftKeys;
 	Eigen::Matrix4d mPose;
 	Eigen::Matrix4d mPoseInv;
 	int mNkp;

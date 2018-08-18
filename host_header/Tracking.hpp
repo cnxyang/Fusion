@@ -28,8 +28,6 @@ public:
 	void UpdateMap();
 	void UpdateFrame();
 	bool TrackLastFrame();
-
-	/* For debugging purposes */
 	void ShowResiduals();
 
 	enum State {
