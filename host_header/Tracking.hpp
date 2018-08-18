@@ -17,11 +17,12 @@ public:
 	void SetMap(Mapping* pMap);
 	void SetViewer(Viewer* pViewer);
 	bool Track(Mat& imRGB, Mat& imD);
+	void ResetTracking();
 	void AddObservation(const Rendering& render);
 
 public:
 	bool TrackMap();
-	void TrackICP();
+	bool TrackICP();
 	bool TrackFrame();
 	bool InitTracking();
 	void UpdateMap();
@@ -45,6 +46,8 @@ public:
 
 	static bool mbTrackModel;
 	int mnMapPoints;
+	const float mRotThresh = 0.1;
+	const float mTransThresh = 0.05;
 	DeviceArray<ORBKey> mMapPoints;
 	Ptr<cuda::DescriptorMatcher> mORBMatcher;
 };

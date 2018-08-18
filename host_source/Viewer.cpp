@@ -15,15 +15,26 @@ void Viewer::Spin() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+	Eigen::Matrix4f viewMatrix;
+	viewMatrix << 1, 0, 0, 0,
+			      0,-1, 0, 0,
+			      0, 0,-1,-2,
+			      0, 0, 0, 1;
+
+	OpenGlMatrix openglViewMatrix(viewMatrix);
+
 	OpenGlRenderState s_cam(
 			ProjectionMatrix(640, 480, 525, 525, 320, 240, 0.1f, 1000.0f),
-			ModelViewLookAt(0, 1, -1, 0, 1, 0, AxisX));
+			openglViewMatrix);
 
 	View& d_cam = CreateDisplay().SetBounds(0.0, 1.0, Attach::Pix(200), 1.0,
 			-640.0 / 480).SetHandler(new Handler3D(s_cam));
 
 	CreatePanel("UI").SetBounds(0.0, 1.0, 0.0, Attach::Pix(200));
-	Var<bool> a_button("UI.A_Button", false, false);
+	Var<bool> reset_btn("UI.Reset System", false, false);
+	Var<bool> traj_btn("UI.Show Trajectory",false,true);
+	Var<bool> kp_btn("UI.Show Key Points",true,true);
+
 
 	while (1) {
 
@@ -31,13 +42,20 @@ void Viewer::Spin() {
 			return;
 		}
 
-		if (pangolin::Pushed(a_button))
-			cout << "you pushed a button" << endl;
+		if (Pushed(reset_btn)) {
+			cout << "requesting system reboot.." << endl;
+			mpSystem->Reboot();
+		}
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		d_cam.Activate(s_cam);
 
-		DrawKeys();
+		if (traj_btn)
+			DrawTrajectory();
+
+		if (kp_btn)
+			DrawKeys();
+
 		DrawCamera();
 
 		FinishFrame();
@@ -51,7 +69,20 @@ void Viewer::Insert(std::vector<GLfloat>& vPt, Eigen::Vector3d& pt) {
 	vPt.push_back(pt(2));
 }
 
+void Viewer::DrawTrajectory() {
+
+	vector<GLfloat> vPos;
+	vector<Eigen::Vector3d> trace = mpMap->GetCamTrace();
+	for(int i = 0; i < trace.size(); ++i) {
+		Insert(vPos, trace[i]);
+	}
+
+	glColor3f(0.0, 0.0, 1.0);
+	glDrawVertices(vPos.size()/3, (GLfloat*)&vPos[0], GL_LINE_STRIP, 3);
+}
+
 void Viewer::DrawCamera() {
+
 
 	vector<GLfloat> cam;
 	Eigen::Vector3d p[5];
@@ -90,7 +121,11 @@ void Viewer::DrawCamera() {
 	Insert(cam, p[3]);
 	Insert(cam, p[4]);
 
-	glColor3f(1.0, 0.0, 1.0);
+	bool lost = (mpTracker->mNextState == mpTracker->LOST);
+	if(lost)
+		glColor3f(1.0, 0.0, 0.0);
+	else
+		glColor3f(1.0, 0.0, 1.0);
 	glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
 	glDrawVertices(cam.size()/3, (GLfloat*)&cam[0], GL_TRIANGLES, 3);
 	glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);

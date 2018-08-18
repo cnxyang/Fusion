@@ -28,7 +28,6 @@ void Mapping::AllocateDeviceMemory(MapDesc desc) {
 
 	Timer::StartTiming("Initialisation", "ResetMap");
 	ResetDeviceMemory();
-	ResetKeys(*this);
 	Timer::StopTiming("Initialisation", "ResetMap");
 }
 

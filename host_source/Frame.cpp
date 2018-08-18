@@ -38,6 +38,24 @@ Frame::Frame(const Frame& other):mNkp(0) {
 	mPoseInv = other.mPoseInv;
 }
 
+Frame::Frame(const Rendering& observation, Eigen::Matrix4d& pose) {
+
+	for(int i = 0; i < numPyrs; ++i) {
+		if(i == 0) {
+			observation.VMap.copyTo(mVMap[0]);
+			observation.NMap.copyTo(mNMap[0]);
+		}
+		else {
+			ResizeMap(mVMap[i - 1], mNMap[i - 1], mVMap[i], mNMap[i]);
+		}
+
+		mDepth[i].create(Frame::cols(i), Frame::rows(i));
+		ProjectToDepth(mVMap[i], mDepth[i]);
+	}
+
+	SetPose(pose);
+}
+
 Frame::Frame(const Frame& other, const Rendering& observation) {
 
 	for(int i = 0; i < numPyrs; ++i) {
@@ -57,7 +75,6 @@ Frame::Frame(const Frame& other, const Rendering& observation) {
 	}
 
 	mPoints = other.mPoints;
-//	mMapPoints = other.mMapPoints;
 	mKeyPoints = other.mKeyPoints;
 	other.mDescriptors.copyTo(mDescriptors);
 	mPose = other.mPose;

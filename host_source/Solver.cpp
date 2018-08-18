@@ -17,7 +17,7 @@ typedef Eigen::Matrix<float, 6, 1> Vector6f;
 typedef Eigen::Matrix<float, 6, 6> Matrix6f;
 
 bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
-		vector<Vector3d>& ref, vector<bool>& outlier, Matrix4d& Td) {
+		vector<Vector3d>& ref, vector<bool>& outlier, Matrix4d& Td, int maxIter) {
 
 	assert(src.size() == ref.size());
 
@@ -37,7 +37,6 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 	float confidence = 0.0f;
 	float thresh_inlier = 0.05f;
 	const float thresh_confidence = 0.95f;
-	const int maxIter = 100;
 	const int minIter = 20;
 	if(nMatches < 3)
 		return false;
@@ -148,15 +147,14 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 	Td.topLeftCorner(3, 3) = R_best;
 	Td.topRightCorner(3, 1) = t_best;
 
-	float dist = (Td - Eigen::Matrix4d::Identity()).norm();
-	if (nIter == maxIter || confidence < 0.5 || dist >= 0.1) {
+	if (nIter == maxIter || confidence < 0.8) {
 		return false;
 	}
 
 	return true;
 }
 
-bool Solver::SolveICP(Frame& src, Frame& ref, Matrix4d& Td) {
+float Solver::SolveICP(Frame& src, Frame& ref) {
 
 	float cost = 0;
 	const float w = 0.1;
@@ -191,5 +189,6 @@ bool Solver::SolveICP(Frame& src, Frame& ref, Matrix4d& Td) {
 			src.SetPose(Tc);
 		}
 	}
-	return true;
+
+	return cost;
 }

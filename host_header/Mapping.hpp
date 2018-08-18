@@ -30,6 +30,8 @@ public:
 	void GetORBKeys(DeviceArray<ORBKey>& keys, int& n);
 	void GetKeysHost(std::vector<ORBKey>& vkeys);
 
+	std::vector<Eigen::Vector3d> GetCamTrace() { return mCamTrace; }
+
 	operator DeviceMap();
 	operator const DeviceMap() const;
 	operator KeyMap();
@@ -51,6 +53,8 @@ public:
 
 	DeviceArray<int> mKeyMutex;
 	DeviceArray<ORBKey> mORBKeys;
+
+	std::vector<Eigen::Vector3d> mCamTrace;
 };
 
 #endif

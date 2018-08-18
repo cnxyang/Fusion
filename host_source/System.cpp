@@ -88,6 +88,11 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 	}
 }
 
+void System::Reboot() {
+	mpMap->ResetDeviceMemory();
+	mpTracker->ResetTracking();
+}
+
 void System::PrintTimings() {
 
 	Timer::PrintTiming();

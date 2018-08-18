@@ -1,6 +1,7 @@
 #include "Mapping.hpp"
 #include "device_array.hpp"
 #include "device_math.hpp"
+#include "device_mapping.cuh"
 
 struct HashIntegrator {
 	DeviceMap map;
@@ -355,6 +356,8 @@ int Mapping::FuseFrame(const Frame& frame) {
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
 
+	mCamTrace.push_back(frame.mPose.topRightCorner(3, 1));
+
 	return noblock;
 }
 
@@ -420,4 +423,8 @@ void Mapping::ResetDeviceMemory() {
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
+
+	ResetKeys(*this);
+
+	mCamTrace.clear();
 }

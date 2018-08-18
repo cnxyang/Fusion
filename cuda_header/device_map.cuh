@@ -49,7 +49,7 @@ private:
 
 struct KeyMap {
 
-	static constexpr float GridSize = 0.01;
+	static constexpr float GridSize = 0.03;
 	static const int MaxKeys = 1000000;
 	static const int nBuckets = 5;
 

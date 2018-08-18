@@ -42,16 +42,14 @@ bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 	}
 
 	if (!bOK) {
-		mNextState = LOST;
+		bOK = TrackMap();
+		if(!bOK)
+			mNextState = LOST;
 	} else {
 		mNextState = OK;
+		mLastFrame = Frame(mNextFrame);
+		mpMap->IntegrateKeys(mNextFrame);
 	}
-
-	Timer::StartTiming("Tracking", "Copy Frame");
-	mLastFrame = Frame(mNextFrame);
-	Timer::StopTiming("Tracking", "Copy Frame");
-
-	mpMap->IntegrateKeys(mNextFrame);
 
 	return bOK;
 }
@@ -60,11 +58,12 @@ bool Tracking::InitTracking() {
 
 	mNextFrame.mOutliers.resize(mNextFrame.mNkp);
 	fill(mNextFrame.mOutliers.begin(), mNextFrame.mOutliers.end(), false);
-	mNextState = OK;
 	return true;
 }
 
 bool Tracking::TrackMap() {
+
+	cout << "start relocalise" << endl;
 
 	Timer::StartTiming("Tracking", "Relocalisation");
 	mpMap->GetORBKeys(mMapPoints, mnMapPoints);
@@ -106,15 +105,17 @@ bool Tracking::TrackMap() {
 	}
 
 	Eigen::Matrix4d Td = Eigen::Matrix4d::Identity();
-	bool bOK = Solver::SolveAbsoluteOrientation(p, q, mNextFrame.mOutliers, Td);
+	bool bOK = Solver::SolveAbsoluteOrientation(p, q, mNextFrame.mOutliers, Td, 200);
+
+	if(!bOK) {
+		cout << "relocalise failed." << endl;
+		return false;
+	}
 
 	mNextFrame.SetPose(Td.inverse());
 	Timer::StopTiming("Tracking", "Relocalisation");
 
-	if(!bOK)
-		cout << "relocalisaton failed" << endl;
-
-	return bOK;
+	return true;
 }
 
 void Tracking::UpdateMap() {
@@ -133,9 +134,11 @@ bool Tracking::TrackLastFrame() {
 		return false;
 
 	Timer::StartTiming("Tracking", "ICP");
-	TrackICP();
+	bOK = TrackICP();
 	Timer::StopTiming("Tracking", "ICP");
 
+	if (!bOK)
+		return false;
 
 	return true;
 }
@@ -163,19 +166,37 @@ bool Tracking::TrackFrame() {
 	}
 
 	Eigen::Matrix4d Td = Eigen::Matrix4d::Identity();
-	bool bOK = Solver::SolveAbsoluteOrientation(p, q, mNextFrame.mOutliers, Td);
+	bool bOK = Solver::SolveAbsoluteOrientation(p, q, mNextFrame.mOutliers, Td, 100);
+
+	if(!bOK) {
+		Eigen::Matrix3d rot = Td.inverse().topLeftCorner(3,3);
+		Eigen::Vector3d ea = rot.eulerAngles(0, 1, 2).array().sin();
+		Eigen::Vector3d trans = Td.inverse().topRightCorner(3, 1);
+		if(fabs(ea(0)) > mRotThresh ||
+		   fabs(ea(1)) > mRotThresh ||
+		   fabs(ea(2)) > mRotThresh ||
+		   fabs(trans(0)) > mTransThresh ||
+		   fabs(trans(1)) > mTransThresh ||
+		   fabs(trans(2)) > mTransThresh)
+			return false;
+	}
 
 	Eigen::Matrix4d Tp = mLastFrame.mPose;
 	Eigen::Matrix4d Tc = Eigen::Matrix4d::Identity();
 	Tc = Td.inverse() * Tp;
+
 	mNextFrame.SetPose(Tc);
 
-	return bOK;
+	return true;
 }
 
-void Tracking::TrackICP() {
-	Eigen::Matrix4d Td;
-	Solver::SolveICP(mNextFrame, mLastFrame, Td);
+bool Tracking::TrackICP() {
+	float cost = Solver::SolveICP(mNextFrame, mLastFrame);
+
+	if(std::isnan(cost) || cost > 1e-3)
+		return false;
+
+	return true;
 }
 
 void Tracking::AddObservation(const Rendering& render) {
@@ -201,4 +222,8 @@ void Tracking::ShowResiduals() {
 	cv::Mat cvresidual(480, 640, CV_8UC1);
 	warpImg.download((void*) cvresidual.data, cvresidual.step);
 	cv::imshow("residual", cvresidual);
+}
+
+void Tracking::ResetTracking() {
+	mNextState = NOT_INITIALISED;
 }

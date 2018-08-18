@@ -15,6 +15,7 @@ public:
 	Frame();
 	~Frame();
 	Frame(const Frame& other);
+	Frame(const Rendering& observation, Eigen::Matrix4d& pose);
 	Frame(const Frame& other, const Rendering& observation);
 	Frame(const cv::Mat& imRGB, const cv::Mat& imD);
 

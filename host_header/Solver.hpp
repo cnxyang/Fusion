@@ -9,8 +9,8 @@ using namespace std;
 
 class Solver {
 public:
-	static bool SolveAbsoluteOrientation(vector<Eigen::Vector3d>& src, vector<Eigen::Vector3d>& ref, vector<bool>& outliers, Eigen::Matrix4d& T);
-	static bool SolveICP(Frame& src, Frame& ref, Eigen::Matrix4d& Td);
+	static bool SolveAbsoluteOrientation(vector<Eigen::Vector3d>& src, vector<Eigen::Vector3d>& ref, vector<bool>& outliers, Eigen::Matrix4d& T, int maxIter);
+	static float SolveICP(Frame& src, Frame& ref);
 };
 
 #endif
