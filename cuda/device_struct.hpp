@@ -21,13 +21,6 @@ static const float TRUNC_DIST		 = 0.03f;
 static const int NUM_MAX_TRIANGLES = 2000 * 2000;
 static const int MAX_RENDERING_BLOCKS = 65535 * 4;
 
-struct MapPoint {
-	Eigen::Vector3d pos;
-	Eigen::Vector2d uv;
-	std::vector<int> visibility;
-	int counter;
-};
-
 struct MapDesc {
 	int bucketSize;
 	int numBuckets;

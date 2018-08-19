@@ -33,8 +33,8 @@
 									<listOptionValue builtIn="false" value="/usr/include/suitesparse"/>
 									<listOptionValue builtIn="false" value="/usr/include/openni2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/eigen3"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/cuda_header}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/host_header}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/cuda}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/include}&quot;"/>
 								</option>
 								<option id="nvcc.compiler.cpp11option.1523537355" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.disableWarnings.1179372316" name="Inhibit all warning messages (-w)" superClass="nvcc.compiler.disableWarnings" value="true" valueType="boolean"/>
@@ -121,8 +121,8 @@
 									<listOptionValue builtIn="false" value="/usr/include/suitesparse"/>
 									<listOptionValue builtIn="false" value="/usr/include/openni2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/eigen3"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/cuda_header}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/host_header}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/cuda}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/include}&quot;"/>
 								</option>
 								<option id="nvcc.compiler.cpp11option.1122194317" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.disableWarnings.2111362466" name="Inhibit all warning messages (-w)" superClass="nvcc.compiler.disableWarnings" value="true" valueType="boolean"/>
@@ -209,8 +209,8 @@
 									<listOptionValue builtIn="false" value="/usr/include/suitesparse"/>
 									<listOptionValue builtIn="false" value="/usr/include/openni2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/eigen3"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/cuda_header}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/host_header}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/cuda}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/include}&quot;"/>
 								</option>
 								<option id="nvcc.compiler.cpp11option.1431498888" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.disableWarnings.1123812557" name="Inhibit all warning messages (-w)" superClass="nvcc.compiler.disableWarnings" value="true" valueType="boolean"/>
@@ -297,8 +297,8 @@
 									<listOptionValue builtIn="false" value="/usr/include/suitesparse"/>
 									<listOptionValue builtIn="false" value="/usr/include/openni2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/eigen3"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/cuda_header}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/host_header}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/cuda}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/include}&quot;"/>
 								</option>
 								<option id="nvcc.compiler.cpp11option.264195059" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.disableWarnings.518267446" name="Inhibit all warning messages (-w)" superClass="nvcc.compiler.disableWarnings" value="true" valueType="boolean"/>
