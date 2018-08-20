@@ -60,6 +60,8 @@ public:
 
 	void zero();
 
+	T* last();
+
 	void release();
 
 	void copyTo(DeviceArray<T>& other) const;
@@ -241,6 +243,12 @@ template<class T> inline void
 DeviceArray<T>::zero() {
 	SafeCall(cudaMemset(mpData, 0, sizeof(T) * mSize));
 }
+
+template<class T> inline T*
+DeviceArray<T>::last() {
+	return &((T*)mpData)[mSize - 1];
+}
+
 
 template<class T> inline void
 DeviceArray<T>::release() {

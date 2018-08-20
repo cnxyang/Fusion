@@ -1,3 +1,4 @@
+#include "Timer.hpp"
 #include "Mapping.hpp"
 #include "device_struct.hpp"
 
@@ -137,16 +138,26 @@ struct HashRayCaster {
 	void CreateRenderingBlocks(int offset, const int2 & upperLeft,
 			int2 & lowerRight, const float2 & zRange) {
 		// split bounding box into 16x16 pixel rendering blocks
-		for (int by = 0; by	< ceil((float) (1 + lowerRight.y - upperLeft.y) / renderingBlockSizeY); ++by) {
-			for (int bx = 0; bx	< ceil((float) (1 + lowerRight.x - upperLeft.x)	/ renderingBlockSizeX); ++bx) {
+		for (int by = 0;
+				by
+						< ceil(
+								(float) (1 + lowerRight.y - upperLeft.y)
+										/ renderingBlockSizeY); ++by) {
+			for (int bx = 0;
+					bx
+							< ceil(
+									(float) (1 + lowerRight.x - upperLeft.x)
+											/ renderingBlockSizeX); ++bx) {
 				if (offset >= MAX_RENDERING_BLOCKS)
 					return;
 				//for each rendering block: add it to the list
 				RenderingBlock & b(renderingBlockList[offset++]);
 				b.upperLeft.x = upperLeft.x + bx * renderingBlockSizeX;
 				b.upperLeft.y = upperLeft.y + by * renderingBlockSizeY;
-				b.lowerRight.x = upperLeft.x + (bx + 1) * renderingBlockSizeX - 1;
-				b.lowerRight.y = upperLeft.y + (by + 1) * renderingBlockSizeY - 1;
+				b.lowerRight.x = upperLeft.x + (bx + 1) * renderingBlockSizeX
+						- 1;
+				b.lowerRight.y = upperLeft.y + (by + 1) * renderingBlockSizeY
+						- 1;
 				if (b.lowerRight.x > lowerRight.x)
 					b.lowerRight.x = lowerRight.x;
 				if (b.lowerRight.y > lowerRight.y)
@@ -597,6 +608,7 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 	const dim3 block(256);
 	const dim3 grid(cv::divUp(num_occupied_blocks, block.x));
 
+	Timer::StartTiming("Mapping", "Project Blocks");
 	projectAndSplitBlocksKernel<<<grid, block>>>(hrc);
 
 	SafeCall(cudaGetLastError());
@@ -611,6 +623,7 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 	dim3 grids = dim3((unsigned int) ceil((float) totalBlocks / 4.0f), 4);
 
 	fillBlocksKernel<<<grids, blocks>>>(hrc);
+	Timer::StopTiming("Mapping", "Project Blocks");
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
@@ -619,15 +632,19 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 	dim3 grid1(cv::divUp(render.cols, block1.x),
 			cv::divUp(render.rows, block1.y));
 
+	Timer::StartTiming("Mapping", "Ray Cast");
 	hashRayCastKernel<<<grid1, block1>>>(hrc);
+	Timer::StopTiming("Mapping", "Ray Cast");
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
 
+	Timer::StartTiming("Mapping", "Render");
 	computeNormalAndAngleKernel<<<grid1, block1>>>(hrc);
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
 
 	RenderImage(render.VMap, render.NMap, make_float3(0), render.Render);
+	Timer::StopTiming("Mapping", "Render");
 }

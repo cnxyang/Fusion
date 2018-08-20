@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
 		cv::Mat imRGB = cv::imread(vsRGBList[i], cv::IMREAD_UNCHANGED);
 
 		slam.GrabImageRGBD(imRGB, imD);
-
+		slam.PrintTimings();
 		int key = cv::waitKey(10);
 
 		switch (key) {

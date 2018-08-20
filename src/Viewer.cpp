@@ -87,11 +87,11 @@ void Viewer::DrawCamera() {
 
 	vector<GLfloat> cam;
 	Eigen::Vector3d p[5];
-	p[0] << 0.05, 0.04, 0;
-	p[1] << 0.05, -0.04, 0;
-	p[2] << -0.05, 0.04, 0;
-	p[3] << -0.05, -0.04, 0;
-	p[4]<< 0, 0, -0.04;
+	p[0] << 0.1, 0.08, 0;
+	p[1] << 0.1, -0.08, 0;
+	p[2] << -0.1, 0.08, 0;
+	p[3] << -0.1, -0.08, 0;
+	p[4] << 0, 0, -0.08;
 
 	Eigen::Matrix3d R = mpTracker->mLastFrame.Rotation();
 	Eigen::Vector3d t = mpTracker->mLastFrame.Translation();
@@ -124,9 +124,9 @@ void Viewer::DrawCamera() {
 
 	bool lost = (mpTracker->mNextState == mpTracker->LOST);
 	if(lost)
-		glColor3f(1.0, 0.0, 0.0);
+		glColor3f(0.0, 1.0, 0.0);
 	else
-		glColor3f(1.0, 0.0, 1.0);
+		glColor3f(1.0, 0.0, 0.0);
 	glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
 	glDrawVertices(cam.size()/3, (GLfloat*)&cam[0], GL_TRIANGLES, 3);
 	glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);

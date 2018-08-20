@@ -1,5 +1,7 @@
 #include "Timer.hpp"
 
+using namespace std;
+
 map<string, map<string, chrono::steady_clock::time_point>> Timer::mTable;
 map<string, map<string, int>> Timer::mDuration;
 

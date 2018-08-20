@@ -163,6 +163,7 @@ float Solver::SolveICP(Frame& src, Frame& ref) {
 	Vector6d result;
 	Matrix6f host_a;
 	Vector6f host_b;
+
 	for (int i = 2; i >= 0; --i) {
 		for (int j = 0; j < iter[i]; j++) {
 

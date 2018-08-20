@@ -1,4 +1,5 @@
 #include "Mapping.hpp"
+#include "Timer.hpp"
 #include "device_array.hpp"
 #include "device_math.hpp"
 #include "device_mapping.cuh"
@@ -329,7 +330,9 @@ int Mapping::FuseFrame(const Frame& frame) {
 	dim3 grid(cv::divUp(Frame::cols(pyr), block.x),
 			  cv::divUp(Frame::rows(pyr), block.y));
 
+	Timer::StartTiming("Mapping", "Create Blocks");
 	createBlocksKernel<<<grid, block>>>(HI);
+	Timer::StopTiming("Mapping", "Create Blocks");
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
@@ -338,7 +341,9 @@ int Mapping::FuseFrame(const Frame& frame) {
 	dim3 grid1(cv::divUp((int) NUM_ENTRIES, block1.x));
 
 	mNumVisibleEntries.zero();
+	Timer::StartTiming("Mapping", "Create Visible List");
 	compacitifyEntriesKernel<<<grid1, block1>>>(HI);
+	Timer::StopTiming("Mapping", "Create Visible List");
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
@@ -351,7 +356,9 @@ int Mapping::FuseFrame(const Frame& frame) {
 	dim3 block2(512);
 	dim3 grid2(noblock);
 
+	Timer::StartTiming("Mapping", "Integrate Depth");
 	hashIntegrateKernal<true> <<<grid2, block2>>>(HI);
+	Timer::StopTiming("Mapping", "Integrate Depth");
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
