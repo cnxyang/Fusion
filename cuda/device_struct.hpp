@@ -142,6 +142,7 @@ struct Voxel
 };
 
 #ifdef __CUDACC__
+
 __device__ inline
 uint computeHashPos(const int3 & pos, const int numBuckets)
 {
@@ -155,12 +156,18 @@ uint computeHashPos(const int3 & pos, const int numBuckets)
 struct DeviceMap {
 	PtrSz<int> heapMem;
 	PtrSz<int> heapCounter;
-	PtrSz<int> noVisibleBlocks;
+	PtrSz<uint> noVisibleBlocks;
 	PtrSz<int> bucketMutex;
 	PtrSz<HashEntry> hashEntries;
 	PtrSz<HashEntry> visibleEntries;
 	PtrSz<Voxel> voxelBlocks;
 #ifdef __CUDACC__
+
+	__device__
+	void CreateBlock(const float3& pt3d) {
+//		int3 pos = Pt3dToBlockPos(pt3d);
+
+	}
 
 	__device__
 	bool searchVoxel(const float3 & pos, Voxel & vox)

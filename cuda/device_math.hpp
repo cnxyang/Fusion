@@ -12,11 +12,14 @@
 #include <opencv.hpp>
 #include <cuda_runtime.h>
 
+#define HOST_FUNC __host__
+#define DEV_FUNC __device__ __inline__
+
 /* ------------------------------------ *
  * forward declaration(host and device) *
  *------------------------------------- */
 
-__host__ __device__ inline float3 make_float3(float);
+HOST_FUNC DEV_FUNC float3 make_float3(float);
 
 /* ----------------------------- *
  * forward declaration( device ) *
@@ -24,7 +27,7 @@ __host__ __device__ inline float3 make_float3(float);
 
 #ifdef __CUDACC__
 
-__device__ inline int3 make_int3(float3);
+DEV_FUNC int3 make_int3(float3);
 
 #endif
 
@@ -34,7 +37,7 @@ __device__ inline int3 make_int3(float3);
 
 #ifdef __CUDACC__
 
-__device__ inline uchar3 make_uchar3(float3 a) {
+DEV_FUNC uchar3 make_uchar3(float3 a) {
 	return make_uchar3(__float2int_rd(a.x), __float2int_rd(a.y),
 			__float2int_rd(a.z));
 }
@@ -45,11 +48,11 @@ __device__ inline uchar3 make_uchar3(float3 a) {
  * make_int(num)  *
  *--------------- */
 
-__host__ __device__ inline int2 make_int2(int a) {
+HOST_FUNC DEV_FUNC int2 make_int2(int a) {
 	return make_int2(a, a);
 }
 
-__device__ inline int2 make_int2(float2 a) {
+DEV_FUNC int2 make_int2(float2 a) {
 #ifdef __CUDACC__
 	return make_int2(__float2int_rd(a.x), __float2int_rd(a.y));
 #else
@@ -58,17 +61,17 @@ __device__ inline int2 make_int2(float2 a) {
 #endif
 }
 
-__host__ __device__ inline int3 make_int3(int a) {
+HOST_FUNC DEV_FUNC int3 make_int3(int a) {
 	return make_int3(a, a, a);
 }
 
 #ifdef __CUDACC__
 
-__device__ inline int3 make_int3(float a) {
+DEV_FUNC int3 make_int3(float a) {
 	return make_int3(make_float3(a));
 }
 
-__device__ inline int3 make_int3(float3 a) {
+DEV_FUNC int3 make_int3(float3 a) {
 	return make_int3(__float2int_rd(a.x), __float2int_rd(a.y),
 			__float2int_rd(a.z));
 }
@@ -79,11 +82,11 @@ __device__ inline int3 make_int3(float3 a) {
  * make_uint(num) *
  *--------------- */
 
-__host__ __device__ inline uint2 make_uint2(int a) {
+HOST_FUNC DEV_FUNC uint2 make_uint2(int a) {
 	return make_uint2(a, a);
 }
 
-__host__ __device__ inline uint3 make_uint3(int a) {
+HOST_FUNC DEV_FUNC uint3 make_uint3(int a) {
 	return make_uint3(a, a, a);
 }
 
@@ -91,35 +94,35 @@ __host__ __device__ inline uint3 make_uint3(int a) {
  * make_float(num)  *
  *----------------- */
 
-__host__ __device__ inline float2 make_float2(float a) {
+HOST_FUNC DEV_FUNC float2 make_float2(float a) {
 	return make_float2(a, a);
 }
 
-__host__ __device__ inline float3 make_float3(uchar3 a) {
+HOST_FUNC DEV_FUNC float3 make_float3(uchar3 a) {
 	return make_float3(a.x, a.y, a.z);
 }
 
-__host__ __device__ inline float3 make_float3(float a) {
+HOST_FUNC DEV_FUNC float3 make_float3(float a) {
 	return make_float3(a, a, a);
 }
 
-__host__ __device__ inline float3 make_float3(int3 a) {
+HOST_FUNC DEV_FUNC float3 make_float3(int3 a) {
 	return make_float3(a.x, a.y, a.z);
 }
 
-__host__ __device__ inline float3 make_float3(float4 a) {
+HOST_FUNC DEV_FUNC float3 make_float3(float4 a) {
 	return make_float3(a.x, a.y, a.z);
 }
 
-__host__ __device__ inline float4 make_float4(float a) {
+HOST_FUNC DEV_FUNC float4 make_float4(float a) {
 	return make_float4(a, a, a, a);
 }
 
-__host__ __device__ inline float4 make_float4(float3 a) {
+HOST_FUNC DEV_FUNC float4 make_float4(float3 a) {
 	return make_float4(a.x, a.y, a.z, 1.f);
 }
 
-__host__ __device__ inline float4 make_float4(float3 a, float b) {
+HOST_FUNC DEV_FUNC float4 make_float4(float3 a, float b) {
 	return make_float4(a.x, a.y, a.z, b);
 }
 
@@ -127,7 +130,7 @@ __host__ __device__ inline float4 make_float4(float3 a, float b) {
  * make_double(num) *
  *----------------- */
 
-__host__ __device__ inline double4 make_double4(double a) {
+HOST_FUNC DEV_FUNC double4 make_double4(double a) {
 	return make_double4(a, a, a, a);
 }
 
@@ -135,31 +138,31 @@ __host__ __device__ inline double4 make_double4(double a) {
  * operator+(type)   *
  *------------------ */
 
-__host__ __device__ inline int2 operator+(int2 a, int2 b) {
+HOST_FUNC DEV_FUNC int2 operator+(int2 a, int2 b) {
 	return make_int2(a.x + b.x, a.y + b.y);
 }
 
-__host__ __device__ inline float2 operator+(float2 a, float2 b) {
+HOST_FUNC DEV_FUNC float2 operator+(float2 a, float2 b) {
 	return make_float2(a.x + b.x, a.y + b.y);
 }
 
-__host__ __device__ inline uchar3 operator+(uchar3 a, uchar3 b) {
+HOST_FUNC DEV_FUNC uchar3 operator+(uchar3 a, uchar3 b) {
 	return make_uchar3(a.x + b.x, a.y + b.y, a.z + b.z);
 }
 
-__host__ __device__ inline int3 operator+(int3 a, int3 b) {
+HOST_FUNC DEV_FUNC int3 operator+(int3 a, int3 b) {
 	return make_int3(a.x + b.x, a.y + b.y, a.z + b.z);
 }
 
-__host__ __device__ inline float3 operator+(float3 a, float b) {
+HOST_FUNC DEV_FUNC float3 operator+(float3 a, float b) {
 	return make_float3(a.x + b, a.y + b, a.z + b);
 }
 
-__host__ __device__ inline float3 operator+(float3 a, float3 b) {
+HOST_FUNC DEV_FUNC float3 operator+(float3 a, float3 b) {
 	return make_float3(a.x + b.x, a.y + b.y, a.z + b.z);
 }
 
-__host__ __device__ inline float4 operator+(float4 a, float4 b) {
+HOST_FUNC DEV_FUNC float4 operator+(float4 a, float4 b) {
 	return make_float4(a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w);
 }
 
@@ -167,21 +170,21 @@ __host__ __device__ inline float4 operator+(float4 a, float4 b) {
  * operator+=(type)  *
  *------------------ */
 
-__host__ __device__ inline
+HOST_FUNC DEV_FUNC
 void operator+=(float3 & a, uchar3 b) {
 	a.x += b.x;
 	a.y += b.y;
 	a.z += b.z;
 }
 
-__host__ __device__ inline
+HOST_FUNC DEV_FUNC
 void operator+=(float3 & a, float3 b) {
 	a.x += b.x;
 	a.y += b.y;
 	a.z += b.z;
 }
 
-__host__ __device__ inline
+HOST_FUNC DEV_FUNC
 void operator-=(float3 & a, float3 b) {
 	a.x -= b.x;
 	a.y -= b.y;
@@ -192,27 +195,27 @@ void operator-=(float3 & a, float3 b) {
  * operator-(type)   *
  *------------------ */
 
-__host__ __device__ inline int2 operator-(int2 a, int2 b) {
+HOST_FUNC DEV_FUNC int2 operator-(int2 a, int2 b) {
 	return make_int2(a.x - b.x, a.y - b.y);
 }
 
-__host__ __device__ inline float3 operator-(float3 b) {
+HOST_FUNC DEV_FUNC float3 operator-(float3 b) {
 	return make_float3(-b.x, -b.y, -b.z);
 }
 
-__host__ __device__ inline float3 operator-(float3 a, float b) {
+HOST_FUNC DEV_FUNC float3 operator-(float3 a, float b) {
 	return make_float3(a.x - b, a.y - b, a.z - b);
 }
 
-__host__ __device__ inline float3 operator-(float a, float3 b) {
+HOST_FUNC DEV_FUNC float3 operator-(float a, float3 b) {
 	return make_float3(a - b.x, a - b.y, a - b.z);
 }
 
-__host__ __device__ inline float3 operator-(float3 a, float3 b) {
+HOST_FUNC DEV_FUNC float3 operator-(float3 a, float3 b) {
 	return make_float3(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
-__host__ __device__ inline float4 operator-(float4 a, float4 b) {
+HOST_FUNC DEV_FUNC float4 operator-(float4 a, float4 b) {
 	return make_float4(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w);
 }
 
@@ -220,22 +223,22 @@ __host__ __device__ inline float4 operator-(float4 a, float4 b) {
  * operator(vec)*(vec) *
  *-------------------- */
 
-__host__ __device__ inline
+HOST_FUNC DEV_FUNC
 float operator*(float3 a, float3 b) {
 	return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-__host__ __device__ inline
+HOST_FUNC DEV_FUNC
 float operator*(float3 a, float4 b) {
 	return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-__host__ __device__ inline
+HOST_FUNC DEV_FUNC
 float operator*(float4 a, float3 b) {
 	return a.x * b.x + a.y * b.y + a.z * b.z + a.w;
 }
 
-__host__ __device__ inline
+HOST_FUNC DEV_FUNC
 float operator*(float4 a, float4 b) {
 	return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 }
@@ -244,43 +247,43 @@ float operator*(float4 a, float4 b) {
  * operator(vec)*(scalar) *
  *----------------------- */
 
-__host__ __device__ inline uchar3 operator*(uchar3 a, unsigned short b) {
+HOST_FUNC DEV_FUNC uchar3 operator*(uchar3 a, unsigned short b) {
 	return make_uchar3(a.x * b, a.y * b, a.z * b);
 }
 
-__host__ __device__ inline uchar3 operator*(uchar3 a, int b) {
+HOST_FUNC DEV_FUNC uchar3 operator*(uchar3 a, int b) {
 	return make_uchar3(a.x * b, a.y * b, a.z * b);
 }
 
-__host__ __device__ inline uchar3 operator*(int b, uchar3 a) {
+HOST_FUNC DEV_FUNC uchar3 operator*(int b, uchar3 a) {
 	return make_uchar3(a.x * b, a.y * b, a.z * b);
 }
 
-__host__ __device__ inline int3 operator*(int3 a, uint b) {
+HOST_FUNC DEV_FUNC int3 operator*(int3 a, uint b) {
 	return make_int3(a.x * b, a.y * b, a.z * b);
 }
 
-__host__ __device__ inline int3 operator*(int3 a, int b) {
+HOST_FUNC DEV_FUNC int3 operator*(int3 a, int b) {
 	return make_int3(a.x * b, a.y * b, a.z * b);
 }
 
-__host__ __device__ inline int3 operator*(float3 a, int b) {
+HOST_FUNC DEV_FUNC int3 operator*(float3 a, int b) {
 	return make_int3(a.x * b, a.y * b, a.z * b);
 }
 
-__host__ __device__ inline float3 operator*(int3 a, float b) {
+HOST_FUNC DEV_FUNC float3 operator*(int3 a, float b) {
 	return make_float3(a.x * b, a.y * b, a.z * b);
 }
 
-__host__ __device__ inline float3 operator*(float3 a, float b) {
+HOST_FUNC DEV_FUNC float3 operator*(float3 a, float b) {
 	return make_float3(a.x * b, a.y * b, a.z * b);
 }
 
-__host__ __device__ inline float3 operator*(float a, float3 b) {
+HOST_FUNC DEV_FUNC float3 operator*(float a, float3 b) {
 	return make_float3(a * b.x, a * b.y, a * b.z);
 }
 
-__host__ __device__ inline float4 operator*(float4 a, float b) {
+HOST_FUNC DEV_FUNC float4 operator*(float4 a, float b) {
 	return make_float4(a.x * b, a.y * b, a.z * b, a.w * b);
 }
 
@@ -288,19 +291,19 @@ __host__ __device__ inline float4 operator*(float4 a, float b) {
  * operator(vec)/(vec) *
  *-------------------- */
 
-__host__ __device__ inline int3 operator/(int3 a, int3 b) {
+HOST_FUNC DEV_FUNC int3 operator/(int3 a, int3 b) {
 	return make_int3(a.x / b.x, a.y / b.y, a.z / b.z);
 }
 
-__host__ __device__ inline float3 operator/(float3 a, int3 b) {
+HOST_FUNC DEV_FUNC float3 operator/(float3 a, int3 b) {
 	return make_float3(a.x / b.x, a.y / b.y, a.z / b.z);
 }
 
-__host__ __device__ inline float3 operator/(float3 a, float3 b) {
+HOST_FUNC DEV_FUNC float3 operator/(float3 a, float3 b) {
 	return make_float3(a.x / b.x, a.y / b.y, a.z / b.z);
 }
 
-__host__ __device__ inline float4 operator/(float4 a, float4 b) {
+HOST_FUNC DEV_FUNC float4 operator/(float4 a, float4 b) {
 	return make_float4(a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w);
 }
 
@@ -308,35 +311,39 @@ __host__ __device__ inline float4 operator/(float4 a, float4 b) {
  * operator(vec)/(scalar) *
  *----------------------- */
 
-__host__ __device__ inline int2 operator/(int2 a, int b) {
+HOST_FUNC DEV_FUNC int2 operator/(int2 a, int b) {
 	return make_int2(a.x / b, a.y / b);
 }
 
-__host__ __device__ inline uchar3 operator/(uchar3 a, int b) {
+HOST_FUNC DEV_FUNC float2 operator/(float2 a, int b) {
+	return make_float2(a.x / b, a.y / b);
+}
+
+HOST_FUNC DEV_FUNC uchar3 operator/(uchar3 a, int b) {
 	return make_uchar3(a.x / b, a.y / b, a.z / b);
 }
 
-__host__ __device__ inline int3 operator/(int3 a, uint b) {
+HOST_FUNC DEV_FUNC int3 operator/(int3 a, uint b) {
 	return make_int3(a.x / (int) b, a.y / (int) b, a.z / (int) b);
 }
 
-__host__ __device__ inline int3 operator/(int3 a, int b) {
+HOST_FUNC DEV_FUNC int3 operator/(int3 a, int b) {
 	return make_int3(a.x / b, a.y / b, a.z / b);
 }
 
-__host__ __device__ inline float3 operator/(float3 a, int b) {
+HOST_FUNC DEV_FUNC float3 operator/(float3 a, int b) {
 	return make_float3(a.x / b, a.y / b, a.z / b);
 }
 
-__host__ __device__ inline float3 operator/(float3 a, float b) {
+HOST_FUNC DEV_FUNC float3 operator/(float3 a, float b) {
 	return make_float3(a.x / b, a.y / b, a.z / b);
 }
 
-__host__ __device__ inline float3 operator/(float a, float3 b) {
+HOST_FUNC DEV_FUNC float3 operator/(float a, float3 b) {
 	return make_float3(a / b.x, a / b.y, a / b.z);
 }
 
-__host__ __device__ inline float4 operator/(float4 a, float b) {
+HOST_FUNC DEV_FUNC float4 operator/(float4 a, float b) {
 	return make_float4(a.x / b, a.y / b, a.z / b, a.w / b);
 }
 
@@ -344,7 +351,7 @@ __host__ __device__ inline float4 operator/(float4 a, float b) {
  * operator(vec)%(scalar) *
  *----------------------- */
 
-__host__ __device__ inline int3 operator%(int3 a, int b) {
+HOST_FUNC DEV_FUNC int3 operator%(int3 a, int b) {
 	return make_int3(a.x % b, a.y % b, a.z % b);
 }
 
@@ -352,7 +359,7 @@ __host__ __device__ inline int3 operator%(int3 a, int b) {
  * operator(vec) == (vec) *
  *----------------------- */
 
-__host__ __device__ inline
+HOST_FUNC DEV_FUNC
 bool operator==(int3 a, int3 b) {
 	return a.x == b.x && a.y == b.y && a.z == b.z;
 }
@@ -362,12 +369,12 @@ bool operator==(int3 a, int3 b) {
  * cross(type(num)) *
  *----------------- */
 
-__device__ inline float3 cross(float3 a, float3 b) {
+DEV_FUNC float3 cross(float3 a, float3 b) {
 	return make_float3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z,
 			a.x * b.y - a.y * b.x);
 }
 
-__device__ inline float3 cross(float4 a, float4 b) {
+DEV_FUNC float3 cross(float4 a, float4 b) {
 	return make_float3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z,
 			a.x * b.y - a.y * b.x);
 }
@@ -376,7 +383,7 @@ __device__ inline float3 cross(float4 a, float4 b) {
  * max(float(num))  *
  *----------------- */
 
-__device__ static inline
+DEV_FUNC static
 void atomicMax(float* address, float val) {
 	int* address_as_i = (int*) address;
 	int old = *address_as_i, assumed;
@@ -391,7 +398,7 @@ void atomicMax(float* address, float val) {
  * min(float(num))  *
  *----------------- */
 
-__device__ static inline
+DEV_FUNC static
 void atomicMin(float* address, float val) {
 	int* address_as_i = (int*) address;
 	int old = *address_as_i, assumed;
@@ -406,12 +413,12 @@ void atomicMin(float* address, float val) {
  *  norm(type)  *
  *------------- */
 
-__device__ inline
+DEV_FUNC
 float norm(float3 a) {
 	return sqrtf(a * a);
 }
 
-__device__ inline
+DEV_FUNC
 float norm(float4 a) {
 	return sqrtf(a * a);
 }
@@ -420,12 +427,12 @@ float norm(float4 a) {
  *  inverse norm(type)  *
  *--------------------- */
 
-__device__ inline
+DEV_FUNC
 float inv_norm(float3 a) {
 	return rsqrtf(a * a);
 }
 
-__device__ inline
+DEV_FUNC
 float inv_norm(float4 a) {
 	return rsqrtf(a * a);
 }
@@ -434,11 +441,11 @@ float inv_norm(float4 a) {
  *  Normalised(type) *
  *------------------ */
 
-__device__ inline float3 normalised(float3 a) {
+DEV_FUNC float3 normalised(float3 a) {
 	return a / norm(a);
 }
 
-__device__ inline float4 normalised(float4 a) {
+DEV_FUNC float4 normalised(float4 a) {
 	return a / norm(a);
 }
 
@@ -446,7 +453,7 @@ __device__ inline float4 normalised(float4 a) {
  *  floor(vec)  *
  *------------- */
 
-__device__ inline float3 floor(float3 a) {
+DEV_FUNC float3 floor(float3 a) {
 	return make_float3(floor(a.x), floor(a.y), floor(a.z));
 }
 
@@ -457,11 +464,11 @@ __device__ inline float3 floor(float3 a) {
 #endif
 
 struct Matrix3f {
-	__host__ __device__ Matrix3f() {
+	HOST_FUNC DEV_FUNC Matrix3f() {
 		rowx = rowy = rowz = make_float3(0, 0, 0);
 	}
 
-	__host__ Matrix3f(cv::Mat& mat) {
+	HOST_FUNC Matrix3f(cv::Mat& mat) {
 		rowx = make_float3(mat.at<float>(0, 0), mat.at<float>(0, 1),
 				mat.at<float>(0, 2));
 		rowy = make_float3(mat.at<float>(1, 0), mat.at<float>(1, 1),
@@ -470,7 +477,7 @@ struct Matrix3f {
 				mat.at<float>(2, 2));
 	}
 
-	__host__ Matrix3f(const cv::Mat& mat) {
+	HOST_FUNC Matrix3f(const cv::Mat& mat) {
 		rowx = make_float3(mat.at<float>(0, 0), mat.at<float>(0, 1),
 				mat.at<float>(0, 2));
 		rowy = make_float3(mat.at<float>(1, 0), mat.at<float>(1, 1),
@@ -479,7 +486,7 @@ struct Matrix3f {
 				mat.at<float>(2, 2));
 	}
 
-	__host__ __device__ inline
+	HOST_FUNC DEV_FUNC
 	static Matrix3f Identity() {
 		Matrix3f id;
 		id.rowx = make_float3(1, 0, 0);
@@ -488,31 +495,31 @@ struct Matrix3f {
 		return id;
 	}
 
-	__host__ __device__ inline float3 operator*(float3 vec) {
+	HOST_FUNC DEV_FUNC float3 operator*(float3 vec) {
 		return make_float3(rowx * vec, rowy * vec, rowz * vec);
 	}
 
-	__host__ __device__ inline float3 operator*(float3 vec) const {
+	HOST_FUNC DEV_FUNC float3 operator*(float3 vec) const {
 		return make_float3(rowx * vec, rowy * vec, rowz * vec);
 	}
 
-	__host__ __device__ inline float4 operator*(float4 vec) {
+	HOST_FUNC DEV_FUNC float4 operator*(float4 vec) {
 		return make_float4(rowx * vec, rowy * vec, rowz * vec, vec.w);
 	}
 
-	__host__ __device__ inline float4 operator*(float4 vec) const {
+	HOST_FUNC DEV_FUNC float4 operator*(float4 vec) const {
 		return make_float4(rowx * vec, rowy * vec, rowz * vec, vec.w);
 	}
 
-	__host__ __device__ inline float3 coloumx() const {
+	HOST_FUNC DEV_FUNC float3 coloumx() const {
 		return make_float3(rowx.x, rowy.x, rowz.x);
 	}
 
-	__host__ __device__ inline float3 coloumy() const {
+	HOST_FUNC DEV_FUNC float3 coloumy() const {
 		return make_float3(rowx.y, rowy.y, rowz.y);
 	}
 
-	__host__ __device__ inline float3 coloumz() const {
+	HOST_FUNC DEV_FUNC float3 coloumz() const {
 		return make_float3(rowx.z, rowy.z, rowz.z);
 	}
 

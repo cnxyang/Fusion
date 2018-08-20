@@ -4,96 +4,131 @@
 #include "device_math.hpp"
 #include "device_mapping.cuh"
 
-struct HashIntegrator {
-	DeviceMap map;
-	PtrStep<float> depth;
-	PtrStep<uchar3> colour;
-	PtrStep<float3> nmap;
+#define CUDA_KERNEL __global__
 
-	float fx, fy, cx, cy;
-	float DEPTH_MIN, DEPTH_MAX;
-	uint width;
-	uint height;
-	Matrix3f R_curr;
-	Matrix3f R_inv;
-	float3 t_curr;
+template<int threadBlock>
+DEV_FUNC int ComputeOffset(uint element, uint *sum) {
 
-	__device__ __forceinline__
-	bool CheckVertexVisibility(const float3 & v_g) {
+	__shared__ uint buffer[threadBlock];
+	__shared__ uint blockOffset;
 
-		float3 v_c = R_inv * (v_g - t_curr);
-		if (v_c.z < 1e-10f)
-			return false;
-		float2 pixel = CameraVertexToImageF(v_c);
+	if (threadIdx.x == 0)
+		memset(buffer, 0, sizeof(uint) * 16 * 16);
+	__syncthreads();
 
-		return pixel.x >= 0 && pixel.y >= 0 && pixel.x < width
-				&& pixel.y < height && v_c.z >= DEPTH_MIN && v_c.z <= DEPTH_MAX;
+	buffer[threadIdx.x] = element;
+	__syncthreads();
+
+	int s1, s2;
+
+	for (s1 = 1, s2 = 1; s1 < threadBlock; s1 <<= 1) {
+		s2 |= s1;
+		if ((threadIdx.x & s2) == s2)
+			buffer[threadIdx.x] += buffer[threadIdx.x - s1];
+		__syncthreads();
 	}
 
-	__device__ __forceinline__
-	bool CheckBlockVisibility(const int3 & blockPos) {
+	for (s1 >>= 2, s2 >>= 1; s1 >= 1; s1 >>= 1, s2 >>= 1) {
+		if (threadIdx.x != threadBlock - 1 && (threadIdx.x & s2) == s2)
+			buffer[threadIdx.x + s1] += buffer[threadIdx.x];
+		__syncthreads();
+	}
 
-		float factor = (float) BLOCK_DIM * VOXEL_SIZE;
+	if (threadIdx.x == 0 && buffer[threadBlock - 1] > 0)
+		blockOffset = atomicAdd(sum, buffer[threadBlock - 1]);
+	__syncthreads();
 
-		float3 blockCorner = blockPos * factor;
-		if (CheckVertexVisibility(blockCorner))
+	int offset;
+	if (threadIdx.x == 0) {
+		if (buffer[threadIdx.x] == 0)
+			offset = -1;
+		else
+			offset = blockOffset;
+	} else {
+		if (buffer[threadIdx.x] == buffer[threadIdx.x - 1])
+			offset = -1;
+		else
+			offset = blockOffset + buffer[threadIdx.x - 1];
+	}
+
+	return offset;
+}
+
+struct HashIntegrator {
+
+	DeviceMap map;
+	float invfx, invfy;
+	float fx, fy, cx, cy;
+	float DEPTH_MIN, DEPTH_MAX;
+	int cols, rows;
+	Matrix3f Rot;
+	Matrix3f invRot;
+	float3 trans;
+
+	uint* nVisibleBlock;
+	PtrStep<float> depth;
+	PtrSz<int> blockVisibilityList;
+	PtrSz<HashEntry> visibleBlockList;
+
+	DEV_FUNC float2 ProjectVertex(float3& pt3d) {
+		float2 pt2d;
+		pt2d.x = fx * pt3d.x / pt3d.z + cx;
+		pt2d.y = fy * pt3d.y / pt3d.z + cy;
+		return pt2d;
+	}
+
+	DEV_FUNC float3 UnprojectWorld(const int& x, const int& y, const float& z) {
+		float3 pt3d;
+		pt3d.z = z;
+		pt3d.x = z * (x - cx) * invfx;
+		pt3d.y = z * (y - cy) * invfy;
+		return Rot * pt3d + trans;
+	}
+
+	DEV_FUNC bool CheckVertexVisibility(float3 pt3d) {
+		pt3d = invRot * (pt3d - trans);
+		if (pt3d.z < 1e-3f)
+			return false;
+		float2 pt2d = ProjectVertex(pt3d);
+
+		return pt2d.x >= 0 && pt2d.y >= 0 && pt2d.x < cols && pt2d.y < rows
+				&& pt3d.z >= DEPTH_MIN && pt3d.z <= DEPTH_MAX;
+	}
+
+	DEV_FUNC bool CheckBlockVisibility(const int3& pos) {
+
+		float scale = BLOCK_DIM * VOXEL_SIZE;
+		float3 corner = pos * scale;
+		if (CheckVertexVisibility(corner))
 			return true;
-
-		blockCorner.z += factor;
-		if (CheckVertexVisibility(blockCorner))
+		corner.z += scale;
+		if (CheckVertexVisibility(corner))
 			return true;
-
-		blockCorner.y += factor;
-		if (CheckVertexVisibility(blockCorner))
+		corner.y += scale;
+		if (CheckVertexVisibility(corner))
 			return true;
-
-		blockCorner.x += factor;
-		if (CheckVertexVisibility(blockCorner))
+		corner.x += scale;
+		if (CheckVertexVisibility(corner))
 			return true;
-
-		blockCorner.z -= factor;
-		if (CheckVertexVisibility(blockCorner))
+		corner.z -= scale;
+		if (CheckVertexVisibility(corner))
 			return true;
-
-		blockCorner.y -= factor;
-		if (CheckVertexVisibility(blockCorner))
+		corner.y -= scale;
+		if (CheckVertexVisibility(corner))
 			return true;
-
-		blockCorner.x -= factor;
-		blockCorner.y += factor;
-		if (CheckVertexVisibility(blockCorner))
+		corner.x -= scale;
+		corner.y += scale;
+		if (CheckVertexVisibility(corner))
 			return true;
-
-		blockCorner.x += factor;
-		blockCorner.y -= factor;
-		blockCorner.z += factor;
-		if (CheckVertexVisibility(blockCorner))
+		corner.x += scale;
+		corner.y -= scale;
+		corner.z += scale;
+		if (CheckVertexVisibility(corner))
 			return true;
-
 		return false;
 	}
 
-	__device__ __forceinline__
-	float3 depthToCameraVertex(uint x, uint y, float dp) const {
-
-		return make_float3(dp * (x - cx) / fx, dp * (y - cy) / fy, dp);
-	}
-
-	__device__ __forceinline__
-	float2 CameraVertexToImageF(float3 pos) {
-
-		return make_float2(fx * pos.x / pos.z + cx, fy * pos.y / pos.z + cy);
-	}
-
-	__device__ __forceinline__
-	float3 DepthToWorldVertex(uint x, uint y, float dp) {
-
-		float3 v_c = depthToCameraVertex(x, y, dp);
-		return R_curr * v_c + t_curr;
-	}
-
-	__device__
-	HashEntry createHashEntry(const int3 & pos, const int & offset) {
+	DEV_FUNC HashEntry createHashEntry(const int3 & pos, const int & offset) {
 		int old = atomicSub(map.heapCounter, 1);
 		int ptr = map.heapMem[old];
 		if (ptr != -1)
@@ -101,8 +136,7 @@ struct HashIntegrator {
 		return HashEntry(pos, EntryAvailable, offset);
 	}
 
-	__device__
-	void CreateBlock(const int3 & blockPos) {
+	DEV_FUNC void CreateBlock(const int3 & blockPos) {
 		uint bucketId = computeHashPos(blockPos, NUM_BUCKETS);
 		uint entryId = bucketId * BUCKET_SIZE;
 
@@ -177,87 +211,73 @@ struct HashIntegrator {
 		return;
 	}
 
-	__device__
-	void CreateVisibleBlocks() {
-		uint x = blockIdx.x * blockDim.x + threadIdx.x;
-		uint y = blockIdx.y * blockDim.y + threadIdx.y;
-		if (x >= width || y >= height)
-			return;
-
-		float dp_scaled = depth.ptr(y)[x];
-		if (isnan(dp_scaled) || dp_scaled > DEPTH_MAX || dp_scaled < DEPTH_MIN)
-			return;
-
-		float trunc_dist = TRUNC_DIST / 2;
-		float dp_min = min(DEPTH_MAX, dp_scaled - trunc_dist);
-		float dp_max = min(DEPTH_MAX, dp_scaled + trunc_dist);
-
-		float oneOverVoxelSize = 1.f / VOXEL_SIZE;
-
-		if (dp_min >= dp_max)
-			return;
-
-		float3 point = DepthToWorldVertex(x, y, dp_min) * oneOverVoxelSize;
-
-		float3 point_e = DepthToWorldVertex(x, y, dp_max) * oneOverVoxelSize;
-
-		float3 direction = point_e - point;
-
-		float snorm = sqrt(
-				direction.x * direction.x + direction.y * direction.y
-						+ direction.z * direction.z);
-
-		int noSteps = (int) ceil(2.0f * snorm);
-
-		direction = direction / (float) (noSteps - 1);
-
-		for (int i = 0; i < noSteps; i++) {
-			int3 blockPos = map.voxelPosToBlockPos(make_int3(point));
-
-			CreateBlock(blockPos);
-
-			point += direction;
+	DEV_FUNC void CreateBlocks() {
+		int x = blockIdx.x * blockDim.x + threadIdx.x;
+		int y = blockIdx.y * blockDim.y + threadIdx.y;
+		if (x < cols && y < rows) {
+			float z = depth.ptr(y)[x];
+			if (!isnan(z) && z >= DEPTH_MIN && z <= DEPTH_MAX) {
+				float thresh = TRUNC_DIST / 2;
+				float z_near = min(DEPTH_MAX, z - thresh);
+				float z_far = min(DEPTH_MAX, z + thresh);
+				if (z_near >= z_far)
+					return;
+				float3 pt_near = UnprojectWorld(x, y, z_near) / VOXEL_SIZE;
+				float3 pt_far = UnprojectWorld(x, y, z_far) / VOXEL_SIZE;
+				float3 dir = pt_far - pt_near;
+				float length = norm(dir);
+				int nSteps = (int) ceil(2.0 * length);
+				dir = dir / (float) (nSteps - 1);
+				for (int i = 0; i < nSteps; ++i) {
+					int3 blockPos = map.voxelPosToBlockPos(make_int3(pt_near));
+					CreateBlock(blockPos);
+					pt_near += dir;
+				}
+			}
 		}
 	}
 
-	__device__
-	void createBlock(const float3 & pos) {
+	DEV_FUNC void createBlock(const float3 & pos) {
 		CreateBlock(map.worldPosToBlockPos(pos));
 	}
 
-	__device__
-	void compactifyEntries() {
-		const uint idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-		if (idx >= NUM_ENTRIES)
-			return;
-		HashEntry & entry = map.hashEntries[idx];
-		if (entry.ptr == EntryAvailable)
-			return;
-
-		if (!CheckBlockVisibility(entry.pos))
-			return;
-
-		int old = atomicAdd(map.noVisibleBlocks, 1);
-		map.visibleEntries[old] = entry;
+	DEV_FUNC void CheckFullVisibility() {
+		__shared__ bool bScan;
+		if (threadIdx.x == 0)
+			bScan = false;
+		__syncthreads();
+		int x = blockDim.x * blockIdx.x + threadIdx.x;
+		HashEntry& entry = map.hashEntries[x];
+		uint val = 0;
+		if (entry.ptr != EntryAvailable) {
+			if (CheckBlockVisibility(entry.pos)) {
+				bScan = true;
+				val = 1;
+			}
+		}
+		__syncthreads();
+		if (bScan) {
+			int offset = ComputeOffset<1024>(val, map.noVisibleBlocks);
+			map.visibleEntries[offset] = map.hashEntries[x];
+		}
 	}
 
-	__device__
-	void operator()(bool fuse) {
-		const HashEntry & entry = map.visibleEntries[blockIdx.x];
+	template<bool fuse>
+	DEV_FUNC void UpdateMap() {
 
+		HashEntry& entry = map.visibleEntries[blockIdx.x];
 		int idx = threadIdx.x;
 
 		int3 block_pos = map.blockPosToVoxelPos(entry.pos);
 		int3 voxel_pos = block_pos + map.localIdxToLocalPos(idx);
 		float3 pos = map.voxelPosToWorldPos(voxel_pos);
 
-		pos = R_inv * (pos - t_curr);
+		pos = invRot * (pos - trans);
 
-		float2 pixel = CameraVertexToImageF(pos);
+		float2 pixel = ProjectVertex(pos);
 
-		if (pixel.x < 1 || pixel.y < 1 || pixel.x >= width - 1
-				|| pixel.y >= height - 1)
+		if (pixel.x < 1 || pixel.y < 1 || pixel.x >= cols - 1
+				|| pixel.y >= rows - 1)
 			return;
 
 		int2 uv = make_int2(pixel + make_float2(0.5, 0.5));
@@ -292,19 +312,17 @@ struct HashIntegrator {
 	}
 };
 
-template<bool fuse> __global__
-void hashIntegrateKernal(HashIntegrator hi) {
-	hi(fuse);
+template<bool fuse>
+CUDA_KERNEL void hashIntegrateKernal(HashIntegrator hi) {
+	hi.UpdateMap<fuse>();
 }
 
-__global__
-void compacitifyEntriesKernel(HashIntegrator hi) {
-	hi.compactifyEntries();
+CUDA_KERNEL void compacitifyEntriesKernel(HashIntegrator hi) {
+	hi.CheckFullVisibility();
 }
 
-__global__
-void createBlocksKernel(HashIntegrator hi) {
-	hi.CreateVisibleBlocks();
+CUDA_KERNEL void createBlocksKernel(HashIntegrator hi) {
+	hi.CreateBlocks();
 }
 
 int Mapping::FuseFrame(const Frame& frame) {
@@ -312,23 +330,24 @@ int Mapping::FuseFrame(const Frame& frame) {
 	int pyr = 0;
 	HashIntegrator HI;
 	HI.map = *this;
-	HI.R_curr = frame.Rot_gpu();
-	HI.R_inv = frame.RotInv_gpu();
-	HI.t_curr = frame.Trans_gpu();
+	HI.Rot = frame.Rot_gpu();
+	HI.invRot = frame.RotInv_gpu();
+	HI.trans = frame.Trans_gpu();
 	HI.fx = Frame::fx(pyr);
 	HI.fy = Frame::fy(pyr);
 	HI.cx = Frame::cx(pyr);
 	HI.cy = Frame::cy(pyr);
+	HI.invfx = 1.0 / Frame::fx(pyr);
+	HI.invfy = 1.0 / Frame::fy(pyr);
 	HI.depth = frame.mDepth[pyr];
-	HI.width = Frame::cols(pyr);
-	HI.height = Frame::rows(pyr);
-	HI.nmap = frame.mNMap[pyr];
+	HI.cols = Frame::cols(pyr);
+	HI.rows = Frame::rows(pyr);
 	HI.DEPTH_MAX = DEPTH_MAX;
 	HI.DEPTH_MIN = DEPTH_MIN;
 
 	dim3 block(32, 8);
 	dim3 grid(cv::divUp(Frame::cols(pyr), block.x),
-			  cv::divUp(Frame::rows(pyr), block.y));
+			cv::divUp(Frame::rows(pyr), block.y));
 
 	Timer::StartTiming("Mapping", "Create Blocks");
 	createBlocksKernel<<<grid, block>>>(HI);
@@ -368,8 +387,7 @@ int Mapping::FuseFrame(const Frame& frame) {
 	return noblock;
 }
 
-__global__
-void resetHashKernel(HashEntry * hash, HashEntry * compact) {
+CUDA_KERNEL void resetHashKernel(HashEntry * hash, HashEntry * compact) {
 	uint idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (idx >= NUM_ENTRIES)
@@ -379,8 +397,8 @@ void resetHashKernel(HashEntry * hash, HashEntry * compact) {
 	compact[idx].release();
 }
 
-__global__
-void resetHeapKernel(int * heap, int * heap_counter, Voxel * voxels) {
+CUDA_KERNEL void resetHeapKernel(int * heap, int * heap_counter,
+		Voxel * voxels) {
 	uint idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (idx > NUM_SDF_BLOCKS)
@@ -398,8 +416,7 @@ void resetHeapKernel(int * heap, int * heap_counter, Voxel * voxels) {
 		*heap_counter = NUM_SDF_BLOCKS - 1;
 }
 
-__global__
-void resetMutexKernel(int * mutex) {
+CUDA_KERNEL void resetMutexKernel(int * mutex) {
 	uint idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (idx >= NUM_BUCKETS)
@@ -414,24 +431,23 @@ void Mapping::ResetDeviceMemory() {
 	dim3 grid;
 
 	grid.x = cv::divUp((int) NUM_SDF_BLOCKS, block.x);
-
 	resetHeapKernel<<<grid, block>>>(mMemory, mUsedMem, mVoxelBlocks);
 
+	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
-	grid.x = cv::divUp((int) NUM_ENTRIES, block.x);
 
+	grid.x = cv::divUp((int) NUM_ENTRIES, block.x);
 	resetHashKernel<<<grid, block>>>(mHashEntries, mVisibleEntries);
 
+	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 
 	grid.x = cv::divUp((int) NUM_BUCKETS, block.x);
-
 	resetMutexKernel<<<grid, block>>>(mBucketMutex);
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
 
 	ResetKeys(*this);
-
 	mCamTrace.clear();
 }

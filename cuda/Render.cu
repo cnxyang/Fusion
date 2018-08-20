@@ -2,9 +2,68 @@
 #include "Mapping.hpp"
 #include "device_struct.hpp"
 
+#define DEV_FUNC __device__ __inline__
+
+#define Render_DownScaleRatio   8
+#define Render_RenderBlockSize  16
+
+template<int threadBlock>
+DEV_FUNC int ComputeOffset(uint element, uint *sum) {
+
+	__shared__ uint buffer[threadBlock];
+	__shared__ uint blockOffset;
+
+	if (threadIdx.x == 0)
+		memset(buffer, 0, sizeof(uint) * 16 * 16);
+	__syncthreads();
+
+	buffer[threadIdx.x] = element;
+	__syncthreads();
+
+	int s1, s2;
+
+	for (s1 = 1, s2 = 1; s1 < threadBlock; s1 <<= 1) {
+		s2 |= s1;
+		if ((threadIdx.x & s2) == s2)
+			buffer[threadIdx.x] += buffer[threadIdx.x - s1];
+		__syncthreads();
+	}
+
+	for (s1 >>= 2, s2 >>= 1; s1 >= 1; s1 >>= 1, s2 >>= 1) {
+		if (threadIdx.x != threadBlock - 1 && (threadIdx.x & s2) == s2)
+			buffer[threadIdx.x + s1] += buffer[threadIdx.x];
+		__syncthreads();
+	}
+
+	if (threadIdx.x == 0 && buffer[threadBlock - 1] > 0)
+		blockOffset = atomicAdd(sum, buffer[threadBlock - 1]);
+	__syncthreads();
+
+	int offset;
+	if (threadIdx.x == 0) {
+		if (buffer[threadIdx.x] == 0)
+			offset = -1;
+		else
+			offset = blockOffset;
+	} else {
+		if (buffer[threadIdx.x] == buffer[threadIdx.x - 1])
+			offset = -1;
+		else
+			offset = blockOffset + buffer[threadIdx.x - 1];
+	}
+
+	return offset;
+}
+
 struct HashRayCaster {
+
 	DeviceMap map;
-	uint num_blocks;
+	float fx, fy, cx, cy;
+	int cols, rows;
+	Matrix3f Rot, invRot;
+	float3 trans;
+
+	uint nVoxelBlocks;
 
 	mutable PtrStep<float4> vmap;
 	mutable PtrStep<float3> nmap;
@@ -13,42 +72,38 @@ struct HashRayCaster {
 	mutable PtrStep<float> minDepthMap;
 	mutable PtrStep<float> maxDepthMap;
 
-	RenderingBlock * renderingBlockList;
-	uint * noTotalBlocks;
+	PtrSz<RenderingBlock> renderingBlockList;
+	uint * nRenderingBlocks;
 
 	static const int minmaximg_subsample = 8;
 	static const int renderingBlockSizeX = 16;
 	static const int renderingBlockSizeY = 16;
 
-	float fx, fy, cx, cy;
-	uint width;
-	uint height;
-	Matrix3f R_curr;
-	Matrix3f R_inv;
-	float3 t_curr;
+	DEV_FUNC float2 ProjectVertex(const float3& pt) {
+		float2 pt2d;
+		pt2d.x = fx * pt.x / pt.z + cx;
+		pt2d.y = fy * pt.y / pt.z + cy;
+		return pt2d;
+	}
 
-	__device__ __forceinline__
-	bool ProjectSingleBlock(const int3 & blockPos, int2 & upperLeft,
-			int2 & lowerRight, float2 & zRange) {
-		upperLeft = make_int2(width, height) / minmaximg_subsample;
+	DEV_FUNC bool ProjectBlock(const int3& blockPos, int2& upperLeft,
+			int2& lowerRight, float2& zRange) {
+
+		upperLeft = make_int2(cols, rows) / minmaximg_subsample;
 		lowerRight = make_int2(-1, -1);
 		zRange = make_float2(DEPTH_MAX, DEPTH_MIN);
 		for (int corner = 0; corner < 8; ++corner) {
-			// project all 8 corners down to 2D image
 			int3 tmp = blockPos;
 			tmp.x += (corner & 1) ? 1 : 0;
 			tmp.y += (corner & 2) ? 1 : 0;
 			tmp.z += (corner & 4) ? 1 : 0;
 			float3 pt3d = tmp * BLOCK_DIM * VOXEL_SIZE;
-			pt3d = R_inv * (pt3d - t_curr);
+			pt3d = invRot * (pt3d - trans);
 			if (pt3d.z < 1e-6)
 				continue;
 
-			float2 pt2d;
-			pt2d.x = (fx * pt3d.x / pt3d.z + cx) / minmaximg_subsample;
-			pt2d.y = (fy * pt3d.y / pt3d.z + cy) / minmaximg_subsample;
+			float2 pt2d = ProjectVertex(pt3d) / minmaximg_subsample;
 
-			// remember bounding box, zmin and zmax
 			if (upperLeft.x > floor(pt2d.x))
 				upperLeft.x = (int) floor(pt2d.x);
 			if (lowerRight.x < ceil(pt2d.x))
@@ -68,10 +123,10 @@ struct HashRayCaster {
 			upperLeft.x = 0;
 		if (upperLeft.y < 0)
 			upperLeft.y = 0;
-		if (lowerRight.x >= width)
-			lowerRight.x = width - 1;
-		if (lowerRight.y >= height)
-			lowerRight.y = height - 1;
+		if (lowerRight.x >= cols)
+			lowerRight.x = cols - 1;
+		if (lowerRight.y >= rows)
+			lowerRight.y = rows - 1;
 		if (upperLeft.x > lowerRight.x)
 			return false;
 		if (upperLeft.y > lowerRight.y)
@@ -83,55 +138,6 @@ struct HashRayCaster {
 			return false;
 
 		return true;
-	}
-
-	template<typename T> __device__
-	int computePrefixSum_device(uint element, T *sum, int localSize,
-			int localId) {
-		// TODO: should be localSize...
-		__shared__ uint prefixBuffer[16 * 16];
-		__shared__ uint groupOffset;
-
-		if (localId == 0)
-			memset(prefixBuffer, 0, sizeof(uint) * 16 * 16);
-		__syncthreads();
-
-		prefixBuffer[localId] = element;
-		__syncthreads();
-
-		int s1, s2;
-
-		for (s1 = 1, s2 = 1; s1 < localSize; s1 <<= 1) {
-			s2 |= s1;
-			if ((localId & s2) == s2)
-				prefixBuffer[localId] += prefixBuffer[localId - s1];
-			__syncthreads();
-		}
-
-		for (s1 >>= 2, s2 >>= 1; s1 >= 1; s1 >>= 1, s2 >>= 1) {
-			if (localId != localSize - 1 && (localId & s2) == s2)
-				prefixBuffer[localId + s1] += prefixBuffer[localId];
-			__syncthreads();
-		}
-
-		if (localId == 0 && prefixBuffer[localSize - 1] > 0)
-			groupOffset = atomicAdd(sum, prefixBuffer[localSize - 1]);
-		__syncthreads();
-
-		int offset; // = groupOffset + prefixBuffer[localId] - 1;
-		if (localId == 0) {
-			if (prefixBuffer[localId] == 0)
-				offset = -1;
-			else
-				offset = groupOffset;
-		} else {
-			if (prefixBuffer[localId] == prefixBuffer[localId - 1])
-				offset = -1;
-			else
-				offset = groupOffset + prefixBuffer[localId - 1];
-		}
-
-		return offset;
 	}
 
 	__device__ inline
@@ -173,7 +179,7 @@ struct HashRayCaster {
 
 		const HashEntry & entry(map.visibleEntries[idx]);
 
-		if (entry.ptr == EntryAvailable || idx >= num_blocks)
+		if (entry.ptr == EntryAvailable || idx >= nVoxelBlocks)
 			return;
 
 		int2 upperLeft;
@@ -182,7 +188,7 @@ struct HashRayCaster {
 
 		bool validProjection = false;
 
-		validProjection = ProjectSingleBlock(entry.pos, upperLeft, lowerRight,
+		validProjection = ProjectBlock(entry.pos, upperLeft, lowerRight,
 				zRange);
 
 		int2 requiredRenderingBlocks = make_int2(
@@ -193,18 +199,18 @@ struct HashRayCaster {
 						(float) (lowerRight.y - upperLeft.y + 1)
 								/ renderingBlockSizeY));
 
-		size_t requiredNumBlocks = requiredRenderingBlocks.x
-				* requiredRenderingBlocks.y;
-		if (!validProjection)
-			requiredNumBlocks = 0;
-		if (*noTotalBlocks + requiredNumBlocks >= MAX_RENDERING_BLOCKS)
-			return;
-		int out_offset = computePrefixSum_device<uint>(requiredNumBlocks,
-				noTotalBlocks, blockDim.x, threadIdx.x);
-		if (!validProjection)
-			return;
-		if ((out_offset == -1)
-				|| (out_offset + requiredNumBlocks > MAX_RENDERING_BLOCKS))
+		uint requiredNumBlocks = 0;
+		if (validProjection) {
+			requiredNumBlocks = requiredRenderingBlocks.x
+					* requiredRenderingBlocks.y;
+			if (*nRenderingBlocks + requiredNumBlocks >= MAX_RENDERING_BLOCKS)
+				requiredNumBlocks = 0;
+		}
+
+		int out_offset = ComputeOffset<256>(requiredNumBlocks,
+				nRenderingBlocks);
+		if (!validProjection || out_offset == -1
+				|| *nRenderingBlocks + out_offset >= MAX_RENDERING_BLOCKS)
 			return;
 
 		CreateRenderingBlocks(out_offset, upperLeft, lowerRight, zRange);
@@ -215,7 +221,7 @@ struct HashRayCaster {
 		int x = threadIdx.x;
 		int y = threadIdx.y;
 		int block = blockIdx.x * 4 + blockIdx.y;
-		if (block >= *noTotalBlocks)
+		if (block >= *nRenderingBlocks)
 			return;
 
 		const RenderingBlock & b(renderingBlockList[block]);
@@ -249,13 +255,13 @@ struct HashRayCaster {
 		pt_camera_f.x = pt_camera_f.z * ((float(x) - cx) / fx);
 		pt_camera_f.y = pt_camera_f.z * ((float(y) - cy) / fy);
 		totalLength = norm(pt_camera_f) * oneOverVoxelSize;
-		pt_block_s = (R_curr * pt_camera_f + t_curr) * oneOverVoxelSize;
+		pt_block_s = (Rot * pt_camera_f + trans) * oneOverVoxelSize;
 
 		pt_camera_f.z = maxd;
 		pt_camera_f.x = pt_camera_f.z * ((float(x) - cx) / fx);
 		pt_camera_f.y = pt_camera_f.z * ((float(y) - cy) / fy);
 		totalLengthMax = norm(pt_camera_f) * oneOverVoxelSize;
-		pt_block_e = (R_curr * pt_camera_f + t_curr) * oneOverVoxelSize;
+		pt_block_e = (Rot * pt_camera_f + trans) * oneOverVoxelSize;
 
 		rayDirection = normalised(pt_block_e - pt_block_s);
 
@@ -298,7 +304,7 @@ struct HashRayCaster {
 		} else
 			pt_found = false;
 
-		pt_out = make_float4(R_inv * (pt_result / oneOverVoxelSize - t_curr),
+		pt_out = make_float4(invRot * (pt_result / oneOverVoxelSize - trans),
 				1.f);
 		if (pt_found)
 			pt_out.w = confidence + 1.0f;
@@ -403,7 +409,7 @@ struct HashRayCaster {
 	__device__ void ComputeNormalMap() {
 		int x = (threadIdx.x + blockIdx.x * blockDim.x), y = (threadIdx.y
 				+ blockIdx.y * blockDim.y);
-		if (x >= width || y >= height)
+		if (x >= cols || y >= rows)
 			return;
 
 		float3 outNormal;
@@ -428,7 +434,7 @@ struct HashRayCaster {
 		float4 xp1_y, xm1_y, x_yp1, x_ym1;
 
 		if (useSmoothing) {
-			if (y <= 2 || y >= height - 3 || x <= 2 || x >= width - 3) {
+			if (y <= 2 || y >= rows - 3 || x <= 2 || x >= cols - 3) {
 				foundPoint = false;
 				return;
 			}
@@ -436,7 +442,7 @@ struct HashRayCaster {
 			xp1_y = vmap.ptr(y)[x + 2], x_yp1 = vmap.ptr(y + 2)[x];
 			xm1_y = vmap.ptr(y)[x - 2], x_ym1 = vmap.ptr(y - 2)[x];
 		} else {
-			if (y <= 1 || y >= height - 2 || x <= 1 || x >= width - 2) {
+			if (y <= 1 || y >= rows - 2 || x <= 1 || x >= cols - 2) {
 				foundPoint = false;
 				return;
 			}
@@ -518,7 +524,7 @@ struct HashRayCaster {
 		float time_min = minDepthMap.ptr(locId.y)[locId.x];
 		float time_max = maxDepthMap.ptr(locId.y)[locId.x];
 
-		if (x >= width || y >= height)
+		if (x >= cols || y >= rows)
 			return;
 
 		if (time_min == 0 || time_min == __int_as_float(0x7fffffff))
@@ -586,21 +592,21 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 
 	HashRayCaster hrc;
 	hrc.map = *this;
-	hrc.num_blocks = num_occupied_blocks;
+	hrc.nVoxelBlocks = num_occupied_blocks;
 	hrc.fx = render.fx;
 	hrc.fy = render.fy;
 	hrc.cx = render.cx;
 	hrc.cy = render.cy;
-	hrc.width = render.cols;
-	hrc.height = render.rows;
-	hrc.R_curr = render.Rview;
-	hrc.R_inv = render.invRview;
-	hrc.t_curr = render.tview;
+	hrc.cols = render.cols;
+	hrc.rows = render.rows;
+	hrc.Rot = render.Rview;
+	hrc.invRot = render.invRview;
+	hrc.trans = render.tview;
 	hrc.renderingBlockList = RenderingBlockList;
 	hrc.minDepthMap = DepthMapMin;
 	hrc.maxDepthMap = DepthMapMax;
 	hrc.map = *this;
-	hrc.noTotalBlocks = noTotalBlocks;
+	hrc.nRenderingBlocks = noTotalBlocks;
 	hrc.vmap = render.VMap;
 	hrc.nmap = render.NMap;
 	hrc.rendering = render.Render;

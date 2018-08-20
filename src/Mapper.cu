@@ -129,27 +129,6 @@ CUDA_KERNEL void AllocateKernel(Allocator& alloc) {
 	alloc.AllocateMem();
 }
 
-HOST_FUNC void FuseDepth(DMap& map, DeviceArray2D<float>& depth) {
-	Allocator alloc;
-	alloc.map = map;
-	alloc.depth = depth;
-
-	dim3 block(32, 8);
-	dim3 grid(cv::divUp(depth.cols(), block.x),
-			cv::divUp(depth.rows(), block.y));
-
-	CreateAllocListKernel<<<grid, block>>>(alloc);
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-
-	dim3 block_alloc(MaxThread);
-	dim3 grid_alloc(cv::divUp(map.HashTable.size, block_alloc.x));
-
-	AllocateKernel<<<grid_alloc, block_alloc>>>(alloc);
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-}
-
 struct Observor {
 	DMap map;
 	float fx, fy, cx, cy;
@@ -195,37 +174,6 @@ struct Observor {
 	}
 };
 
-//class Converter {
-//public:
-//	HOST_FUNC DEV_FUNC static int3 VoxelPosToBlockPos(float3 pos) {
-//		pos = pos / VoxelSize;
-//		return make_int3(pos);
-//	}
-//};
-
-CUDA_KERNEL void BuildVisibleBlockListKernel(PtrSz<int> visibilityList,
-		PtrSz<int> visibleBlockList) {
-	int x = blockDim.x * blockIdx.x + threadIdx.x;
-	if (x > 0 && x < visibilityList.size) {
-		int p = visibilityList[x - 1];
-		int c = visibilityList[x];
-		if (c - p == 1) {
-			visibleBlockList[x - 1] = x;
-		}
-	}
-}
-
-HOST_FUNC void BuildVisibleBlockList(DeviceArray<int>& visibilityList,
-		DeviceArray<int>& visibleBlockList) {
-	dim3 block(MaxThread);
-	dim3 grid(cv::divUp(visibilityList.size(), block.x));
-
-	BuildVisibleBlockListKernel<<<grid, block>>>(visibilityList, visibleBlockList);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-}
-
 uint DMap::Hash(int3& pos) {
 	int res = ((pos.x * 73856093) ^ (pos.y * 19349669) ^ (pos.z * 83492791))
 			% nBuckets;
@@ -252,4 +200,116 @@ void DMap::CreateAllocList(float3& pos) {
 	uint index = Hash(block);
 	uint firstEmptyIndex = -1;
 	HashEntry* entry = &HashTable[index];
+}
+
+DEV_FUNC float2 ProjectVertex(float3& v_c, float& fx, float& fy, float& cx,
+		float& cy) {
+	float2 uv;
+	uv.x = fx * v_c.x / v_c.z + cx;
+	uv.y = fy * v_c.y / v_c.z + cy;
+	return uv;
+}
+
+DEV_FUNC bool ProjectBlock(int3& pos, Block2D& p, Matrix3f& invR, float3& t,
+		int& cols, int& rows, float& fx, float& fy, float& cx, float& cy) {
+
+}
+
+template<int threadBlock>
+DEV_FUNC int ComputeOffset(uint val, uint* sum) {
+
+	static_assert(threadBlock % 2 == 0, "ComputeOffset");
+	__shared__ uint buffer[threadBlock];
+	__shared__ uint blockOffset;
+
+	if (threadIdx.x == 0)
+		memset(buffer, 0, sizeof(uint) * threadBlock);
+	__syncthreads();
+
+	buffer[threadIdx.x] = val;
+	__syncthreads();
+
+	int s1, s2;
+	for (s1 = 1, s2 = 1; s1 < threadBlock; s1 <<= 1) {
+		s2 |= s1;
+		if ((threadIdx.x & s2) == s2)
+			buffer[threadIdx.x] += buffer[threadIdx.x - s1];
+		__syncthreads();
+	}
+
+	for (s1 >>= 2, s2 >>= 1; s1 >= 1; s1 >>= 1, s2 >>= 1) {
+		if (threadIdx.x != threadBlock - 1 && (threadIdx.x & s2) == s2)
+			buffer[threadIdx.x + s1] += buffer[threadIdx.x];
+		__syncthreads();
+	}
+
+	if (threadIdx.x == 0 && buffer[threadBlock - 1] > 0)
+		blockOffset = atomicAdd(sum, buffer[threadBlock - 1]);
+	__syncthreads();
+
+	int offset;
+	if (threadIdx.x == 0) {
+		if (buffer[threadIdx.x] == 0)
+			offset = -1;
+		else
+			offset = blockOffset;
+	} else {
+		if (buffer[threadIdx.x] == buffer[threadIdx.x - 1])
+			offset = -1;
+		else
+			offset = blockOffset + buffer[threadIdx.x - 1];
+	}
+
+	return offset;
+}
+
+DEV_FUNC void CreateRenderingBlock(int& offset, Block2D& p) {
+
+}
+
+CUDA_KERNEL void ProjectVisibleBlockKernel(PtrSz<Block2D> proj_block,
+		PtrSz<uint> num_need, PtrSz<int> vis_id, PtrSz<HashEntry> blocks,
+		int num_vis, Matrix3f invR, float3 t, int cols, int rows, float fx,
+		float fy, float cx, float cy) {
+
+	int x = blockDim.x * blockIdx.x + threadIdx.x;
+	if (x < num_vis) {
+		int id = vis_id[x];
+		HashEntry* e = &blocks[id];
+		Block2D p;
+		bool valid = false;
+		valid = ProjectBlock(e->pos, p, invR, t, cols, rows, fx, fy, cx, cy);
+		int requiredNumBlock = 0;
+		if (valid) {
+			int2 rendering_block = make_int2(
+					ceilf((float) (p.lowerRight.x - p.upperLeft.x + 1) / 16),
+					ceilf((float) (p.lowerRight.y - p.upperLeft.y + 1) / 16));
+			requiredNumBlock = rendering_block.x * rendering_block.y;
+			if(*num_need + requiredNumBlock >= MaxRenderingBlocks)
+				requiredNumBlock = 0;
+		}
+
+		int offset = ComputeOffset<512>(requiredNumBlock, num_need);
+		if(!valid || offset == -1)
+			return;
+
+		CreateRenderingBlock(offset, p);
+	}
+}
+
+CUDA_KERNEL void CreateRenderingBlockKernel(PtrSz<int> num_need,
+		PtrSz<Block2D> proj_block, PtrSz<Block2D> proj_block_tmp) {
+
+	int x = blockDim.x * blockIdx.x + threadIdx.x;
+	if (x < num_need.size) {
+		int offset = num_need[x];
+
+	}
+}
+
+void ProjectVisibleBlock(DeviceArray<Block2D>& proj_block,
+		DeviceArray<int>& num_need, DeviceArray<int>& vis_id,
+		DeviceArray<HashEntry>& blocks, int num_vis, Matrix3f invR, float3 t,
+		int cols, int rows, float fx, float fy, float cx, float cy) {
+
 }

@@ -12,7 +12,7 @@
 #define nBuckets	 0x1000000
 
 #define HOST_FUNC    __host__
-#define DEV_FUNC     __device__
+#define DEV_FUNC     __device__ __inline__
 #define CUDA_KERNEL	 __global__
 
 using Eigen::Vector3d;
@@ -23,6 +23,44 @@ struct AllocItem {
 	int allocType;
 };
 
+struct Block2D {
+	int2 upperLeft;
+	int2 lowerRight;
+	float2 zRange;
+};
+
+#include "thrust/device_vector.h"
+
+#define MaxRenderingBlocks 65535 * 4
+
+class Mapper {
+public:
+	Mapper();
+	~Mapper();
+
+	template<bool checkVisibility>
+	void RenderFrameView(Frame& F);
+
+	template<bool checkVisibility>
+	void RenderArbitraryView(float fx, float fy, float cx, float cy, int cols,
+			int rows, Matrix3f invR, float3 t);
+
+private:
+
+	DeviceArray<uchar4> mRenderedScene;
+	DeviceArray<float4> mRenderedVertex;
+	DeviceArray<float3> mRenderedNormal;
+
+	DeviceArray<int> mBlocksNeeded;
+	DeviceArray<Block2D> mBlockProjected;
+	DeviceArray<int> mVisibleBlockId;
+	DeviceArray<HashEntry> mHashTable;
+};
+
+Mapper::Mapper() {
+
+}
+
 class DMap {
 public:
 
@@ -31,44 +69,22 @@ public:
 	};
 
 	const enum AllocState {
-		MainEntry = 1,
-		Excess = 2
+		MainEntry = 1, Excess = 2
 	};
 
 	enum VisibleType {
-		Visible = 1,
-		Invisible = 0,
-		DoubleCheck = -1,
+		Visible = 1, Invisible = 0, DoubleCheck = -1,
 	};
 
-	DEV_FUNC uint Hash(int3& pos);
-	DEV_FUNC HashEntry CreateEntry(int3& pos);
-	DEV_FUNC void CreateAllocList(float3& pos);
+	DEV_FUNC uint Hash(int3& pos);DEV_FUNC HashEntry CreateEntry(int3& pos);DEV_FUNC void CreateAllocList(
+			float3& pos);
 
 public:
-
 	PtrSz<int> EntryPtr;
 	PtrSz<int> VisibleEntries;
 	PtrSz<int> VisibilityList;
 	PtrSz<AllocItem> AllocList;
 	PtrSz<HashEntry> HashTable;
-};
-
-class Mapper {
-public:
-	Mapper();
-	~Mapper();
-	void ResetMap();
-	void SnapShot(Frame*);
-	void SnapShot(Matrix4d&);
-	void FuseFrame(Frame*);
-	std::vector<Frame*> GetAllKFs();
-
-private:
-
-	DeviceArray<HashEntry> mHashTable;
-	DeviceArray<AllocItem> mAllocList;
-	DeviceArray<int> mVisibilityList;
 };
 
 #endif
