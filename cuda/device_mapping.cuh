@@ -7,5 +7,6 @@ void ResetKeys(KeyMap map);
 void CollectKeys(KeyMap, DeviceArray<ORBKey>&, int&);
 void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys);
 
+void CreateBlock();
 
 #endif

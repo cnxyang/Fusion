@@ -6,15 +6,12 @@
 #include "Solver.hpp"
 #include "Timer.hpp"
 
-bool Tracking::mbTrackModel = true;
-
 using namespace cv;
 
 Tracking::Tracking():
 mpMap(nullptr),
 mpViewer(nullptr),
 mNextState(NOT_INITIALISED) {
-
 	mORBMatcher = cuda::DescriptorMatcher::createBFMatcher(NORM_HAMMING);
 }
 
@@ -46,9 +43,10 @@ bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 		if(!bOK)
 			mNextState = LOST;
 	} else {
-		mNextState = OK;
 		mLastFrame = Frame(mNextFrame);
-		mpMap->IntegrateKeys(mNextFrame);
+		if(mNextState == OK)
+			mpMap->IntegrateKeys(mNextFrame);
+		mNextState = OK;
 	}
 
 	return bOK;

@@ -45,7 +45,7 @@ public:
 	DeviceArray<int> mMemory;
 	DeviceArray<int> mUsedMem;
 	DeviceArray<int> mBucketMutex;
-	DeviceArray<int> mNumVisibleEntries;
+	DeviceArray<uint> mNumVisibleEntries;
 	DeviceArray<HashEntry> mHashEntries;
 	DeviceArray<HashEntry> mVisibleEntries;
 	DeviceArray<Voxel> mVoxelBlocks;

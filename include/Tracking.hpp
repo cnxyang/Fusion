@@ -28,8 +28,6 @@ public:
 	void UpdateMap();
 	void UpdateFrame();
 	bool TrackLastFrame();
-
-	/* For debugging purposes */
 	void ShowResiduals();
 
 	enum State {
@@ -44,7 +42,6 @@ public:
 	Mapping* mpMap;
 	Viewer* mpViewer;
 
-	static bool mbTrackModel;
 	int mnMapPoints;
 	const float mRotThresh = 0.1;
 	const float mTransThresh = 0.05;

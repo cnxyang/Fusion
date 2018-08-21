@@ -31,7 +31,9 @@ public:
 	void GrabImageRGBD(cv::Mat& imRGB, cv::Mat& imD);
 	void SetParameters(SysDesc& desc);
 	void PrintTimings();
+	void JoinViewer();
 	void Reboot();
+	void Stop();
 
 private:
 	Mapping* mpMap;
@@ -40,6 +42,7 @@ private:
 	Tracking* mpTracker;
 
 	cv::Mat mK;
+	bool mbStop;
 	std::thread* mptViewer;
 };
 

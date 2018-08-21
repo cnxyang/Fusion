@@ -41,7 +41,7 @@ __global__ void InsertKeysKernel(KeyMap map, PtrSz<ORBKey> key) {
 }
 
 void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys) {
-	if(keys.size() == 0)
+	if (keys.size() == 0)
 		return;
 
 	dim3 block(MaxThread);

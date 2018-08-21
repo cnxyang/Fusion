@@ -154,11 +154,6 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 		mNkp = mKeyPoints.size();
 		mDescriptors.upload(desc);
 	}
-
-//	CudaImage img;
-//	img.Allocate(cols(0), rows(0), iAlignUp(cols(0), 128), false, nullptr, (float*)GrayImg.data);
-//	InitSiftData(mSiftKeys, 32768, true, true);
-//	ExtractSift(mSiftKeys, img, 5, 1.0f, 3.5f, 0.0f, false);
 }
 
 void Frame::SetPose(const Frame& frame) {

@@ -34,6 +34,7 @@ int main(int argc, char** argv) {
 	while (1) {
 		if (camera.FetchFrame(imD, imRGB)) {
 			slam.GrabImageRGBD(imRGB, imD);
+			slam.PrintTimings();
 			int key = cv::waitKey(10);
 			switch (key) {
 
