@@ -10,7 +10,7 @@ Viewer::Viewer() :
 
 void Viewer::Spin() {
 
-	CreateWindowAndBind("main", 1280, 960);
+	CreateWindowAndBind("main", 1920, 1200);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -34,7 +34,6 @@ void Viewer::Spin() {
 	Var<bool> reset_btn("UI.Reset System", false, false);
 	Var<bool> traj_btn("UI.Show Trajectory",false,true);
 	Var<bool> kp_btn("UI.Show Key Points",true,true);
-
 
 	while (1) {
 

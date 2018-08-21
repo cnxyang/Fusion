@@ -128,89 +128,6 @@ struct HashIntegrator {
 		return false;
 	}
 
-	DEV_FUNC HashEntry createHashEntry(const int3 & pos, const int & offset) {
-		int old = atomicSub(map.heapCounter, 1);
-		int ptr = map.heapMem[old];
-		if (ptr != -1)
-			return HashEntry(pos, ptr * BLOCK_SIZE, offset);
-		return HashEntry(pos, EntryAvailable, offset);
-	}
-
-	DEV_FUNC void CreateBlock(const int3 & blockPos) {
-		uint bucketId = computeHashPos(blockPos, NUM_BUCKETS);
-		uint entryId = bucketId * BUCKET_SIZE;
-
-		int firstEmptySlot = -1;
-		for (uint i = 0; i < BUCKET_SIZE; ++i, ++entryId) {
-
-			const HashEntry & curr = map.hashEntries[entryId];
-			if (curr.pos == blockPos)
-				return;
-			if (firstEmptySlot == -1 && curr.ptr == EntryAvailable) {
-				firstEmptySlot = entryId;
-			}
-		}
-
-		const uint lastEntryIdx = (bucketId + 1) * BUCKET_SIZE - 1;
-		entryId = lastEntryIdx;
-		for (int i = 0; i < LINKED_LIST_SIZE; ++i) {
-			HashEntry & curr = map.hashEntries[entryId];
-			if (curr.pos == blockPos)
-				return;
-			if (curr.offset == 0)
-				break;
-
-			entryId = lastEntryIdx + curr.offset % (BUCKET_SIZE * NUM_BUCKETS);
-		}
-
-		if (firstEmptySlot != -1) {
-			int old = atomicExch(&map.bucketMutex[bucketId], EntryOccupied);
-
-			if (old != EntryOccupied) {
-				HashEntry & entry = map.hashEntries[firstEmptySlot];
-				entry = createHashEntry(blockPos, 0);
-				atomicExch(&map.bucketMutex[bucketId], EntryAvailable);
-			}
-
-			return;
-		}
-
-		uint offset = 0;
-
-		for (int i = 0; i < LINKED_LIST_SIZE; ++i) {
-			++offset;
-
-			entryId = (lastEntryIdx + offset) % (BUCKET_SIZE * NUM_BUCKETS);
-			if (entryId % BUCKET_SIZE == 0) {
-				--i;
-				continue;
-			}
-
-			HashEntry & curr = map.hashEntries[entryId];
-
-			if (curr.ptr == EntryAvailable) {
-				int old = atomicExch(&map.bucketMutex[bucketId], EntryOccupied);
-				if (old == EntryOccupied)
-					return;
-				HashEntry & lastEntry = map.hashEntries[lastEntryIdx];
-				uint bucketId2 = entryId / BUCKET_SIZE;
-
-				old = atomicExch(&map.bucketMutex[bucketId2], EntryOccupied);
-				if (old == EntryOccupied)
-					return;
-
-				curr = createHashEntry(blockPos, lastEntry.offset);
-				atomicExch(&map.bucketMutex[bucketId], EntryAvailable);
-				atomicExch(&map.bucketMutex[bucketId2], EntryAvailable);
-				lastEntry.offset = offset;
-				map.hashEntries[entryId] = lastEntry;
-
-				return;
-			}
-		}
-		return;
-	}
-
 	DEV_FUNC void CreateBlocks() {
 		int x = blockIdx.x * blockDim.x + threadIdx.x;
 		int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -230,15 +147,11 @@ struct HashIntegrator {
 				dir = dir / (float) (nSteps - 1);
 				for (int i = 0; i < nSteps; ++i) {
 					int3 blockPos = map.voxelPosToBlockPos(make_int3(pt_near));
-					CreateBlock(blockPos);
+					map.CreateBlock(blockPos);
 					pt_near += dir;
 				}
 			}
 		}
-	}
-
-	DEV_FUNC void createBlock(const float3 & pos) {
-		CreateBlock(map.worldPosToBlockPos(pos));
 	}
 
 	DEV_FUNC void CheckFullVisibility() {
@@ -258,55 +171,39 @@ struct HashIntegrator {
 		__syncthreads();
 		if (bScan) {
 			int offset = ComputeOffset<1024>(val, map.noVisibleBlocks);
-			map.visibleEntries[offset] = map.hashEntries[x];
+			if(offset != -1)
+				map.visibleEntries[offset] = map.hashEntries[x];
 		}
 	}
 
 	template<bool fuse>
 	DEV_FUNC void UpdateMap() {
-
-		HashEntry& entry = map.visibleEntries[blockIdx.x];
-		int idx = threadIdx.x;
-
-		int3 block_pos = map.blockPosToVoxelPos(entry.pos);
-		int3 voxel_pos = block_pos + map.localIdxToLocalPos(idx);
-		float3 pos = map.voxelPosToWorldPos(voxel_pos);
-
-		pos = invRot * (pos - trans);
-
-		float2 pixel = ProjectVertex(pos);
-
-		if (pixel.x < 1 || pixel.y < 1 || pixel.x >= cols - 1
-				|| pixel.y >= rows - 1)
-			return;
-
-		int2 uv = make_int2(pixel + make_float2(0.5, 0.5));
-
-		float dp_scaled = depth.ptr(uv.y)[uv.x];
-
-		if (isnan(dp_scaled) || dp_scaled > DEPTH_MAX || dp_scaled < DEPTH_MIN)
-			return;
-
-		float trunc_dist = TRUNC_DIST;
-
-		float sdf = dp_scaled - pos.z;
-
-		if (sdf >= -trunc_dist) {
-			sdf = fmin(1.0f, sdf / trunc_dist);
-
-			Voxel curr;
-			curr.sdf = sdf;
-//			curr.rgb = colour.ptr(uv.y)[uv.x];
-			curr.sdfW = 1;
-
-			Voxel & prev = map.voxelBlocks[entry.ptr + idx];
-
-			if (fuse) {
-				if (prev.sdfW < 1e-7)
-					curr.sdfW = 1;
-				prev += curr;
-			} else {
-				prev -= curr;
+		if(blockIdx.x < map.visibleEntries.size) {
+			HashEntry& e = map.visibleEntries[blockIdx.x];
+			int3 blockPos = map.blockPosToVoxelPos(e.pos);
+			int3 voxelPos = blockPos + map.localIdxToLocalPos(threadIdx.x);
+			float3 pos = map.voxelPosToWorldPos(voxelPos);
+			pos = invRot * (pos - trans);
+			int2 uv = make_int2(ProjectVertex(pos));
+			if (uv.x >= 0 && uv.x < cols && uv.y >= 0 && uv.y < rows) {
+				float d = depth.ptr(uv.y)[uv.x];
+				if (!isnan(d) && d <= DEPTH_MAX && d >= DEPTH_MIN) {
+					float thresh = TRUNC_DIST;
+					float sdf = d - pos.z;
+					if (sdf >= -thresh) {
+						sdf = fmin(1.0f, sdf / thresh);
+						Voxel curr;
+						curr.sdf = sdf;
+						curr.sdfW = 1;
+						Voxel& prev = map.voxelBlocks[e.ptr + threadIdx.x];
+						if (fuse) {
+							if (prev.sdfW < 1e-3)
+								curr.sdfW = 1;
+							prev += curr;
+						} else
+							prev -= curr;
+					}
+				}
 			}
 		}
 	}

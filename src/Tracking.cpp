@@ -46,9 +46,10 @@ bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 		if(!bOK)
 			mNextState = LOST;
 	} else {
-		mNextState = OK;
 		mLastFrame = Frame(mNextFrame);
-		mpMap->IntegrateKeys(mNextFrame);
+		if(mNextState == OK)
+			mpMap->IntegrateKeys(mNextFrame);
+		mNextState = OK;
 	}
 
 	return bOK;

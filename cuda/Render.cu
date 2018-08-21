@@ -2,6 +2,7 @@
 #include "Mapping.hpp"
 #include "device_struct.hpp"
 
+#define CUDA_KERNEL __global__
 #define DEV_FUNC __device__ __inline__
 
 #define Render_DownScaleRatio   8
@@ -544,29 +545,29 @@ struct HashRayCaster {
 	}
 };
 
-__global__ void projectAndSplitBlocksKernel(HashRayCaster hrc) {
+CUDA_KERNEL void projectAndSplitBlocksKernel(HashRayCaster hrc) {
 	hrc.projectAndSplitBlocks_device();
 }
 
-__global__ void fillBlocksKernel(HashRayCaster hrc) {
+CUDA_KERNEL void fillBlocksKernel(HashRayCaster hrc) {
 	hrc.fillBlocks_device();
 }
 
-__global__ void hashRayCastKernel(HashRayCaster hrc) {
+CUDA_KERNEL void hashRayCastKernel(HashRayCaster hrc) {
 	hrc();
 }
 
-__global__ void computeNormalAndAngleKernel(HashRayCaster hrc) {
+CUDA_KERNEL void computeNormalAndAngleKernel(HashRayCaster hrc) {
 	hrc.ComputeNormalMap<false>();
 }
 
-__global__ void Memset_device(PtrStepSz<float> a2d, float val) {
-	const uint x = blockIdx.x * blockDim.x + threadIdx.x;
-	const uint y = blockIdx.y * blockDim.y + threadIdx.y;
-	if (x >= a2d.cols || y >= a2d.rows)
-		return;
-
-	a2d.ptr(y)[x] = val;
+template<typename T>
+CUDA_KERNEL void FillArray2DKernel(PtrStepSz<T> array, T val) {
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	if(x < array.cols && y < array.rows) {
+		array.ptr(y)[x] = val;
+	}
 }
 
 void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
@@ -586,9 +587,9 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 
 	dim3 b(8, 8);
 	dim3 g(cv::divUp(DepthMapMin.cols(), b.x),
-			cv::divUp(DepthMapMin.rows(), b.y));
-	Memset_device<<<g, b>>>(DepthMapMin, DEPTH_MAX);
-	Memset_device<<<g, b>>>(DepthMapMax, DEPTH_MIN);
+		   cv::divUp(DepthMapMin.rows(), b.y));
+	FillArray2DKernel<float><<<g, b>>>(DepthMapMin, DEPTH_MAX);
+	FillArray2DKernel<float><<<g, b>>>(DepthMapMax, DEPTH_MIN);
 
 	HashRayCaster hrc;
 	hrc.map = *this;
