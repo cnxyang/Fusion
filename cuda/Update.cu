@@ -176,34 +176,52 @@ struct HashIntegrator {
 		}
 	}
 
+
 	template<bool fuse>
 	DEV_FUNC void UpdateMap() {
-		if(blockIdx.x < map.visibleEntries.size) {
-			HashEntry& e = map.visibleEntries[blockIdx.x];
-			int3 blockPos = map.blockPosToVoxelPos(e.pos);
-			int3 voxelPos = blockPos + map.localIdxToLocalPos(threadIdx.x);
-			float3 pos = map.voxelPosToWorldPos(voxelPos);
-			pos = invRot * (pos - trans);
-			int2 uv = make_int2(ProjectVertex(pos));
-			if (uv.x >= 0 && uv.x < cols && uv.y >= 0 && uv.y < rows) {
-				float d = depth.ptr(uv.y)[uv.x];
-				if (!isnan(d) && d <= DEPTH_MAX && d >= DEPTH_MIN) {
-					float thresh = TRUNC_DIST;
-					float sdf = d - pos.z;
-					if (sdf >= -thresh) {
-						sdf = fmin(1.0f, sdf / thresh);
-						Voxel curr;
-						curr.sdf = sdf;
-						curr.sdfW = 1;
-						Voxel& prev = map.voxelBlocks[e.ptr + threadIdx.x];
-						if (fuse) {
-							if (prev.sdfW < 1e-3)
-								curr.sdfW = 1;
-							prev += curr;
-						} else
-							prev -= curr;
-					}
-				}
+
+		HashEntry& entry = map.visibleEntries[blockIdx.x];
+		int idx = threadIdx.x;
+
+		int3 block_pos = map.blockPosToVoxelPos(entry.pos);
+		int3 voxel_pos = block_pos + map.localIdxToLocalPos(idx);
+		float3 pos = map.voxelPosToWorldPos(voxel_pos);
+
+		pos = invRot * (pos - trans);
+
+		float2 pixel = ProjectVertex(pos);
+
+		if (pixel.x < 1 || pixel.y < 1 || pixel.x >= cols - 1
+				|| pixel.y >= rows - 1)
+			return;
+
+		int2 uv = make_int2(pixel + make_float2(0.5, 0.5));
+
+		float dp_scaled = depth.ptr(uv.y)[uv.x];
+
+		if (isnan(dp_scaled) || dp_scaled > DEPTH_MAX || dp_scaled < DEPTH_MIN)
+			return;
+
+		float trunc_dist = TRUNC_DIST;
+
+		float sdf = dp_scaled - pos.z;
+
+		if (sdf >= -trunc_dist) {
+			sdf = fmin(1.0f, sdf / trunc_dist);
+
+			Voxel curr;
+			curr.sdf = sdf;
+//			curr.rgb = colour.ptr(uv.y)[uv.x];
+			curr.sdfW = 1;
+
+			Voxel & prev = map.voxelBlocks[entry.ptr + idx];
+
+			if (fuse) {
+				if (prev.sdfW < 1e-7)
+					curr.sdfW = 1;
+				prev += curr;
+			} else {
+				prev -= curr;
 			}
 		}
 	}

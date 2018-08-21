@@ -6,15 +6,12 @@
 #include "Solver.hpp"
 #include "Timer.hpp"
 
-bool Tracking::mbTrackModel = true;
-
 using namespace cv;
 
 Tracking::Tracking():
 mpMap(nullptr),
 mpViewer(nullptr),
 mNextState(NOT_INITIALISED) {
-
 	mORBMatcher = cuda::DescriptorMatcher::createBFMatcher(NORM_HAMMING);
 }
 

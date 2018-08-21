@@ -26,7 +26,7 @@
 								<option id="nvcc.compiler.deviceDebug.1144175725" name="Generate device debug information (-G)" superClass="nvcc.compiler.deviceDebug"/>
 								<option id="nvcc.compiler.option.level.1358610193" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level"/>
 								<option defaultValue="nvcc.compiler.optimization.level.most" id="nvcc.compiler.optimization.level.1851595311" name="Optimization Level" superClass="nvcc.compiler.optimization.level" valueType="enumerated"/>
-								<option id="nvcc.compiler.pic.1078585075" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic" value="false" valueType="boolean"/>
+								<option id="nvcc.compiler.pic.1078585075" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.include.paths.113017547" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="/usr/local/include/librealsense2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/opencv2"/>

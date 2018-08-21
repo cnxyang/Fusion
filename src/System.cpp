@@ -58,7 +58,6 @@ mbStop(false){
 
 	Frame::mDepthScale = mpParam->DepthScale;
 	Frame::mDepthCutoff = mpParam->DepthCutoff;
-	Tracking::mbTrackModel = mpParam->TrackModel;
 }
 
 void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {

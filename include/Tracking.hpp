@@ -42,7 +42,6 @@ public:
 	Mapping* mpMap;
 	Viewer* mpViewer;
 
-	static bool mbTrackModel;
 	int mnMapPoints;
 	const float mRotThresh = 0.1;
 	const float mTransThresh = 0.05;

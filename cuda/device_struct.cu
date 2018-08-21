@@ -12,27 +12,23 @@ __device__ HashEntry::HashEntry(int3 pos_, int ptr, int offset) :
 		pos(pos_), ptr(ptr), offset(offset) {
 }
 
-__device__
-void HashEntry::release() {
+__device__ void HashEntry::release() {
 	pos = make_int3(0);
 	offset = 0;
 	ptr = EntryAvailable;
 }
 
-__device__
-void HashEntry::operator=(const HashEntry & other) {
+__device__ void HashEntry::operator=(const HashEntry & other) {
 	pos = other.pos;
 	ptr = other.ptr;
 	offset = other.offset;
 }
 
-__device__
-bool HashEntry::operator==(const int3 & pos_) const {
+__device__ bool HashEntry::operator==(const int3 & pos_) const {
 	return pos == pos_ && ptr != EntryAvailable;
 }
 
-__device__
-bool HashEntry::operator==(const HashEntry & other) {
+__device__ bool HashEntry::operator==(const HashEntry & other) {
 	return (*this) == (other.pos);
 }
 
@@ -40,27 +36,23 @@ __device__ Voxel::Voxel() :
 		sdf((float) 0x7fffffff), rgb(make_uchar3(0, 0, 0)), sdfW(0) {
 }
 
-__device__
-void Voxel::release() {
+__device__ void Voxel::release() {
 	sdf = (float) 0x7fffffff;
 	sdfW = 0;
 	rgb = make_uchar3(0, 0, 0);
 }
 
-__device__
-void Voxel::operator+=(const Voxel & other) {
+__device__ void Voxel::operator+=(const Voxel & other) {
 
 	sdf = (sdf * sdfW + other.sdf * other.sdfW) / (sdfW + other.sdfW);
 	sdfW += other.sdfW;
 }
 
-__device__
-void Voxel::operator-=(const Voxel & other) {
+__device__ void Voxel::operator-=(const Voxel & other) {
 	// TODO: de-fusion method
 }
 
-__device__
-void Voxel::operator=(const Voxel & other) {
+__device__ void Voxel::operator=(const Voxel & other) {
 	sdf = other.sdf;
 	rgb = other.rgb;
 	sdfW = other.sdfW;
@@ -78,9 +70,12 @@ __device__ uint DeviceMap::Hash(const int3 & pos) {
 __device__ HashEntry DeviceMap::createHashEntry(const int3 & pos,
 		const int & offset) {
 	int old = atomicSub(heapCounter, 1);
-	int ptr = heapMem[old];
-	if (ptr != -1)
-		return HashEntry(pos, ptr * BLOCK_SIZE, offset);
+//	printf("%d\n", old);
+	if(old >= 0) {
+		int ptr = heapMem[old];
+		if (ptr != -1)
+			return HashEntry(pos, ptr * BLOCK_SIZE, offset);
+	}
 	return HashEntry(pos, EntryAvailable, offset);
 }
 
@@ -144,8 +139,10 @@ __device__ void DeviceMap::CreateBlock(const int3 & blockPos) {
 			uint bucketId2 = entryId / BUCKET_SIZE;
 
 			old = atomicExch(&bucketMutex[bucketId2], EntryOccupied);
-			if (old == EntryOccupied)
+			if (old == EntryOccupied) {
+				atomicExch(&bucketMutex[bucketId], EntryAvailable);
 				return;
+			}
 
 			curr = createHashEntry(blockPos, lastEntry.offset);
 			atomicExch(&bucketMutex[bucketId], EntryAvailable);
