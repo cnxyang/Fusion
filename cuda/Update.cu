@@ -159,70 +159,64 @@ struct HashIntegrator {
 		if (threadIdx.x == 0)
 			bScan = false;
 		__syncthreads();
-		int x = blockDim.x * blockIdx.x + threadIdx.x;
-		HashEntry& entry = map.hashEntries[x];
 		uint val = 0;
-		if (entry.ptr != EntryAvailable) {
-			if (CheckBlockVisibility(entry.pos)) {
-				bScan = true;
-				val = 1;
+		int x = blockDim.x * blockIdx.x + threadIdx.x;
+		if (x < map.hashEntries.size) {
+			HashEntry& entry = map.hashEntries[x];
+			if (entry.ptr != EntryAvailable) {
+				if (CheckBlockVisibility(entry.pos)) {
+					bScan = true;
+					val = 1;
+				}
 			}
 		}
 		__syncthreads();
 		if (bScan) {
 			int offset = ComputeOffset<1024>(val, map.noVisibleBlocks);
-			if(offset != -1)
+			if (offset != -1 && offset < map.visibleEntries.size
+					&& x < map.hashEntries.size)
 				map.visibleEntries[offset] = map.hashEntries[x];
 		}
 	}
-
 
 	template<bool fuse>
 	DEV_FUNC void UpdateMap() {
 
 		HashEntry& entry = map.visibleEntries[blockIdx.x];
+		if (entry.ptr == EntryAvailable)
+			return;
 		int idx = threadIdx.x;
-
 		int3 block_pos = map.blockPosToVoxelPos(entry.pos);
 		int3 voxel_pos = block_pos + map.localIdxToLocalPos(idx);
 		float3 pos = map.voxelPosToWorldPos(voxel_pos);
-
 		pos = invRot * (pos - trans);
-
 		float2 pixel = ProjectVertex(pos);
-
 		if (pixel.x < 1 || pixel.y < 1 || pixel.x >= cols - 1
 				|| pixel.y >= rows - 1)
 			return;
-
 		int2 uv = make_int2(pixel + make_float2(0.5, 0.5));
-
 		float dp_scaled = depth.ptr(uv.y)[uv.x];
-
 		if (isnan(dp_scaled) || dp_scaled > DEPTH_MAX || dp_scaled < DEPTH_MIN)
 			return;
-
 		float trunc_dist = TRUNC_DIST;
-
 		float sdf = dp_scaled - pos.z;
-
 		if (sdf >= -trunc_dist) {
 			sdf = fmin(1.0f, sdf / trunc_dist);
-
 			Voxel curr;
 			curr.sdf = sdf;
 //			curr.rgb = colour.ptr(uv.y)[uv.x];
 			curr.sdfW = 1;
-
-			Voxel & prev = map.voxelBlocks[entry.ptr + idx];
-
-			if (fuse) {
-				if (prev.sdfW < 1e-7)
-					curr.sdfW = 1;
-				prev += curr;
-			} else {
-				prev -= curr;
-			}
+			if (abs(entry.ptr + idx) < map.voxelBlocks.size) {
+				Voxel & prev = map.voxelBlocks[entry.ptr + idx];
+				if (fuse) {
+					if (prev.sdfW < 1e-7)
+						curr.sdfW = 1;
+					prev += curr;
+				} else {
+					prev -= curr;
+				}
+			} else
+				printf("%d\n", blockIdx.x);
 		}
 	}
 };
@@ -312,8 +306,8 @@ CUDA_KERNEL void resetHashKernel(HashEntry * hash, HashEntry * compact) {
 	compact[idx].release();
 }
 
-CUDA_KERNEL void resetHeapKernel(int * heap, int * heap_counter,
-		Voxel * voxels) {
+CUDA_KERNEL void resetHeapKernel(int * heap, int * heap_counter, Voxel * voxels,
+		int* entryPtr) {
 	uint idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (idx > NUM_SDF_BLOCKS)
@@ -327,8 +321,10 @@ CUDA_KERNEL void resetHeapKernel(int * heap, int * heap_counter,
 		voxels[block_idx].release();
 	}
 
-	if (idx == 0)
+	if (idx == 0) {
 		*heap_counter = NUM_SDF_BLOCKS - 1;
+		*entryPtr = 1;
+	}
 }
 
 CUDA_KERNEL void resetMutexKernel(int * mutex) {
@@ -346,7 +342,8 @@ void Mapping::ResetDeviceMemory() {
 	dim3 grid;
 
 	grid.x = cv::divUp((int) NUM_SDF_BLOCKS, block.x);
-	resetHeapKernel<<<grid, block>>>(mMemory, mUsedMem, mVoxelBlocks);
+	resetHeapKernel<<<grid, block>>>(mMemory, mUsedMem, mVoxelBlocks,
+			mEntryPtr);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());

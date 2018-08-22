@@ -76,84 +76,48 @@ __device__ HashEntry DeviceMap::createHashEntry(const int3 & pos,
 		if (ptr != -1)
 			return HashEntry(pos, ptr * BLOCK_SIZE, offset);
 	}
-	return HashEntry(pos, EntryAvailable, offset);
+	return HashEntry(pos, EntryAvailable, 0);
 }
 
-__device__ void DeviceMap::CreateBlock(const int3 & blockPos) {
-	uint bucketId = Hash(blockPos);
-	uint entryId = bucketId * BUCKET_SIZE;
-
-	int firstEmptySlot = -1;
-	for (uint i = 0; i < BUCKET_SIZE; ++i, ++entryId) {
-
-		const HashEntry & curr = hashEntries[entryId];
-		if (curr.pos == blockPos)
-			return;
-		if (firstEmptySlot == -1 && curr.ptr == EntryAvailable) {
-			firstEmptySlot = entryId;
-		}
-	}
-
-	const uint lastEntryIdx = (bucketId + 1) * BUCKET_SIZE - 1;
-	entryId = lastEntryIdx;
-	for (int i = 0; i < LINKED_LIST_SIZE; ++i) {
-		HashEntry & curr = hashEntries[entryId];
-		if (curr.pos == blockPos)
-			return;
-		if (curr.offset == 0)
-			break;
-
-		entryId = lastEntryIdx + curr.offset % (BUCKET_SIZE * NUM_BUCKETS);
-	}
-
-	if (firstEmptySlot != -1) {
-		int old = atomicExch(&bucketMutex[bucketId], EntryOccupied);
-
-		if (old != EntryOccupied) {
-			HashEntry & entry = hashEntries[firstEmptySlot];
-			entry = createHashEntry(blockPos, 0);
-			atomicExch(&bucketMutex[bucketId], EntryAvailable);
-		}
-
+__device__ void DeviceMap::CreateBlock(const int3& blockPos) {
+	int bucketId = Hash(blockPos);
+	int* mutex = &bucketMutex[bucketId];
+	HashEntry* e = &hashEntries[bucketId];
+	HashEntry* eEmpty = nullptr;
+	if (e->pos == blockPos && e->ptr != EntryAvailable)
 		return;
-	}
 
-	uint offset = 0;
+	if (e->ptr == EntryAvailable && !eEmpty)
+		eEmpty = e;
 
-	for (int i = 0; i < LINKED_LIST_SIZE; ++i) {
-		++offset;
-
-		entryId = (lastEntryIdx + offset) % (BUCKET_SIZE * NUM_BUCKETS);
-		if (entryId % BUCKET_SIZE == 0) {
-			--i;
-			continue;
-		}
-
-		HashEntry & curr = hashEntries[entryId];
-
-		if (curr.ptr == EntryAvailable) {
-			int old = atomicExch(&bucketMutex[bucketId], EntryOccupied);
-			if (old == EntryOccupied)
-				return;
-			HashEntry & lastEntry = hashEntries[lastEntryIdx];
-			uint bucketId2 = entryId / BUCKET_SIZE;
-
-			old = atomicExch(&bucketMutex[bucketId2], EntryOccupied);
-			if (old == EntryOccupied) {
-				atomicExch(&bucketMutex[bucketId], EntryAvailable);
-				return;
-			}
-
-			curr = createHashEntry(blockPos, lastEntry.offset);
-			atomicExch(&bucketMutex[bucketId], EntryAvailable);
-			atomicExch(&bucketMutex[bucketId2], EntryAvailable);
-			lastEntry.offset = offset;
-			hashEntries[entryId] = lastEntry;
-
+	while (e->offset > 0) {
+		bucketId = NUM_BUCKETS + e->offset - 1;
+		e = &hashEntries[bucketId];
+		if (e->pos == blockPos && e->ptr != EntryAvailable)
 			return;
+
+		if (e->ptr == EntryAvailable && !eEmpty)
+			eEmpty = e;
+	}
+
+	if (eEmpty) {
+		int old = atomicExch(mutex, EntryOccupied);
+		if (old == EntryAvailable) {
+			*eEmpty = createHashEntry(blockPos, e->offset);
+			atomicExch(mutex, EntryAvailable);
+		}
+	} else {
+		int old = atomicExch(mutex, EntryOccupied);
+		if (old == EntryAvailable) {
+			int offset = atomicAdd(entryPtr, 1);
+			if (offset <= NUM_EXCESS) {
+				eEmpty = &hashEntries[NUM_BUCKETS + offset - 1];
+				*eEmpty = createHashEntry(blockPos, 0);
+				e->offset = offset;
+			}
+			atomicExch(mutex, EntryAvailable);
 		}
 	}
-	return;
 }
 
 __device__ bool DeviceMap::searchVoxel(const float3 & pos, Voxel & vox) {
@@ -195,38 +159,19 @@ __device__ HashEntry DeviceMap::searchHashEntry(const float3 & pos) {
 	return searchHashEntry(blockIdx);
 }
 
-#define HANDLE_COLLISION
-__device__ HashEntry DeviceMap::searchHashEntry(const int3 & pos) {
-	uint bucketIdx = Hash(pos);
-	uint entryIdx = bucketIdx * BUCKET_SIZE;
+__device__ HashEntry DeviceMap::searchHashEntry(const int3& blockPos) {
+	uint bucketId = Hash(blockPos);
+	HashEntry* e = &hashEntries[bucketId];
+	if(e->pos == blockPos && e->ptr != EntryAvailable)
+		return *e;
 
-	HashEntry entry(pos, EntryAvailable, 0);
-
-	for (uint i = 0; i < BUCKET_SIZE; ++i, ++entryIdx) {
-		HashEntry & curr = hashEntries[entryIdx];
-
-		if (curr == entry)
-			return curr;
+	while(e->offset > 0) {
+		bucketId = NUM_BUCKETS + e->offset - 1;
+		e = &hashEntries[bucketId];
+		if(e->pos == blockPos && e->ptr != EntryAvailable)
+			return *e;
 	}
-
-#ifdef HANDLE_COLLISION
-	const uint lastEntryIdx = (bucketIdx + 1) * BUCKET_SIZE - 1;
-	entryIdx = lastEntryIdx;
-
-	for (int i = 0; i < LINKED_LIST_SIZE; ++i) {
-		HashEntry & curr = hashEntries[entryIdx];
-
-		if (curr == entry)
-			return curr;
-
-		if (curr.offset == 0)
-			break;
-
-		entryIdx = lastEntryIdx + curr.offset % (BUCKET_SIZE * NUM_BUCKETS);
-	}
-#endif
-
-	return entry;
+	return HashEntry(blockPos, EntryAvailable, 0);
 }
 
 __device__ int3 DeviceMap::worldPosToVoxelPos(float3 pos) const {

@@ -9,17 +9,20 @@
 #define DEV __device__
 enum ENTRYTYPE { EntryAvailable = -1, EntryOccupied = -2 };
 
-static const uint  NUM_BUCKETS 		 = 500000;
-static const uint  NUM_SDF_BLOCKS 	 = 300000;
+static const uint  NUM_EXCESS        = 500000;
+//static const uint  NUM_BUCKETS 		 = 500000;
+static const uint  NUM_BUCKETS 		 = 1000000;
+static const uint  NUM_SDF_BLOCKS 	 = 500000;
 static const uint  BLOCK_DIM	 	 = 8;
-static const uint  BUCKET_SIZE 		 = 5;
-static const uint  LINKED_LIST_SIZE  = 7;
+//static const uint  BUCKET_SIZE 		 = 5;
+//static const uint  LINKED_LIST_SIZE  = 7;
 static const float VOXEL_SIZE 		 = 0.005f;
 static const uint  BLOCK_SIZE		 = BLOCK_DIM * BLOCK_DIM * BLOCK_DIM;
-static const uint  NUM_ENTRIES		 = BUCKET_SIZE * NUM_BUCKETS;
+//static const uint  NUM_ENTRIES		 = BUCKET_SIZE * NUM_BUCKETS;
+static const uint  NUM_ENTRIES		 = NUM_BUCKETS + NUM_EXCESS;
 static const float DEPTH_MIN		 = 0.1f;
 static const float DEPTH_MAX		 = 3.0f;
-static const float TRUNC_DIST		 = 0.03f;
+static const float TRUNC_DIST		 = 0.025f;
 static const int NUM_MAX_TRIANGLES = 2000 * 2000;
 static const int MAX_RENDERING_BLOCKS = 65535 * 4;
 
@@ -92,6 +95,7 @@ struct DeviceMap {
 	PtrSz<HashEntry> hashEntries;
 	PtrSz<HashEntry> visibleEntries;
 	PtrSz<Voxel> voxelBlocks;
+	PtrSz<int> entryPtr;
 
 	DEV uint Hash(const int3 & pos);
 	DEV HashEntry createHashEntry(const int3& pos, const int& offset);

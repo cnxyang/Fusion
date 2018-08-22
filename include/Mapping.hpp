@@ -48,6 +48,8 @@ public:
 	DeviceArray<HashEntry> mHashEntries;
 	DeviceArray<HashEntry> mVisibleEntries;
 	DeviceArray<Voxel> mVoxelBlocks;
+	DeviceArray<int> mEntryPtr;
+
 	MapDesc mDesc;
 
 	DeviceArray<int> mKeyMutex;

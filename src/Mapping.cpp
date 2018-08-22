@@ -14,13 +14,23 @@ Mapping::~Mapping() {
 void Mapping::AllocateDeviceMemory(MapDesc desc) {
 
 	Timer::StartTiming("Initialisation", "Memory Allocation");
+//	mMemory.create(NUM_SDF_BLOCKS);
+//	mUsedMem.create(1);
+//	mNumVisibleEntries.create(1);
+//	mBucketMutex.create(NUM_BUCKETS);
+//	mHashEntries.create(NUM_BUCKETS * BUCKET_SIZE);
+//	mVisibleEntries.create(NUM_BUCKETS * BUCKET_SIZE);
+//	mVoxelBlocks.create(NUM_SDF_BLOCKS * BLOCK_SIZE);
+//	mEntryPtr.create(1);
+
 	mMemory.create(NUM_SDF_BLOCKS);
 	mUsedMem.create(1);
 	mNumVisibleEntries.create(1);
 	mBucketMutex.create(NUM_BUCKETS);
-	mHashEntries.create(NUM_BUCKETS * BUCKET_SIZE);
-	mVisibleEntries.create(NUM_BUCKETS * BUCKET_SIZE);
+	mHashEntries.create(NUM_BUCKETS + NUM_EXCESS);
+	mVisibleEntries.create(NUM_BUCKETS + NUM_EXCESS);
 	mVoxelBlocks.create(NUM_SDF_BLOCKS * BLOCK_SIZE);
+	mEntryPtr.create(1);
 
 	mKeyMutex.create(KeyMap::MaxKeys);
 	mORBKeys.create(KeyMap::MaxKeys * KeyMap::nBuckets);
@@ -40,6 +50,7 @@ void Mapping::ReleaseDeviceMemory() {
 	mVisibleEntries.release();
 	mVoxelBlocks.release();
 	mORBKeys.release();
+	mEntryPtr.release();
 }
 
 Mapping::operator DeviceMap() {
@@ -51,6 +62,7 @@ Mapping::operator DeviceMap() {
 	map.hashEntries = mHashEntries;
 	map.visibleEntries = mVisibleEntries;
 	map.voxelBlocks = mVoxelBlocks;
+	map.entryPtr = mEntryPtr;
 	return map;
 }
 
@@ -63,6 +75,7 @@ Mapping::operator const DeviceMap() const {
 	map.hashEntries = mHashEntries;
 	map.visibleEntries = mVisibleEntries;
 	map.voxelBlocks = mVoxelBlocks;
+	map.entryPtr = mEntryPtr;
 	return map;
 }
 

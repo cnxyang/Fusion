@@ -618,8 +618,8 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 	Timer::StartTiming("Mapping", "Project Blocks");
 	projectAndSplitBlocksKernel<<<grid, block>>>(hrc);
 
-	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
 
 	uint totalBlocks;
 	noTotalBlocks.download((void*) &totalBlocks);
@@ -632,25 +632,25 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 	fillBlocksKernel<<<grids, blocks>>>(hrc);
 	Timer::StopTiming("Mapping", "Project Blocks");
 
-	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
 
 	dim3 block1(32, 8);
 	dim3 grid1(cv::divUp(render.cols, block1.x),
-			cv::divUp(render.rows, block1.y));
+			   cv::divUp(render.rows, block1.y));
 
 	Timer::StartTiming("Mapping", "Ray Cast");
 	hashRayCastKernel<<<grid1, block1>>>(hrc);
 	Timer::StopTiming("Mapping", "Ray Cast");
 
-	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
 
 	Timer::StartTiming("Mapping", "Render");
 	computeNormalAndAngleKernel<<<grid1, block1>>>(hrc);
 
-	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
 
 	RenderImage(render.VMap, render.NMap, make_float3(0), render.Render);
 	Timer::StopTiming("Mapping", "Render");
