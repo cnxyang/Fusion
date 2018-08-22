@@ -5,6 +5,7 @@
 #include "device_array.hpp"
 #include "device_math.hpp"
 
+#define MaxThread 1024
 #define DEV __device__
 enum ENTRYTYPE { EntryAvailable = -1, EntryOccupied = -2 };
 
@@ -112,6 +113,32 @@ struct DeviceMap {
 	DEV int3 worldPosToBlockPos(const float3& pos) const;
 	DEV float3 blockPosToWorldPos(const int3& pos) const;
 	DEV int voxelPosToLocalIdx(const int3& pos) const;
+};
+
+struct ORBKey {
+	bool valid;
+	float3 pos;
+	uint nextKey;
+	uint referenceKF;
+	char descriptor[32];
+};
+
+struct KeyMap {
+
+	static constexpr float GridSize = 0.03;
+	static const int MaxKeys = 1000000;
+	static const int nBuckets = 5;
+
+public:
+	__device__ int Hash(const int3& pos);
+	__device__ ORBKey* FindKey(const float3& pos);
+	__device__ ORBKey* FindKey(const float3& pos, int& first, int& buck);
+	__device__ void InsertKey(ORBKey* key);
+	__device__ void ResetKeys(int index);
+
+public:
+	PtrSz<ORBKey> Keys;
+	PtrSz<int> Mutex;
 };
 
 #endif

@@ -4,7 +4,7 @@
 
 #include "Timer.hpp"
 #include "Solver.hpp"
-#include "device_struct.hpp"
+#include "device_map.hpp"
 #include "device_tracking.cuh"
 #include "sophus/se3.hpp"
 

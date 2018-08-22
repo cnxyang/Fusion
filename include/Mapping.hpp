@@ -4,8 +4,7 @@
 #include "Frame.hpp"
 #include "device_function.hpp"
 #include "device_array.hpp"
-#include "device_struct.hpp"
-#include "device_map.cuh"
+#include "device_map.hpp"
 
 #include <vector>
 #include <opencv.hpp>

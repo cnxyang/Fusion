@@ -2,7 +2,7 @@
 #define FRAME_HPP__
 
 #include "device_array.hpp"
-#include "device_struct.hpp"
+#include "device_map.hpp"
 
 #include <vector>
 #include <opencv.hpp>

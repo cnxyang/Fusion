@@ -1,7 +1,7 @@
 #ifndef TRACKING_HPP__
 #define TRACKING_HPP__
 
-#include "device_map.cuh"
+#include "device_map.hpp"
 #include "Mapping.hpp"
 #include "Viewer.hpp"
 #include "Frame.hpp"

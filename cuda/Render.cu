@@ -1,6 +1,6 @@
 #include "Timer.hpp"
 #include "Mapping.hpp"
-#include "device_struct.hpp"
+#include "device_map.hpp"
 
 #define CUDA_KERNEL __global__
 #define DEV_FUNC __device__ __inline__
