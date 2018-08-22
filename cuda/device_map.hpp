@@ -7,24 +7,7 @@
 
 #define MaxThread 1024
 #define DEV __device__
-enum ENTRYTYPE { EntryAvailable = -1, EntryOccupied = -2 };
-
-static const uint  NUM_EXCESS        = 500000;
-//static const uint  NUM_BUCKETS 		 = 500000;
-static const uint  NUM_BUCKETS 		 = 1000000;
-static const uint  NUM_SDF_BLOCKS 	 = 500000;
-static const uint  BLOCK_DIM	 	 = 8;
-//static const uint  BUCKET_SIZE 		 = 5;
-//static const uint  LINKED_LIST_SIZE  = 7;
-static const float VOXEL_SIZE 		 = 0.005f;
-static const uint  BLOCK_SIZE		 = BLOCK_DIM * BLOCK_DIM * BLOCK_DIM;
-//static const uint  NUM_ENTRIES		 = BUCKET_SIZE * NUM_BUCKETS;
-static const uint  NUM_ENTRIES		 = NUM_BUCKETS + NUM_EXCESS;
-static const float DEPTH_MIN		 = 0.1f;
-static const float DEPTH_MAX		 = 3.0f;
-static const float TRUNC_DIST		 = 0.025f;
-static const int NUM_MAX_TRIANGLES = 2000 * 2000;
-static const int MAX_RENDERING_BLOCKS = 65535 * 4;
+#define HOST __host__
 
 struct MapDesc {
 
@@ -72,6 +55,8 @@ struct HashEntry {
 	DEV bool operator==(const HashEntry& other);
 };
 
+enum ENTRYTYPE { EntryAvailable = -1, EntryOccupied = -2 };
+
 struct Voxel {
 
 	float sdf;
@@ -88,24 +73,19 @@ struct Voxel {
 
 struct DeviceMap {
 
-	PtrSz<int> heapMem;
-	PtrSz<int> heapCounter;
-	PtrSz<uint> noVisibleBlocks;
-	PtrSz<int> bucketMutex;
-	PtrSz<HashEntry> hashEntries;
-	PtrSz<HashEntry> visibleEntries;
-	PtrSz<Voxel> voxelBlocks;
-	PtrSz<int> entryPtr;
+	HOST void Release();
+	HOST void Download(DeviceMap& map);
 
 	DEV uint Hash(const int3 & pos);
-	DEV HashEntry createHashEntry(const int3& pos, const int& offset);
+	DEV Voxel FindVoxel(const int3& pos);
+	DEV Voxel FindVoxel(const float3& pos);
+	DEV HashEntry FindEntry(const int3& pos);
+	DEV HashEntry FindEntry(const float3& pos);
 	DEV void CreateBlock(const int3& blockPos);
-	DEV bool searchVoxel(const float3& pos, Voxel& vox);
-	DEV bool searchVoxel(const int3& pos, Voxel& vox);
-	DEV Voxel searchVoxel(const int3& pos);
-	DEV Voxel searchVoxel(const float3& pos);
-	DEV HashEntry searchHashEntry(const float3& pos);
-	DEV HashEntry searchHashEntry(const int3& pos);
+	DEV bool FindVoxel(const int3& pos, Voxel& vox);
+	DEV bool FindVoxel(const float3& pos, Voxel& vox);
+	DEV HashEntry CreateEntry(const int3& pos, const int& offset);
+
 	DEV int3 worldPosToVoxelPos(float3 pos) const;
 	DEV float3 worldPosToVoxelPosF(float3 pos) const;
 	DEV float3 voxelPosToWorldPos(int3 pos) const;
@@ -117,6 +97,38 @@ struct DeviceMap {
 	DEV int3 worldPosToBlockPos(const float3& pos) const;
 	DEV float3 blockPosToWorldPos(const int3& pos) const;
 	DEV int voxelPosToLocalIdx(const int3& pos) const;
+
+	static constexpr uint BlockSize = 8;
+	static constexpr uint BlockSize3 = 512;
+	static constexpr float DepthMin = 0.1f;
+	static constexpr float DepthMax = 3.5f;
+	static constexpr uint NumExcess = 500000;
+	static constexpr uint NumBuckets = 750000;
+	static constexpr uint NumSdfBlocks = 750000;
+	static constexpr float VoxelSize = 0.005f;
+	static constexpr float TruncateDist = 0.03f;
+	static constexpr int MaxRenderingBlocks = 260000;
+	static constexpr uint NumEntries = NumBuckets + NumExcess;
+
+	PtrSz<int> heapMem;
+	PtrSz<int> entryPtr;
+	PtrSz<int> heapCounter;
+	PtrSz<int> bucketMutex;
+	PtrSz<Voxel> voxelBlocks;
+	PtrSz<uint> noVisibleBlocks;
+	PtrSz<HashEntry> hashEntries;
+	PtrSz<HashEntry> visibleEntries;
+
+	PtrSz<Voxel> SdfBlocks;
+	PtrSz<uint> BucketMutex;
+	PtrSz<uint> BlockMemPtr;
+	PtrSz<uint> EntryMemPtr;
+	PtrSz<uint> BlockMemStack;
+	PtrSz<uint> EntryMemStack;
+	PtrSz<uint> EntryIdSwapout;
+	PtrSz<uint> EntryIdVisible;
+	PtrSz<HashEntry> HashTable;
+	PtrSz<HashEntry> HashTableTemp;
 };
 
 struct ORBKey {

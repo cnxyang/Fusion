@@ -27,6 +27,7 @@ void Viewer::Spin() {
 			ProjectionMatrix(640, 480, 525, 525, 320, 240, 0.1f, 1000.0f),
 			openglViewMatrix);
 
+
 	View& d_cam = CreateDisplay().SetBounds(0.0, 1.0, Attach::Pix(200), 1.0,
 			-640.0 / 480).SetHandler(new Handler3D(s_cam));
 

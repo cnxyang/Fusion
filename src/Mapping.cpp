@@ -14,22 +14,13 @@ Mapping::~Mapping() {
 void Mapping::AllocateDeviceMemory(MapDesc desc) {
 
 	Timer::StartTiming("Initialisation", "Memory Allocation");
-//	mMemory.create(NUM_SDF_BLOCKS);
-//	mUsedMem.create(1);
-//	mNumVisibleEntries.create(1);
-//	mBucketMutex.create(NUM_BUCKETS);
-//	mHashEntries.create(NUM_BUCKETS * BUCKET_SIZE);
-//	mVisibleEntries.create(NUM_BUCKETS * BUCKET_SIZE);
-//	mVoxelBlocks.create(NUM_SDF_BLOCKS * BLOCK_SIZE);
-//	mEntryPtr.create(1);
-
-	mMemory.create(NUM_SDF_BLOCKS);
+	mMemory.create(DeviceMap::NumSdfBlocks);
 	mUsedMem.create(1);
 	mNumVisibleEntries.create(1);
-	mBucketMutex.create(NUM_BUCKETS);
-	mHashEntries.create(NUM_BUCKETS + NUM_EXCESS);
-	mVisibleEntries.create(NUM_BUCKETS + NUM_EXCESS);
-	mVoxelBlocks.create(NUM_SDF_BLOCKS * BLOCK_SIZE);
+	mBucketMutex.create(DeviceMap::NumBuckets);
+	mHashEntries.create(DeviceMap::NumEntries);
+	mVisibleEntries.create(DeviceMap::NumEntries);
+	mVoxelBlocks.create(DeviceMap::NumSdfBlocks * DeviceMap::BlockSize3);
 	mEntryPtr.create(1);
 
 	mKeyMutex.create(KeyMap::MaxKeys);

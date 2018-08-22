@@ -92,13 +92,13 @@ struct HashRayCaster {
 
 		upperLeft = make_int2(cols, rows) / minmaximg_subsample;
 		lowerRight = make_int2(-1, -1);
-		zRange = make_float2(DEPTH_MAX, DEPTH_MIN);
+		zRange = make_float2(DeviceMap::DepthMax, DeviceMap::DepthMin);
 		for (int corner = 0; corner < 8; ++corner) {
 			int3 tmp = blockPos;
 			tmp.x += (corner & 1) ? 1 : 0;
 			tmp.y += (corner & 2) ? 1 : 0;
 			tmp.z += (corner & 4) ? 1 : 0;
-			float3 pt3d = tmp * BLOCK_DIM * VOXEL_SIZE;
+			float3 pt3d = tmp * DeviceMap::BlockSize * DeviceMap::VoxelSize;
 			pt3d = invRot * (pt3d - trans);
 			if (pt3d.z < 1e-6)
 				continue;
@@ -133,9 +133,9 @@ struct HashRayCaster {
 		if (upperLeft.y > lowerRight.y)
 			return false;
 		//if (zRange.y <= VERY_CLOSE) return false; never seems to happen
-		if (zRange.x < DEPTH_MIN)
-			zRange.x = DEPTH_MIN;
-		if (zRange.y < DEPTH_MIN)
+		if (zRange.x < DeviceMap::DepthMin)
+			zRange.x = DeviceMap::DepthMin;
+		if (zRange.y < DeviceMap::DepthMin)
 			return false;
 
 		return true;
@@ -155,7 +155,7 @@ struct HashRayCaster {
 							< ceil(
 									(float) (1 + lowerRight.x - upperLeft.x)
 											/ renderingBlockSizeX); ++bx) {
-				if (offset >= MAX_RENDERING_BLOCKS)
+				if (offset >= DeviceMap::MaxRenderingBlocks)
 					return;
 				//for each rendering block: add it to the list
 				RenderingBlock & b(renderingBlockList[offset++]);
@@ -204,14 +204,14 @@ struct HashRayCaster {
 		if (validProjection) {
 			requiredNumBlocks = requiredRenderingBlocks.x
 					* requiredRenderingBlocks.y;
-			if (*nRenderingBlocks + requiredNumBlocks >= MAX_RENDERING_BLOCKS)
+			if (*nRenderingBlocks + requiredNumBlocks >= DeviceMap::MaxRenderingBlocks)
 				requiredNumBlocks = 0;
 		}
 
 		int out_offset = ComputeOffset<256>(requiredNumBlocks,
 				nRenderingBlocks);
 		if (!validProjection || out_offset == -1
-				|| *nRenderingBlocks + out_offset >= MAX_RENDERING_BLOCKS)
+				|| *nRenderingBlocks + out_offset >= DeviceMap::MaxRenderingBlocks)
 			return;
 
 		CreateRenderingBlocks(out_offset, upperLeft, lowerRight, zRange);
@@ -250,7 +250,7 @@ struct HashRayCaster {
 		float sdfValue = 1.0f, confidence;
 		float totalLength, stepLength, totalLengthMax, stepScale;
 
-		stepScale = TRUNC_DIST * oneOverVoxelSize;
+		stepScale = DeviceMap::TruncateDist * oneOverVoxelSize;
 
 		pt_camera_f.z = mind;
 		pt_camera_f.x = pt_camera_f.z * ((float(x) - cx) / fx);
@@ -269,11 +269,11 @@ struct HashRayCaster {
 		pt_result = pt_block_s;
 
 		while (totalLength < totalLengthMax) {
-			HashEntry block = map.searchHashEntry(
+			HashEntry block = map.FindEntry(
 					map.voxelPosToBlockPos(make_int3(pt_result)));
 
 			if (block.ptr == EntryAvailable) {
-				stepLength = BLOCK_DIM;
+				stepLength = DeviceMap::BlockSize;
 			} else {
 				sdfValue = readFromSDF_float_uninterpolated(pt_result);
 
@@ -317,7 +317,7 @@ struct HashRayCaster {
 
 	__device__ inline
 	float readFromSDF_float_uninterpolated(float3 point) {
-		Voxel voxel = map.searchVoxel(point);
+		Voxel voxel = map.FindVoxel(point);
 		if (voxel.sdfW == 0)
 			return 1.f;
 		return voxel.sdf;
@@ -333,19 +333,19 @@ struct HashRayCaster {
 		Voxel voxel;
 		coeff = point - floor(point);
 
-		voxel = map.searchVoxel(point + make_float3(0, 0, 0));
+		voxel = map.FindVoxel(point + make_float3(0, 0, 0));
 		v1 = voxel.sdf;
 		v1_c = voxel.sdfW;
-		voxel = map.searchVoxel(point + make_float3(1, 0, 0));
+		voxel = map.FindVoxel(point + make_float3(1, 0, 0));
 		v2 = voxel.sdf;
 		v2_c = voxel.sdfW;
 		res1 = (1.0f - coeff.x) * v1 + coeff.x * v2;
 		res1_c = (1.0f - coeff.x) * v1_c + coeff.x * v2_c;
 
-		voxel = map.searchVoxel(point + make_float3(0, 1, 0));
+		voxel = map.FindVoxel(point + make_float3(0, 1, 0));
 		v1 = voxel.sdf;
 		v1_c = voxel.sdfW;
-		voxel = map.searchVoxel(point + make_float3(1, 1, 0));
+		voxel = map.FindVoxel(point + make_float3(1, 1, 0));
 		v2 = voxel.sdf;
 		v2_c = voxel.sdfW;
 		res1 = (1.0f - coeff.y) * res1
@@ -353,19 +353,19 @@ struct HashRayCaster {
 		res1_c = (1.0f - coeff.y) * res1_c
 				+ coeff.y * ((1.0f - coeff.x) * v1_c + coeff.x * v2_c);
 
-		voxel = map.searchVoxel(point + make_float3(0, 0, 1));
+		voxel = map.FindVoxel(point + make_float3(0, 0, 1));
 		v1 = voxel.sdf;
 		v1_c = voxel.sdfW;
-		voxel = map.searchVoxel(point + make_float3(1, 0, 1));
+		voxel = map.FindVoxel(point + make_float3(1, 0, 1));
 		v2 = voxel.sdf;
 		v2_c = voxel.sdfW;
 		res2 = (1.0f - coeff.x) * v1 + coeff.x * v2;
 		res2_c = (1.0f - coeff.x) * v1_c + coeff.x * v2_c;
 
-		voxel = map.searchVoxel(point + make_float3(0, 1, 1));
+		voxel = map.FindVoxel(point + make_float3(0, 1, 1));
 		v1 = voxel.sdf;
 		v1_c = voxel.sdfW;
-		voxel = map.searchVoxel(point + make_float3(1, 1, 1));
+		voxel = map.FindVoxel(point + make_float3(1, 1, 1));
 		v2 = voxel.sdf;
 		v2_c = voxel.sdfW;
 		res2 = (1.0f - coeff.y) * res2
@@ -385,21 +385,21 @@ struct HashRayCaster {
 		coeff = pos - floor(pos);
 		int3 vpos = make_int3(pos + 0.5);
 
-		v1 = map.searchVoxel(pos + make_float3(0, 0, 0)).sdf;
-		v2 = map.searchVoxel(pos + make_float3(1, 0, 0)).sdf;
+		v1 = map.FindVoxel(pos + make_float3(0, 0, 0)).sdf;
+		v2 = map.FindVoxel(pos + make_float3(1, 0, 0)).sdf;
 		res1 = (1.0f - coeff.x) * v1 + coeff.x * v2;
 
-		v1 = map.searchVoxel(pos + make_float3(0, 1, 0)).sdf;
-		v2 = map.searchVoxel(pos + make_float3(1, 1, 0)).sdf;
+		v1 = map.FindVoxel(pos + make_float3(0, 1, 0)).sdf;
+		v2 = map.FindVoxel(pos + make_float3(1, 1, 0)).sdf;
 		res1 = (1.0f - coeff.y) * res1
 				+ coeff.y * ((1.0f - coeff.x) * v1 + coeff.x * v2);
 
-		v1 = map.searchVoxel(pos + make_float3(0, 0, 1)).sdf;
-		v2 = map.searchVoxel(pos + make_float3(1, 0, 1)).sdf;
+		v1 = map.FindVoxel(pos + make_float3(0, 0, 1)).sdf;
+		v2 = map.FindVoxel(pos + make_float3(1, 0, 1)).sdf;
 		res2 = (1.0f - coeff.x) * v1 + coeff.x * v2;
 
-		v1 = map.searchVoxel(pos + make_float3(0, 1, 1)).sdf;
-		v2 = map.searchVoxel(pos + make_float3(1, 1, 1)).sdf;
+		v1 = map.FindVoxel(pos + make_float3(0, 1, 1)).sdf;
+		v2 = map.FindVoxel(pos + make_float3(1, 1, 1)).sdf;
 		res2 = (1.0f - coeff.y) * res2
 				+ coeff.y * ((1.0f - coeff.x) * v1 + coeff.x * v2);
 
@@ -467,7 +467,7 @@ struct HashRayCaster {
 					diff_y.x * diff_y.x + diff_y.y * diff_y.y
 							+ diff_y.z * diff_y.z);
 
-			if (length_diff * VOXEL_SIZE * VOXEL_SIZE > (0.15f * 0.15f))
+			if (length_diff * DeviceMap::VoxelSize * DeviceMap::VoxelSize > (0.15f * 0.15f))
 				doPlus1 = true;
 		}
 
@@ -533,12 +533,12 @@ struct HashRayCaster {
 		if (time_max == 0 || time_max == __int_as_float(0x7fffffff))
 			return;
 
-		time_min = max(time_min, DEPTH_MIN);
-		time_max = min(time_max, DEPTH_MAX);
+		time_min = max(time_min, DeviceMap::DepthMin);
+		time_max = min(time_max, DeviceMap::DepthMax);
 
 		float4 pt_out;
 
-		if (castRay(pt_out, x, y, VOXEL_SIZE, 1 / VOXEL_SIZE, time_min,
+		if (castRay(pt_out, x, y, DeviceMap::VoxelSize, 1 / DeviceMap::VoxelSize, time_min,
 				time_max)) {
 			vmap.ptr(y)[x] = pt_out;
 		}
@@ -579,7 +579,7 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 	render.NMap.create(render.cols, render.rows);
 	render.Render.create(render.cols, render.rows);
 
-	DeviceArray<RenderingBlock> RenderingBlockList(MAX_RENDERING_BLOCKS);
+	DeviceArray<RenderingBlock> RenderingBlockList(DeviceMap::MaxRenderingBlocks);
 	DeviceArray<uint> noTotalBlocks(1);
 	noTotalBlocks.zero();
 	DeviceArray2D<float> DepthMapMin(render.cols, render.rows);
@@ -588,8 +588,8 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 	dim3 b(8, 8);
 	dim3 g(cv::divUp(DepthMapMin.cols(), b.x),
 		   cv::divUp(DepthMapMin.rows(), b.y));
-	FillArray2DKernel<float><<<g, b>>>(DepthMapMin, DEPTH_MAX);
-	FillArray2DKernel<float><<<g, b>>>(DepthMapMax, DEPTH_MIN);
+	FillArray2DKernel<float><<<g, b>>>(DepthMapMin, DeviceMap::DepthMax);
+	FillArray2DKernel<float><<<g, b>>>(DepthMapMax, DeviceMap::DepthMin);
 
 	HashRayCaster hrc;
 	hrc.map = *this;
@@ -623,7 +623,7 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 
 	uint totalBlocks;
 	noTotalBlocks.download((void*) &totalBlocks);
-	if (totalBlocks == 0 || totalBlocks >= MAX_RENDERING_BLOCKS)
+	if (totalBlocks == 0 || totalBlocks >= DeviceMap::MaxRenderingBlocks)
 		return;
 
 	dim3 blocks = dim3(16, 16);

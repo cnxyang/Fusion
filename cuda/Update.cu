@@ -97,7 +97,7 @@ struct HashIntegrator {
 
 	DEV_FUNC bool CheckBlockVisibility(const int3& pos) {
 
-		float scale = BLOCK_DIM * VOXEL_SIZE;
+		float scale = DeviceMap::BlockSize * DeviceMap::VoxelSize;
 		float3 corner = pos * scale;
 		if (CheckVertexVisibility(corner))
 			return true;
@@ -134,13 +134,15 @@ struct HashIntegrator {
 		if (x < cols && y < rows) {
 			float z = depth.ptr(y)[x];
 			if (!isnan(z) && z >= DEPTH_MIN && z <= DEPTH_MAX) {
-				float thresh = TRUNC_DIST / 2;
+				float thresh = DeviceMap::TruncateDist / 2;
 				float z_near = min(DEPTH_MAX, z - thresh);
 				float z_far = min(DEPTH_MAX, z + thresh);
 				if (z_near >= z_far)
 					return;
-				float3 pt_near = UnprojectWorld(x, y, z_near) / VOXEL_SIZE;
-				float3 pt_far = UnprojectWorld(x, y, z_far) / VOXEL_SIZE;
+				float3 pt_near = UnprojectWorld(x, y, z_near)
+						/ DeviceMap::VoxelSize;
+				float3 pt_far = UnprojectWorld(x, y, z_far)
+						/ DeviceMap::VoxelSize;
 				float3 dir = pt_far - pt_near;
 				float length = norm(dir);
 				int nSteps = (int) ceil(2.0 * length);
@@ -198,7 +200,7 @@ struct HashIntegrator {
 		float dp_scaled = depth.ptr(uv.y)[uv.x];
 		if (isnan(dp_scaled) || dp_scaled > DEPTH_MAX || dp_scaled < DEPTH_MIN)
 			return;
-		float trunc_dist = TRUNC_DIST;
+		float trunc_dist = DeviceMap::TruncateDist;
 		float sdf = dp_scaled - pos.z;
 		if (sdf >= -trunc_dist) {
 			sdf = fmin(1.0f, sdf / trunc_dist);
@@ -251,8 +253,8 @@ int Mapping::FuseFrame(const Frame& frame) {
 	HI.depth = frame.mDepth[pyr];
 	HI.cols = Frame::cols(pyr);
 	HI.rows = Frame::rows(pyr);
-	HI.DEPTH_MAX = DEPTH_MAX;
-	HI.DEPTH_MIN = DEPTH_MIN;
+	HI.DEPTH_MAX = DeviceMap::DepthMax;
+	HI.DEPTH_MIN = DeviceMap::DepthMin;
 
 	dim3 block(32, 8);
 	dim3 grid(cv::divUp(Frame::cols(pyr), block.x),
@@ -266,7 +268,7 @@ int Mapping::FuseFrame(const Frame& frame) {
 	SafeCall(cudaDeviceSynchronize());
 
 	dim3 block1(1024);
-	dim3 grid1(cv::divUp((int) NUM_ENTRIES, block1.x));
+	dim3 grid1(cv::divUp((int) DeviceMap::NumEntries, block1.x));
 
 	mNumVisibleEntries.zero();
 	Timer::StartTiming("Mapping", "Create Visible List");
@@ -299,7 +301,7 @@ int Mapping::FuseFrame(const Frame& frame) {
 CUDA_KERNEL void resetHashKernel(HashEntry * hash, HashEntry * compact) {
 	uint idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-	if (idx >= NUM_ENTRIES)
+	if (idx >= DeviceMap::NumEntries)
 		return;
 
 	hash[idx].release();
@@ -310,19 +312,19 @@ CUDA_KERNEL void resetHeapKernel(int * heap, int * heap_counter, Voxel * voxels,
 		int* entryPtr) {
 	uint idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-	if (idx > NUM_SDF_BLOCKS)
+	if (idx > DeviceMap::NumSdfBlocks)
 		return;
 
-	heap[idx] = NUM_SDF_BLOCKS - idx - 1;
+	heap[idx] = DeviceMap::NumSdfBlocks - idx - 1;
 
-	uint block_idx = idx * BLOCK_SIZE;
+	uint block_idx = idx * DeviceMap::BlockSize3;
 
-	for (uint i = 0; i < BLOCK_SIZE; ++i, ++block_idx) {
+	for (uint i = 0; i < DeviceMap::BlockSize3; ++i, ++block_idx) {
 		voxels[block_idx].release();
 	}
 
 	if (idx == 0) {
-		*heap_counter = NUM_SDF_BLOCKS - 1;
+		*heap_counter = DeviceMap::NumSdfBlocks - 1;
 		*entryPtr = 1;
 	}
 }
@@ -330,7 +332,7 @@ CUDA_KERNEL void resetHeapKernel(int * heap, int * heap_counter, Voxel * voxels,
 CUDA_KERNEL void resetMutexKernel(int * mutex) {
 	uint idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-	if (idx >= NUM_BUCKETS)
+	if (idx >= DeviceMap::NumBuckets)
 		return;
 
 	mutex[idx] = EntryAvailable;
@@ -341,20 +343,20 @@ void Mapping::ResetDeviceMemory() {
 	dim3 block(1024);
 	dim3 grid;
 
-	grid.x = cv::divUp((int) NUM_SDF_BLOCKS, block.x);
+	grid.x = cv::divUp((int) DeviceMap::NumSdfBlocks, block.x);
 	resetHeapKernel<<<grid, block>>>(mMemory, mUsedMem, mVoxelBlocks,
 			mEntryPtr);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 
-	grid.x = cv::divUp((int) NUM_ENTRIES, block.x);
+	grid.x = cv::divUp((int) DeviceMap::NumEntries, block.x);
 	resetHashKernel<<<grid, block>>>(mHashEntries, mVisibleEntries);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 
-	grid.x = cv::divUp((int) NUM_BUCKETS, block.x);
+	grid.x = cv::divUp((int) DeviceMap::NumBuckets, block.x);
 	resetMutexKernel<<<grid, block>>>(mBucketMutex);
 
 	SafeCall(cudaGetLastError());
