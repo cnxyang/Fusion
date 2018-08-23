@@ -9,6 +9,8 @@
 #include <features2d.hpp>
 #include <cudaarithm.hpp>
 
+struct ORBKey;
+
 class Frame {
 public:
 	Frame();
@@ -62,6 +64,7 @@ public:
 	DeviceArray2D<float> mdIy[numPyrs];
 
 	std::vector<bool> mOutliers;
+	std::vector<cv::Vec3f> mNormals;
 	std::vector<Eigen::Vector3d> mPoints;
 	std::vector<cv::KeyPoint> mKeyPoints;
 	cv::cuda::GpuMat mDescriptors;

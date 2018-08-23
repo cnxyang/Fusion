@@ -92,8 +92,10 @@ void Mapping::IntegrateKeys(Frame& F) {
 	for (int i = 0; i < F.mNkp; ++i) {
 		if (!F.mOutliers[i]) {
 			ORBKey key;
+			cv::Vec3f normal = F.mNormals[i];
 			Eigen::Vector3d worldPos = F.Rotation() * F.mPoints[i] + F.Translation();
 			key.pos = make_float3((float)worldPos(0), (float)worldPos(1), (float)worldPos(2));
+			key.normal = make_float3(normal(0), normal(1), normal(2));
 			for (int j = 0; j < 32; ++j)
 				key.descriptor[j] = desc.at<char>(i, j);
 			keys.push_back(key);

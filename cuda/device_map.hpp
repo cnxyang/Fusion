@@ -141,6 +141,7 @@ struct DeviceMap {
 struct ORBKey {
 	bool valid;
 	float3 pos;
+	float3 normal;
 	uint nextKey;
 	uint referenceKF;
 	char descriptor[32];

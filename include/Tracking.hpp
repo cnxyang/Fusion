@@ -22,6 +22,7 @@ public:
 
 public:
 	bool TrackMap();
+	bool TrackMap(bool bUseGraph);
 	bool TrackICP();
 	bool TrackFrame();
 	bool InitTracking();

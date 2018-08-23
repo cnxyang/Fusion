@@ -132,23 +132,26 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 		float invfy = 1.0 / fy(0);
 		float cx0 = cx(0);
 		float cy0 = cy(0);
+		cv::Mat cpuNormal(rows(0), cols(0), CV_32FC3);
 		DescTemp.download(descTemp);
+		mNMap[0].download((void*)cpuNormal.data, cpuNormal.step);
 		for(int i = 0; i < mNkp; ++i) {
 			cv::KeyPoint& kp = KPTemp[i];
 			float x = kp.pt.x;
 			float y = kp.pt.y;
 			float dp = (float)imD.at<unsigned short>((int)(y + 0.5), (int)(x + 0.5)) / mDepthScale;
-
 			Eigen::Vector3d pos = Eigen::Vector3d::Zero();
 			if (dp > 1e-1 && dp < mDepthCutoff) {
-
 				pos(2) = dp;
 				pos(0) = dp * (x - cx0) * invfx;
 				pos(1) = dp * (y - cy0) * invfy;
-
-				mPoints.push_back(pos);
-				mKeyPoints.push_back(kp);
-				desc.push_back(descTemp.row(i));
+				cv::Vec3f normal = cpuNormal.at<cv::Vec3f>((int)(y + 0.5), (int)(x + 0.5));
+				if(!std::isnan(normal(0)) && !std::isnan(normal(1) && !std::isnan(normal(2)))) {
+					mPoints.push_back(pos);
+					mNormals.push_back(normal);
+					mKeyPoints.push_back(kp);
+					desc.push_back(descTemp.row(i));
+				}
 			}
 		}
 		mNkp = mKeyPoints.size();
