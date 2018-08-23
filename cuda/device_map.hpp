@@ -59,16 +59,23 @@ enum ENTRYTYPE { EntryAvailable = -1, EntryOccupied = -2 };
 
 struct Voxel {
 
-	float sdf;
-	uchar3 rgb;
-	float sdfW;
+	short sdf;
+	short sdfW;
 	static const uint MAX_WEIGHT = 100;
+	static const int MaxShort = 32767;
 
 	DEV Voxel();
+	DEV Voxel(float sdf, short weight);
 	DEV void release();
+	DEV float GetSdf() const;
+	DEV void SetSdf(float);
 	DEV void operator+=(const Voxel& other);
 	DEV void operator-=(const Voxel& other);
 	DEV void operator=(const Voxel& other);
+};
+
+struct HostMap {
+
 };
 
 struct DeviceMap {
@@ -103,7 +110,7 @@ struct DeviceMap {
 	static constexpr float DepthMin = 0.1f;
 	static constexpr float DepthMax = 3.5f;
 	static constexpr uint NumExcess = 500000;
-	static constexpr uint NumBuckets = 750000;
+	static constexpr uint NumBuckets = 1000000;
 	static constexpr uint NumSdfBlocks = 750000;
 	static constexpr float VoxelSize = 0.005f;
 	static constexpr float TruncateDist = 0.03f;

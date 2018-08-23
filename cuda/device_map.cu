@@ -33,18 +33,32 @@ __device__ bool HashEntry::operator==(const HashEntry & other) {
 }
 
 __device__ Voxel::Voxel() :
-		sdf((float) 0x7fffffff), rgb(make_uchar3(0, 0, 0)), sdfW(0) {
+		sdf(0x7fff), sdfW(0) {
+}
+
+__device__ Voxel::Voxel(float sdf, short weight) :
+		sdfW(weight) {
+	SetSdf(sdf);
 }
 
 __device__ void Voxel::release() {
-	sdf = (float) 0x7fffffff;
+	sdf = 0x7fff;
 	sdfW = 0;
-	rgb = make_uchar3(0, 0, 0);
+}
+
+__device__ float Voxel::GetSdf() const {
+	return __int2float_rn(sdf) / MaxShort;
+}
+
+__device__ void Voxel::SetSdf(float val) {
+	sdf = fmaxf(-MaxShort, fminf(MaxShort, __float2int_rz(val * MaxShort)));
 }
 
 __device__ void Voxel::operator+=(const Voxel & other) {
 
-	sdf = (sdf * sdfW + other.sdf * other.sdfW) / (sdfW + other.sdfW);
+	float sdf = GetSdf() * sdfW + other.GetSdf() * other.sdfW;
+	sdf /= (sdfW + other.sdfW);
+	SetSdf(sdf);
 	sdfW += other.sdfW;
 }
 
@@ -54,7 +68,6 @@ __device__ void Voxel::operator-=(const Voxel & other) {
 
 __device__ void Voxel::operator=(const Voxel & other) {
 	sdf = other.sdf;
-	rgb = other.rgb;
 	sdfW = other.sdfW;
 }
 

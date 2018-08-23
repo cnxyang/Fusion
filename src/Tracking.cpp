@@ -17,9 +17,9 @@ mNextState(NOT_INITIALISED) {
 
 bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 
-	Timer::StartTiming("Tracking", "Create Frame");
+	Timer::Start("Tracking", "Create Frame");
 	mNextFrame = Frame(imRGB, imD);
-	Timer::StopTiming("Tracking", "Create Frame");
+	Timer::Stop("Tracking", "Create Frame");
 
 	mNextFrame.SetPose(Eigen::Matrix4d::Identity());
 
@@ -63,7 +63,7 @@ bool Tracking::TrackMap() {
 
 	cout << "start relocalise" << endl;
 
-	Timer::StartTiming("Tracking", "Relocalisation");
+	Timer::Start("Tracking", "Relocalisation");
 	mpMap->GetORBKeys(mMapPoints, mnMapPoints);
 	cv::Mat desc(mnMapPoints, 32, CV_8UC1);
 	if(mnMapPoints == 0)
@@ -111,7 +111,7 @@ bool Tracking::TrackMap() {
 	}
 
 	mNextFrame.SetPose(Td.inverse());
-	Timer::StopTiming("Tracking", "Relocalisation");
+	Timer::Stop("Tracking", "Relocalisation");
 
 	return true;
 }
@@ -124,16 +124,16 @@ bool Tracking::TrackLastFrame() {
 
 	mNextFrame.SetPose(mLastFrame);
 
-	Timer::StartTiming("Tracking", "Track Frame");
+	Timer::Start("Tracking", "Track Frame");
 	bool bOK = TrackFrame();
-	Timer::StopTiming("Tracking", "Track Frame");
+	Timer::Stop("Tracking", "Track Frame");
 
 	if (!bOK)
 		return false;
 
-	Timer::StartTiming("Tracking", "ICP");
+	Timer::Start("Tracking", "ICP");
 	bOK = TrackICP();
-	Timer::StopTiming("Tracking", "ICP");
+	Timer::Stop("Tracking", "ICP");
 
 	if (!bOK)
 		return false;

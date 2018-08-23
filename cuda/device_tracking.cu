@@ -6,6 +6,7 @@
 template<typename T, int size> __device__
 inline void WarpReduceSum(T* val) {
 	for (int offset = WarpSize / 2; offset > 0; offset /= 2) {
+#pragma unroll
 		for (int i = 0; i < size; ++i) {
 			val[i] += __shfl_down_sync(0xffffffff, val[i], offset);
 		}
@@ -40,12 +41,14 @@ void ReduceSum(PtrStep<T> in, T* out, int N) {
 	memset(sum, 0, sizeof(T) * size);
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 	for (; i < N; i += blockDim.x * gridDim.x)
+#pragma unroll
 		for (int j = 0; j < size; ++j)
 			sum[j] += in.ptr(i)[j];
 
 	BlockReduceSum<T, size>(sum);
 
 	if (threadIdx.x == 0)
+#pragma unroll
 		for (int i = 0; i < size; ++i)
 			out[i] = sum[i];
 }
@@ -118,7 +121,9 @@ struct ICPReduce {
 		}
 
 		int count = 0;
+#pragma unroll
 		for (int i = 0; i < 7; ++i)
+#pragma unroll
 			for (int j = i; j < 7; ++j)
 				sum[count++] = row[i] * row[j];
 
@@ -134,7 +139,7 @@ struct ICPReduce {
 		for (; i < N; i += blockDim.x * gridDim.x) {
 			memset(val, 0, sizeof(T) * size);
 			GetRow(i, val);
-
+#pragma unroll
 			for (int j = 0; j < size; ++j)
 				sum[j] += val[j];
 		}
@@ -142,6 +147,7 @@ struct ICPReduce {
 		BlockReduceSum<T, size>(sum);
 
 		if (threadIdx.x == 0)
+#pragma unroll
 			for (int i = 0; i < size; ++i)
 				out.ptr(blockIdx.x)[i] = sum[i];
 	}

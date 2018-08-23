@@ -2,33 +2,50 @@
 
 using namespace std;
 
-map<string, map<string, chrono::steady_clock::time_point>> Timer::mTable;
+map<string, map<string, chrono::high_resolution_clock::time_point>> Timer::mTable;
 map<string, map<string, int>> Timer::mDuration;
+bool Timer::bEnabled = false;
 
 void Timer::AddCategory(string str) {
-	mTable[str] = map<string, chrono::steady_clock::time_point>();
+	mTable[str] = map<string, chrono::high_resolution_clock::time_point>();
 	mDuration[str] = map<string, int>();
 }
 
-void Timer::StartTiming(const string cat, const string str) {
+void Timer::Enable() {
+	bEnabled = true;
+}
+
+void Timer::Disable() {
+	bEnabled = false;
+}
+
+void Timer::Start(const string cat, const string str) {
+	if(!bEnabled)
+		return;
+
 	if (!mTable.count(cat))
 		AddCategory(cat);
 
 	auto& iter = mTable[cat];
-	iter[str] = chrono::steady_clock::now();
+	iter[str] = chrono::high_resolution_clock::now();
 }
 
-void Timer::StopTiming(const string cat, const string str) {
+void Timer::Stop(const string cat, const string str) {
+	if(!bEnabled)
+		return;
+
 	if (!mTable.count(cat) || !mTable[cat].count(str))
 		return;
 
-	auto t = chrono::steady_clock::now();
+	auto t = chrono::high_resolution_clock::now();
 	auto dt = chrono::duration_cast<chrono::microseconds>(t - mTable[cat][str]);
 
 	mDuration[cat][str] = dt.count();
 }
 
-void Timer::PrintTiming() {
+void Timer::Print() {
+	if(!bEnabled)
+		return;
 
 	int counter = 1;
 	map<string, map<string, int>>::iterator iter = mDuration.begin();

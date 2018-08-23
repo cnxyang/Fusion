@@ -69,10 +69,8 @@ struct HashRayCaster {
 	mutable PtrStep<float4> vmap;
 	mutable PtrStep<float3> nmap;
 	mutable PtrStep<uchar4> rendering;
-
 	mutable PtrStep<float> minDepthMap;
 	mutable PtrStep<float> maxDepthMap;
-
 	PtrSz<RenderingBlock> renderingBlockList;
 	uint * nRenderingBlocks;
 
@@ -132,7 +130,6 @@ struct HashRayCaster {
 			return false;
 		if (upperLeft.y > lowerRight.y)
 			return false;
-		//if (zRange.y <= VERY_CLOSE) return false; never seems to happen
 		if (zRange.x < DeviceMap::DepthMin)
 			zRange.x = DeviceMap::DepthMin;
 		if (zRange.y < DeviceMap::DepthMin)
@@ -320,7 +317,7 @@ struct HashRayCaster {
 		Voxel voxel = map.FindVoxel(point);
 		if (voxel.sdfW == 0)
 			return 1.f;
-		return voxel.sdf;
+		return voxel.GetSdf();
 	}
 
 	__device__ inline
@@ -334,19 +331,19 @@ struct HashRayCaster {
 		coeff = point - floor(point);
 
 		voxel = map.FindVoxel(point + make_float3(0, 0, 0));
-		v1 = voxel.sdf;
+		v1 = voxel.GetSdf();
 		v1_c = voxel.sdfW;
 		voxel = map.FindVoxel(point + make_float3(1, 0, 0));
-		v2 = voxel.sdf;
+		v2 = voxel.GetSdf();
 		v2_c = voxel.sdfW;
 		res1 = (1.0f - coeff.x) * v1 + coeff.x * v2;
 		res1_c = (1.0f - coeff.x) * v1_c + coeff.x * v2_c;
 
 		voxel = map.FindVoxel(point + make_float3(0, 1, 0));
-		v1 = voxel.sdf;
+		v1 = voxel.GetSdf();
 		v1_c = voxel.sdfW;
 		voxel = map.FindVoxel(point + make_float3(1, 1, 0));
-		v2 = voxel.sdf;
+		v2 = voxel.GetSdf();
 		v2_c = voxel.sdfW;
 		res1 = (1.0f - coeff.y) * res1
 				+ coeff.y * ((1.0f - coeff.x) * v1 + coeff.x * v2);
@@ -354,19 +351,19 @@ struct HashRayCaster {
 				+ coeff.y * ((1.0f - coeff.x) * v1_c + coeff.x * v2_c);
 
 		voxel = map.FindVoxel(point + make_float3(0, 0, 1));
-		v1 = voxel.sdf;
+		v1 = voxel.GetSdf();
 		v1_c = voxel.sdfW;
 		voxel = map.FindVoxel(point + make_float3(1, 0, 1));
-		v2 = voxel.sdf;
+		v2 = voxel.GetSdf();
 		v2_c = voxel.sdfW;
 		res2 = (1.0f - coeff.x) * v1 + coeff.x * v2;
 		res2_c = (1.0f - coeff.x) * v1_c + coeff.x * v2_c;
 
 		voxel = map.FindVoxel(point + make_float3(0, 1, 1));
-		v1 = voxel.sdf;
+		v1 = voxel.GetSdf();
 		v1_c = voxel.sdfW;
 		voxel = map.FindVoxel(point + make_float3(1, 1, 1));
-		v2 = voxel.sdf;
+		v2 = voxel.GetSdf();
 		v2_c = voxel.sdfW;
 		res2 = (1.0f - coeff.y) * res2
 				+ coeff.y * ((1.0f - coeff.x) * v1 + coeff.x * v2);
@@ -385,21 +382,21 @@ struct HashRayCaster {
 		coeff = pos - floor(pos);
 		int3 vpos = make_int3(pos + 0.5);
 
-		v1 = map.FindVoxel(pos + make_float3(0, 0, 0)).sdf;
-		v2 = map.FindVoxel(pos + make_float3(1, 0, 0)).sdf;
+		v1 = map.FindVoxel(pos + make_float3(0, 0, 0)).GetSdf();
+		v2 = map.FindVoxel(pos + make_float3(1, 0, 0)).GetSdf();
 		res1 = (1.0f - coeff.x) * v1 + coeff.x * v2;
 
-		v1 = map.FindVoxel(pos + make_float3(0, 1, 0)).sdf;
-		v2 = map.FindVoxel(pos + make_float3(1, 1, 0)).sdf;
+		v1 = map.FindVoxel(pos + make_float3(0, 1, 0)).GetSdf();
+		v2 = map.FindVoxel(pos + make_float3(1, 1, 0)).GetSdf();
 		res1 = (1.0f - coeff.y) * res1
 				+ coeff.y * ((1.0f - coeff.x) * v1 + coeff.x * v2);
 
-		v1 = map.FindVoxel(pos + make_float3(0, 0, 1)).sdf;
-		v2 = map.FindVoxel(pos + make_float3(1, 0, 1)).sdf;
+		v1 = map.FindVoxel(pos + make_float3(0, 0, 1)).GetSdf();
+		v2 = map.FindVoxel(pos + make_float3(1, 0, 1)).GetSdf();
 		res2 = (1.0f - coeff.x) * v1 + coeff.x * v2;
 
-		v1 = map.FindVoxel(pos + make_float3(0, 1, 1)).sdf;
-		v2 = map.FindVoxel(pos + make_float3(1, 1, 1)).sdf;
+		v1 = map.FindVoxel(pos + make_float3(0, 1, 1)).GetSdf();
+		v2 = map.FindVoxel(pos + make_float3(1, 1, 1)).GetSdf();
 		res2 = (1.0f - coeff.y) * res2
 				+ coeff.y * ((1.0f - coeff.x) * v1 + coeff.x * v2);
 
@@ -615,7 +612,7 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 	const dim3 block(256);
 	const dim3 grid(cv::divUp(num_occupied_blocks, block.x));
 
-	Timer::StartTiming("Mapping", "Project Blocks");
+	Timer::Start("Mapping", "Project Blocks");
 	projectAndSplitBlocksKernel<<<grid, block>>>(hrc);
 
 	SafeCall(cudaDeviceSynchronize());
@@ -630,7 +627,7 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 	dim3 grids = dim3((unsigned int) ceil((float) totalBlocks / 4.0f), 4);
 
 	fillBlocksKernel<<<grids, blocks>>>(hrc);
-	Timer::StopTiming("Mapping", "Project Blocks");
+	Timer::Stop("Mapping", "Project Blocks");
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
@@ -639,19 +636,19 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 	dim3 grid1(cv::divUp(render.cols, block1.x),
 			   cv::divUp(render.rows, block1.y));
 
-	Timer::StartTiming("Mapping", "Ray Cast");
+	Timer::Start("Mapping", "Ray Cast");
 	hashRayCastKernel<<<grid1, block1>>>(hrc);
-	Timer::StopTiming("Mapping", "Ray Cast");
+	Timer::Stop("Mapping", "Ray Cast");
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 
-	Timer::StartTiming("Mapping", "Render");
+	Timer::Start("Mapping", "Render");
 	computeNormalAndAngleKernel<<<grid1, block1>>>(hrc);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 
 	RenderImage(render.VMap, render.NMap, make_float3(0), render.Render);
-	Timer::StopTiming("Mapping", "Render");
+	Timer::Stop("Mapping", "Render");
 }

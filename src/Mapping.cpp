@@ -13,7 +13,7 @@ Mapping::~Mapping() {
 
 void Mapping::AllocateDeviceMemory(MapDesc desc) {
 
-	Timer::StartTiming("Initialisation", "Memory Allocation");
+	Timer::Start("Initialisation", "Memory Allocation");
 	mMemory.create(DeviceMap::NumSdfBlocks);
 	mUsedMem.create(1);
 	mNumVisibleEntries.create(1);
@@ -25,11 +25,11 @@ void Mapping::AllocateDeviceMemory(MapDesc desc) {
 
 	mKeyMutex.create(KeyMap::MaxKeys);
 	mORBKeys.create(KeyMap::MaxKeys * KeyMap::nBuckets);
-	Timer::StopTiming("Initialisation", "Memory Allocation");
+	Timer::Stop("Initialisation", "Memory Allocation");
 
-	Timer::StartTiming("Initialisation", "ResetMap");
+	Timer::Start("Initialisation", "ResetMap");
 	ResetDeviceMemory();
-	Timer::StopTiming("Initialisation", "ResetMap");
+	Timer::Stop("Initialisation", "ResetMap");
 }
 
 void Mapping::ReleaseDeviceMemory() {

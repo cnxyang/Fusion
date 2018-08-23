@@ -204,10 +204,7 @@ struct HashIntegrator {
 		float sdf = dp_scaled - pos.z;
 		if (sdf >= -trunc_dist) {
 			sdf = fmin(1.0f, sdf / trunc_dist);
-			Voxel curr;
-			curr.sdf = sdf;
-//			curr.rgb = colour.ptr(uv.y)[uv.x];
-			curr.sdfW = 1;
+			Voxel curr(sdf, 1);
 			if (abs(entry.ptr + idx) < map.voxelBlocks.size) {
 				Voxel & prev = map.voxelBlocks[entry.ptr + idx];
 				if (fuse) {
@@ -260,9 +257,9 @@ int Mapping::FuseFrame(const Frame& frame) {
 	dim3 grid(cv::divUp(Frame::cols(pyr), block.x),
 			cv::divUp(Frame::rows(pyr), block.y));
 
-	Timer::StartTiming("Mapping", "Create Blocks");
+	Timer::Start("Mapping", "Create Blocks");
 	createBlocksKernel<<<grid, block>>>(HI);
-	Timer::StopTiming("Mapping", "Create Blocks");
+	Timer::Stop("Mapping", "Create Blocks");
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
@@ -271,9 +268,9 @@ int Mapping::FuseFrame(const Frame& frame) {
 	dim3 grid1(cv::divUp((int) DeviceMap::NumEntries, block1.x));
 
 	mNumVisibleEntries.zero();
-	Timer::StartTiming("Mapping", "Create Visible List");
+	Timer::Start("Mapping", "Create Visible List");
 	compacitifyEntriesKernel<<<grid1, block1>>>(HI);
-	Timer::StopTiming("Mapping", "Create Visible List");
+	Timer::Stop("Mapping", "Create Visible List");
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
@@ -286,9 +283,9 @@ int Mapping::FuseFrame(const Frame& frame) {
 	dim3 block2(512);
 	dim3 grid2(noblock);
 
-	Timer::StartTiming("Mapping", "Integrate Depth");
+	Timer::Start("Mapping", "Integrate Depth");
 	hashIntegrateKernal<true> <<<grid2, block2>>>(HI);
-	Timer::StopTiming("Mapping", "Integrate Depth");
+	Timer::Stop("Mapping", "Integrate Depth");
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
