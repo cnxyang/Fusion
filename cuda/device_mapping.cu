@@ -1,7 +1,9 @@
 #include "Timer.hpp"
 #include "device_mapping.cuh"
 
-__global__ void CollectORBKeys(KeyMap Km, PtrSz<ORBKey> index, int* totalKeys) {
+#define CUDA_KERNEL __global__
+
+CUDA_KERNEL void CollectORBKeys(KeyMap Km, PtrSz<ORBKey> index, int* totalKeys) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	if (idx >= Km.Keys.size)
 		return;
@@ -32,7 +34,7 @@ void CollectKeys(KeyMap Km, DeviceArray<ORBKey>& keys, int& n) {
 	SafeCall(cudaGetLastError());
 }
 
-__global__ void InsertKeysKernel(KeyMap map, PtrSz<ORBKey> key) {
+CUDA_KERNEL void InsertKeysKernel(KeyMap map, PtrSz<ORBKey> key) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	if (idx >= key.size)
 		return;
@@ -53,7 +55,7 @@ void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys) {
 	SafeCall(cudaGetLastError());
 }
 
-__global__ void ResetKeysKernel(KeyMap map) {
+CUDA_KERNEL void ResetKeysKernel(KeyMap map) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	map.ResetKeys(idx);
 }
@@ -68,7 +70,7 @@ void ResetKeys(KeyMap map) {
 	SafeCall(cudaGetLastError());
 }
 
-__global__ void BuildAdjecencyMatrixKernel(PtrStepSz<float> AM,
+CUDA_KERNEL void BuildAdjecencyMatrixKernel(cv::cuda::PtrStepSz<float> AM,
 		PtrSz<ORBKey> TrainKeys, PtrSz<ORBKey> QueryKeys,
 		PtrSz<float> MatchDist) {
 
@@ -96,22 +98,55 @@ __global__ void BuildAdjecencyMatrixKernel(PtrStepSz<float> AM,
 				score = expf(-(fabs(d_0 - d_1) + fabs(alpha_0 - alpha_1) + fabs(beta_0 - beta_1) + fabs(gamma_0 - gamma_1)));
 			}
 		}
+		if(isnan(score))
+			score = 0;
 		AM.ptr(y)[x] = score;
 	}
 }
 
-void BuildAdjecencyMatrix(DeviceArray2D<float>& AM,	DeviceArray<ORBKey>& TrainKeys,
-		DeviceArray<ORBKey>& QueryKeys, DeviceArray<float>& MatchDist) {
+CUDA_KERNEL void SelectMatches(PtrSz<ORBKey> TrainKeys, PtrSz<ORBKey> QueryKeys,
+		PtrSz<ORBKey> TrainKeys_selected, PtrSz<ORBKey> QueryKeys_selected,
+		PtrSz<int> SelectedMatches, PtrSz<int> QueryIdx, PtrSz<int> SelectedIdx) {
+	int x = blockDim.x * blockIdx.x + threadIdx.x;
+	if (x < SelectedMatches.size) {
+		int idx = SelectedMatches[x];
+		ORBKey* trainKey = &TrainKeys[idx];
+		ORBKey* queryKey = &QueryKeys[idx];
+		memcpy((void*) &TrainKeys_selected[x], (void*) trainKey, sizeof(ORBKey));
+		memcpy((void*) &QueryKeys_selected[x], (void*) queryKey, sizeof(ORBKey));
+		SelectedIdx[x] = QueryIdx[idx];
+	}
+}
+
+void BuildAdjecencyMatrix(cv::cuda::GpuMat& AM,	DeviceArray<ORBKey>& TrainKeys,
+		DeviceArray<ORBKey>& QueryKeys, DeviceArray<float>& MatchDist,
+		DeviceArray<ORBKey>& train_select, DeviceArray<ORBKey>& query_select,
+		DeviceArray<int>& QueryIdx, DeviceArray<int>& SelectedIdx) {
 
 	dim3 block(32, 8);
-	dim3 grid(cv::divUp(AM.cols(), block.x), cv::divUp(AM.rows(), block.y));
+	dim3 grid(cv::divUp(AM.cols, block.x), cv::divUp(AM.rows, block.y));
 
-	BuildAdjecencyMatrixKernel<<<grid, block>>>(AM, TrainKeys, QueryKeys, MatchDist);
+	BuildAdjecencyMatrixKernel<<<grid, block>>>(AM, TrainKeys, QueryKeys,
+			MatchDist);
 
-	cv::Mat test(AM.cols(), AM.cols(), CV_32FC1);
-	AM.download((void*)test.data, test.step);
-	std::cout << test << std::endl;
-	cv::waitKey(0);
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
+
+	cv::cuda::GpuMat result;
+	cv::cuda::reduce(AM, result, 0, CV_REDUCE_SUM);
+	cv::Mat cpuResult, indexMat;
+	result.download(cpuResult);
+
+	cv::sortIdx(cpuResult, indexMat, CV_SORT_EVERY_ROW + CV_SORT_DESCENDING);
+	int selection = indexMat.cols >= 200 ? 200 : indexMat.cols;
+	DeviceArray<int> SelectedMatches(selection);
+	SelectedMatches.upload((void*)indexMat.data, selection);
+	train_select.create(selection);
+	query_select.create(selection);
+	SelectedIdx.create(selection);
+
+	SelectMatches<<<1, selection>>>(TrainKeys, QueryKeys, train_select,
+			query_select, SelectedMatches, QueryIdx, SelectedIdx);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());

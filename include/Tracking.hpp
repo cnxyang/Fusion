@@ -21,8 +21,7 @@ public:
 	void AddObservation(const Rendering& render);
 
 public:
-	bool TrackMap();
-	bool TrackMap(bool bUseGraph);
+	bool TrackMap(bool bUseGraph = true);
 	bool TrackICP();
 	bool TrackFrame();
 	bool InitTracking();

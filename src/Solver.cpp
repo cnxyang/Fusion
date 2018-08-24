@@ -27,8 +27,7 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 	int nMatches = src.size();
 
 	auto now = chrono::system_clock::now();
-	int seed = chrono::duration_cast<chrono::microseconds>(
-			now.time_since_epoch()).count();
+	int seed = chrono::duration_cast<chrono::microseconds>(now.time_since_epoch()).count();
 	srand(seed);
 
 	int nIter = 0;
