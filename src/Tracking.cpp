@@ -35,18 +35,21 @@ bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 		break;
 
 	case LOST:
-		bOK = TrackMap();
+		bOK = TrackMap(false);
 		break;
 	}
 
 	if (!bOK) {
-		bOK = TrackMap();
+		bOK = TrackMap(false);
 		if(!bOK)
 			mNextState = LOST;
 	} else {
 		mLastFrame = Frame(mNextFrame);
-		if(mNextState == OK)
+		if(mNextState == OK) {
 			mpMap->IntegrateKeys(mNextFrame);
+			mpMap->CheckKeys(mNextFrame);
+		}
+
 		mNextState = OK;
 	}
 
@@ -88,7 +91,7 @@ bool Tracking::TrackMap(bool bUseGraphMatching) {
 	for (int i = 0; i < rawMatches.size(); ++i) {
 		cv::DMatch& firstMatch = rawMatches[i][0];
 		cv::DMatch& secondMatch = rawMatches[i][1];
-		if (firstMatch.distance < 0.80 * secondMatch.distance) {
+		if (firstMatch.distance < 0.85 * secondMatch.distance) {
 			matches.push_back(firstMatch);
 		}
 		else if(bUseGraphMatching) {
@@ -96,7 +99,7 @@ bool Tracking::TrackMap(bool bUseGraphMatching) {
 			matches.push_back(secondMatch);
 		}
 	}
-
+	cout << "1st : " << matches.size() << endl;
 	if(matches.size() < 50)
 		return false;
 
@@ -150,6 +153,7 @@ bool Tracking::TrackMap(bool bUseGraphMatching) {
 		train_select.download((void*)vORB_train.data(), vORB_train.size());
 		query_select.download((void*)vORB_query.data(), vORB_query.size());
 		SelectedIdx.download((void*)vSelectedIdx.data(), vSelectedIdx.size());
+		cout << "2nd : " << vSelectedIdx.size() << endl;
 		for (int i = 0; i < query_select.size(); ++i) {
 			Eigen::Vector3d p, q;
 			if(vORB_query[i].valid &&
@@ -180,9 +184,11 @@ bool Tracking::TrackMap(bool bUseGraphMatching) {
 			qlist.push_back(Points[matches[i].trainIdx]);
 		}
 	}
+	cout << "3rd : " << plist.size() << endl;
 
 	Eigen::Matrix4d Td = Eigen::Matrix4d::Identity();
-	bool bOK = Solver::SolveAbsoluteOrientation(plist, qlist, mNextFrame.mOutliers, Td, 200);
+	bool bOK = Solver::SolveAbsoluteOrientation(plist, qlist, mNextFrame.mOutliers, Td, 100);
+	cout << "last : " << count(mNextFrame.mOutliers.begin(), mNextFrame.mOutliers.end(), false) << endl;
 
 	if(!bOK)
 		return false;

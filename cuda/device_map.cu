@@ -283,8 +283,8 @@ __device__ ORBKey* KeyMap::FindKey(const float3& pos, int& first, int& buck) {
 	float3 gridPos = pos / GridSize;
 	int3 p = make_int3((int) gridPos.x, (int) gridPos.y, (int) gridPos.z);
 	int idx = Hash(p);
-
-	int bucketIdx = buck = idx * nBuckets;
+	buck = idx;
+	int bucketIdx = idx * nBuckets;
 	const float radius = GridSize;
 	for (int i = 0; i < nBuckets; ++i, ++bucketIdx) {
 		ORBKey* key = &Keys[bucketIdx];
@@ -304,10 +304,12 @@ __device__ void KeyMap::InsertKey(ORBKey* key) {
 	int buck = 0;
 	ORBKey* oldKey = FindKey(key->pos, first, buck);
 	if (oldKey && oldKey->valid) {
+		oldKey->obs = min(oldKey->obs + 2, MaxObs);
 		return;
 	} else if (first != -1) {
 		int lock = atomicExch(&Mutex[buck], 1);
 		if (lock < 0) {
+			key->obs = 1;
 			ORBKey* oldkey = &Keys[first];
 			memcpy((void*) oldkey, (void*) key, sizeof(ORBKey));
 		}
@@ -323,7 +325,6 @@ __device__ void KeyMap::ResetKeys(int index) {
 
 	if (index < Keys.size) {
 		Keys[index].valid = false;
-		Keys[index].nextKey = -1;
-		Keys[index].referenceKF = -1;
+		Keys[index].obs = 0;
 	}
 }

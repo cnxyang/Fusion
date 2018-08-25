@@ -3,27 +3,86 @@
 
 #define CUDA_KERNEL __global__
 
-CUDA_KERNEL void CollectORBKeys(KeyMap Km, PtrSz<ORBKey> index, int* totalKeys) {
+template<int threadBlock>
+DEV_FUNC int ComputeOffset(uint element, uint *sum) {
+
+	__shared__ uint buffer[threadBlock];
+	__shared__ uint blockOffset;
+
+	if (threadIdx.x == 0)
+		memset(buffer, 0, sizeof(uint) * 16 * 16);
+	__syncthreads();
+
+	buffer[threadIdx.x] = element;
+	__syncthreads();
+
+	int s1, s2;
+
+	for (s1 = 1, s2 = 1; s1 < threadBlock; s1 <<= 1) {
+		s2 |= s1;
+		if ((threadIdx.x & s2) == s2)
+			buffer[threadIdx.x] += buffer[threadIdx.x - s1];
+		__syncthreads();
+	}
+
+	for (s1 >>= 2, s2 >>= 1; s1 >= 1; s1 >>= 1, s2 >>= 1) {
+		if (threadIdx.x != threadBlock - 1 && (threadIdx.x & s2) == s2)
+			buffer[threadIdx.x + s1] += buffer[threadIdx.x];
+		__syncthreads();
+	}
+
+	if (threadIdx.x == 0 && buffer[threadBlock - 1] > 0)
+		blockOffset = atomicAdd(sum, buffer[threadBlock - 1]);
+	__syncthreads();
+
+	int offset;
+	if (threadIdx.x == 0) {
+		if (buffer[threadIdx.x] == 0)
+			offset = -1;
+		else
+			offset = blockOffset;
+	} else {
+		if (buffer[threadIdx.x] == buffer[threadIdx.x - 1])
+			offset = -1;
+		else
+			offset = blockOffset + buffer[threadIdx.x - 1];
+	}
+
+	return offset;
+}
+
+CUDA_KERNEL void CollectORBKeys(KeyMap Km,
+		PtrSz<ORBKey> index, uint* totalKeys) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	if (idx >= Km.Keys.size)
-		return;
-
-	ORBKey* key = &Km.Keys[idx];
-
-	if (key->valid) {
-		int id = atomicAdd(totalKeys, 1);
-		memcpy((void*) &index[id], (void*) key, sizeof(ORBKey));
+	__shared__ bool scan;
+	if(idx == 0)
+		scan = false;
+	__syncthreads();
+	uint val = 0;
+	if (idx < Km.Keys.size) {
+		ORBKey* key = &Km.Keys[idx];
+		if (key->valid && key->obs > 0) {
+			scan = true;
+			val = 1;
+		}
+	}
+	__syncthreads();
+	if(scan) {
+		int offset = ComputeOffset<1024>(val, totalKeys);
+		if(offset >= 0) {
+			memcpy((void*) &index[offset], (void*) &Km.Keys[idx], sizeof(ORBKey));
+		}
 	}
 }
 
-void CollectKeys(KeyMap Km, DeviceArray<ORBKey>& keys, int& n) {
+void CollectKeys(KeyMap Km, DeviceArray<ORBKey>& keys, uint& n) {
 
 	keys.create(Km.Keys.size);
 
 	dim3 block(MaxThread);
 	dim3 grid(cv::divUp(Km.Keys.size, block.x));
 
-	DeviceArray<int> totalKeys(1);
+	DeviceArray<uint> totalKeys(1);
 	totalKeys.zero();
 
 	CollectORBKeys<<<grid, block>>>(Km, keys, totalKeys);
@@ -36,10 +95,9 @@ void CollectKeys(KeyMap Km, DeviceArray<ORBKey>& keys, int& n) {
 
 CUDA_KERNEL void InsertKeysKernel(KeyMap map, PtrSz<ORBKey> key) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	if (idx >= key.size)
-		return;
-
-	map.InsertKey(&key[idx]);
+	if (idx < key.size) {
+		map.InsertKey(&key[idx]);
+	}
 }
 
 void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys) {
@@ -138,15 +196,54 @@ void BuildAdjecencyMatrix(cv::cuda::GpuMat& AM,	DeviceArray<ORBKey>& TrainKeys,
 	result.download(cpuResult);
 
 	cv::sortIdx(cpuResult, indexMat, CV_SORT_EVERY_ROW + CV_SORT_DESCENDING);
-	int selection = indexMat.cols >= 200 ? 200 : indexMat.cols;
+	int selection = indexMat.cols >= 100 ? 100 : indexMat.cols;
 	DeviceArray<int> SelectedMatches(selection);
 	SelectedMatches.upload((void*)indexMat.data, selection);
 	train_select.create(selection);
 	query_select.create(selection);
 	SelectedIdx.create(selection);
 
-	SelectMatches<<<1, selection>>>(TrainKeys, QueryKeys, train_select,
+	dim3 block2(MaxThread);
+	dim3 grid2(cv::divUp(selection, block2.x));
+
+	SelectMatches<<<grid2, block2>>>(TrainKeys, QueryKeys, train_select,
 			query_select, SelectedMatches, QueryIdx, SelectedIdx);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
+}
+
+CUDA_KERNEL void ProjectVisibleKeysKernel(KeyMap map, Matrix3f invRot, float3 trans,
+		int cols, int rows, float maxd, float mind, float fx, float fy,
+		float cx, float cy) {
+
+	int x = blockDim.x * blockIdx.x + threadIdx.x;
+	if(x < KeyMap::MaxKeys * KeyMap::nBuckets) {
+		ORBKey& key = map.Keys[x];
+		if(key.valid && key.obs <= 8) {
+			float3 pos = invRot * (key.pos - trans);
+			float u = fx * pos.x / pos.z + cx;
+			float v = fy * pos.y / pos.z + cy;
+			if(u >= 0 && v >= 0 && u < cols && v < rows
+					&& pos.z < maxd && pos.z > mind) {
+				key.obs -= 1;
+				if(key.obs <= KeyMap::MinObsThresh) {
+					key.valid = false;
+				}
+			}
+		}
+	}
+}
+
+void ProjectVisibleKeys(KeyMap map, Frame& F) {
+
+	dim3 block(MaxThread);
+	dim3 grid(cv::divUp(map.Keys.size, block.x));
+
+	ProjectVisibleKeysKernel<<<grid, block>>>(map, F.RotInv_gpu(),
+			F.Trans_gpu(), Frame::cols(0), Frame::rows(0), DeviceMap::DepthMax,
+			DeviceMap::DepthMin, Frame::fx(0), Frame::fy(0), Frame::cx(0),
+			Frame::cy(0));
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());

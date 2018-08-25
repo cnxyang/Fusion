@@ -26,7 +26,8 @@ public:
 	void DownloadDesc();
 
 	void IntegrateKeys(Frame&);
-	void GetORBKeys(DeviceArray<ORBKey>& keys, int& n);
+	void CheckKeys(Frame& F);
+	void GetORBKeys(DeviceArray<ORBKey>& keys, uint& n);
 	void GetKeysHost(std::vector<ORBKey>& vkeys);
 
 	std::vector<Eigen::Vector3d> GetCamTrace() { return mCamTrace; }

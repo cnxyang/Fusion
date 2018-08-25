@@ -17,7 +17,8 @@ typedef Eigen::Matrix<float, 6, 1> Vector6f;
 typedef Eigen::Matrix<float, 6, 6> Matrix6f;
 
 bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
-		vector<Vector3d>& ref, vector<bool>& outlier, Matrix4d& Td, int maxIter) {
+		vector<Vector3d>& ref, vector<bool>& outlier,
+		Matrix4d& Td, int maxIter) {
 
 	assert(src.size() == ref.size());
 

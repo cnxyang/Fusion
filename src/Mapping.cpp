@@ -90,8 +90,10 @@ void Mapping::IntegrateKeys(Frame& F) {
 	cv::Mat desc;
 	F.mDescriptors.download(desc);
 	for (int i = 0; i < F.mNkp; ++i) {
-		if (!F.mOutliers[i]) {
+//		if (!F.mOutliers[i]) {
 			ORBKey key;
+			key.obs = 1;
+			key.valid = true;
 			cv::Vec3f normal = F.mNormals[i];
 			Eigen::Vector3d worldPos = F.Rotation() * F.mPoints[i] + F.Translation();
 			key.pos = make_float3((float)worldPos(0), (float)worldPos(1), (float)worldPos(2));
@@ -99,7 +101,7 @@ void Mapping::IntegrateKeys(Frame& F) {
 			for (int j = 0; j < 32; ++j)
 				key.descriptor[j] = desc.at<char>(i, j);
 			keys.push_back(key);
-		}
+//		}
 	}
 
 	DeviceArray<ORBKey> dKeys(keys.size());
@@ -108,13 +110,17 @@ void Mapping::IntegrateKeys(Frame& F) {
 	InsertKeys(*this, dKeys);
 }
 
-void Mapping::GetORBKeys(DeviceArray<ORBKey>& keys, int& mnMapPoints) {
+void Mapping::CheckKeys(Frame& F) {
+	ProjectVisibleKeys(*this, F);
+}
+
+void Mapping::GetORBKeys(DeviceArray<ORBKey>& keys, uint& mnMapPoints) {
 	CollectKeys(*this, keys, mnMapPoints);
 }
 
 void Mapping::GetKeysHost(std::vector<ORBKey>& vkeys) {
 
-	int n;
+	uint n;
 	DeviceArray<ORBKey> keys;
 	CollectKeys(*this, keys, n);
 

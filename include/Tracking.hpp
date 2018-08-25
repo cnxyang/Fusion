@@ -42,7 +42,7 @@ public:
 	Mapping* mpMap;
 	Viewer* mpViewer;
 
-	int mnMapPoints;
+	uint mnMapPoints;
 	const float mRotThresh = 0.1;
 	const float mTransThresh = 0.05;
 	DeviceArray<ORBKey> mMapPoints;

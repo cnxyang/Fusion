@@ -140,10 +140,9 @@ struct DeviceMap {
 
 struct ORBKey {
 	bool valid;
+	int obs;
 	float3 pos;
 	float3 normal;
-	uint nextKey;
-	uint referenceKF;
 	char descriptor[32];
 };
 
@@ -152,6 +151,8 @@ struct KeyMap {
 	static constexpr float GridSize = 0.03;
 	static const int MaxKeys = 1000000;
 	static const int nBuckets = 5;
+	static const int MaxObs = 10;
+	static const int MinObsThresh = -5;
 
 public:
 	__device__ int Hash(const int3& pos);
