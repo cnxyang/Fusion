@@ -144,16 +144,17 @@ CUDA_KERNEL void BuildAdjecencyMatrixKernel(cv::cuda::PtrStepSz<float> AM,
 			ORBKey* match_0_query = &QueryKeys[x];
 			ORBKey* match_1_train = &TrainKeys[y];
 			ORBKey* match_1_query = &QueryKeys[y];
-			float d_0 = norm(match_0_train->pos - match_0_query->pos);
-			float d_1 = norm(match_1_train->pos - match_1_query->pos);
+			float d_0 = norm(match_0_train->pos - match_1_train->pos);
+			float d_1 = norm(match_0_query->pos - match_1_query->pos);
 			if(d_0 > 1e-6 && d_1 > 1e-6) {
-				float alpha_0 = acosf(match_0_train->normal * match_0_query->normal);
-				float alpha_1 = acosf(match_1_train->normal * match_1_query->normal);
-				float beta_0 = acosf(match_0_train->normal * (match_0_query->pos - match_0_train->pos));
-				float beta_1 = acosf(match_1_train->normal * (match_1_query->pos - match_1_train->pos));
-				float gamma_0 = acosf(match_0_query->normal * (match_0_train->pos - match_0_query->pos));
-				float gamma_1 = acosf(match_1_query->normal * (match_1_train->pos - match_1_query->pos));
-				score = expf(-(fabs(d_0 - d_1) + fabs(alpha_0 - alpha_1) + fabs(beta_0 - beta_1) + fabs(gamma_0 - gamma_1)));
+				float alpha_0 = acosf(match_0_train->normal * match_1_train->normal);
+				float alpha_1 = acosf(match_0_query->normal * match_1_query->normal);
+//				float beta_0 = acosf(match_0_train->normal * (match_1_train->pos - match_0_train->pos) / d_0);
+//				float beta_1 = acosf(match_1_train->normal * (match_1_train->pos - match_0_train->pos) / d_0);
+//				float gamma_0 = acosf(match_0_query->normal * (match_1_query->pos - match_0_query->pos) / d_1);
+//				float gamma_1 = acosf(match_1_query->normal * (match_1_query->pos - match_0_query->pos) / d_1);
+//				score = expf(-(fabs(d_0 - d_1) + fabs(alpha_0 - alpha_1) + fabs(beta_0 - beta_1) + fabs(gamma_0 - gamma_1)));
+				score = expf(-(fabs(d_0 - d_1) + fabs(alpha_0 - alpha_1)));
 			}
 		}
 		if(isnan(score))

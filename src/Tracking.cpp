@@ -12,10 +12,13 @@ Tracking::Tracking():
 mpMap(nullptr),
 mpViewer(nullptr),
 mnMapPoints(0),
+mbGraphMatching(false),
+mnNoAttempts(0),
+mLastState(NOT_INITIALISED),
 mNextState(NOT_INITIALISED) {
 	mORBMatcher = cuda::DescriptorMatcher::createBFMatcher(NORM_HAMMING);
 }
-int n = 0;
+
 bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 
 	Timer::Start("Tracking", "Create Frame");
@@ -40,20 +43,27 @@ bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 	}
 
 	if (!bOK) {
+		cout << "lost tracking" << endl;
 		bOK = TrackMap(false);
 		if(!bOK)
-			mNextState = LOST;
+			SetState(LOST);
 	} else {
 		mLastFrame = Frame(mNextFrame);
-		if(mNextState == OK) {
+		if(mNextState == OK && mLastState != LOST) {
 			mpMap->IntegrateKeys(mNextFrame);
 			mpMap->CheckKeys(mNextFrame);
 		}
-
-		mNextState = OK;
+		SetState(OK);
+		if(mLastState == LOST)
+			cout << "Relocalisation finished in : " << mnNoAttempts << " iterations" << endl;
 	}
 
 	return bOK;
+}
+
+void Tracking::SetState(State s) {
+	mLastState = mNextState;
+	mNextState = s;
 }
 
 bool Tracking::InitTracking() {
@@ -65,22 +75,25 @@ bool Tracking::InitTracking() {
 
 bool Tracking::TrackMap(bool bUseGraphMatching) {
 
-	mpMap->GetORBKeys(mMapPoints, mnMapPoints);
-	cv::Mat desc(mnMapPoints, 32, CV_8UC1);
-	if(mnMapPoints == 0)
-		return false;
+	if(mLastState == OK) {
+		mnNoAttempts = 0;
+		mpMap->GetORBKeys(mDeviceKeys, mnMapPoints);
+		desc.create(mnMapPoints, 32, CV_8UC1);
+		if(mnMapPoints == 0)
+			return false;
 
-	vector<Eigen::Vector3d> Points;
-	ORBKey* MapKeys = (ORBKey*)malloc(sizeof(ORBKey)*mnMapPoints);
-	mMapPoints.download((void*)MapKeys, mnMapPoints);
-	for(int i = 0; i < mnMapPoints; ++i) {
-		ORBKey& key = MapKeys[i];
-		for(int j = 0; j < 32; ++j) {
-			desc.at<char>(i, j) = key.descriptor[j];
+		mMapPoints.clear();
+		mHostKeys.resize(mnMapPoints);
+		mDeviceKeys.download((void*)mHostKeys.data(), mnMapPoints);
+		for(int i = 0; i < mHostKeys.size(); ++i) {
+			ORBKey& key = mHostKeys[i];
+			for(int j = 0; j < 32; ++j) {
+				desc.at<char>(i, j) = key.descriptor[j];
+			}
+			Eigen::Vector3d p;
+			p << key.pos.x, key.pos.y, key.pos.z;
+			mMapPoints.push_back(p);
 		}
-		Eigen::Vector3d p;
-		p << key.pos.x, key.pos.y, key.pos.z;
-		Points.push_back(p);
 	}
 
 	cv::cuda::GpuMat mMapDesc(desc);
@@ -99,7 +112,7 @@ bool Tracking::TrackMap(bool bUseGraphMatching) {
 			matches.push_back(secondMatch);
 		}
 	}
-	cout << "1st : " << matches.size() << endl;
+
 	if(matches.size() < 50)
 		return false;
 
@@ -117,7 +130,7 @@ bool Tracking::TrackMap(bool bUseGraphMatching) {
 		for(int i = 0; i < matches.size(); ++i) {
 			int trainIdx = matches[i].trainIdx;
 			int queryIdx = matches[i].queryIdx;
-			ORBKey trainKey = MapKeys[trainIdx];
+			ORBKey trainKey = mHostKeys[trainIdx];
 			ORBKey queryKey;
 			if(trainKey.valid && queryKey.valid) {
 				cv::Vec3f normal = mNextFrame.mNormals[queryIdx];
@@ -153,7 +166,6 @@ bool Tracking::TrackMap(bool bUseGraphMatching) {
 		train_select.download((void*)vORB_train.data(), vORB_train.size());
 		query_select.download((void*)vORB_query.data(), vORB_query.size());
 		SelectedIdx.download((void*)vSelectedIdx.data(), vSelectedIdx.size());
-		cout << "2nd : " << vSelectedIdx.size() << endl;
 		for (int i = 0; i < query_select.size(); ++i) {
 			Eigen::Vector3d p, q;
 			if(vORB_query[i].valid &&
@@ -181,18 +193,41 @@ bool Tracking::TrackMap(bool bUseGraphMatching) {
 	else {
 		for (int i = 0; i < matches.size(); ++i) {
 			plist.push_back(mNextFrame.mPoints[matches[i].queryIdx]);
-			qlist.push_back(Points[matches[i].trainIdx]);
+			qlist.push_back(mMapPoints[matches[i].trainIdx]);
 		}
 	}
-	cout << "3rd : " << plist.size() << endl;
 
 	Eigen::Matrix4d Td = Eigen::Matrix4d::Identity();
 	bool bOK = Solver::SolveAbsoluteOrientation(plist, qlist, mNextFrame.mOutliers, Td, 100);
-	cout << "last : " << count(mNextFrame.mOutliers.begin(), mNextFrame.mOutliers.end(), false) << endl;
+	mnNoAttempts++;
 
-	if(!bOK)
+	if(!bOK) {
+		cout << "Relocalisation Failed. Attempts: " << mnNoAttempts << endl;
 		return false;
+	}
 
+//	Frame dummy = Frame();
+//	dummy.SetPose(Td.inverse());
+//	Rendering rd;
+//	rd.cols = 640;
+//	rd.rows = 480;
+//	rd.fx = Frame::fx(0);
+//	rd.fy = Frame::fy(0);
+//	rd.cx = Frame::cx(0);
+//	rd.cy = Frame::cy(0);
+//	rd.Rview = dummy.Rot_gpu();
+//	rd.invRview = dummy.RotInv_gpu();
+//	rd.tview = dummy.Trans_gpu();
+//	rd.maxD = 3.5f;
+//	rd.minD = 0.1f;
+//	uint noblocks = mpMap->IdentifyVisibleBlocks(dummy);
+//	mpMap->RenderMap(rd, noblocks);
+//	dummy = Frame(rd, dummy.mPose);
+//	float cost = Solver::SolveICP(mNextFrame, dummy);
+//	if(std::isnan(cost) || cost > 1e-3) {
+//		cout << "Dense verification failed ." << endl;
+//		return false;
+//	}
 	mNextFrame.SetPose(Td.inverse());
 	return true;
 }
@@ -216,10 +251,7 @@ bool Tracking::TrackLastFrame() {
 	bOK = TrackICP();
 	Timer::Stop("Tracking", "ICP");
 
-	if (!bOK)
-		return false;
-
-	return true;
+	return bOK;
 }
 
 bool Tracking::TrackFrame() {
@@ -257,6 +289,7 @@ bool Tracking::TrackFrame() {
 		   fabs(trans(0)) > mTransThresh ||
 		   fabs(trans(1)) > mTransThresh ||
 		   fabs(trans(2)) > mTransThresh)
+			cout << "Initial Pose Estimaton Failed." << endl;
 			return false;
 	}
 
@@ -272,9 +305,10 @@ bool Tracking::TrackFrame() {
 bool Tracking::TrackICP() {
 	float cost = Solver::SolveICP(mNextFrame, mLastFrame);
 
-	if(std::isnan(cost) || cost > 1e-3)
+	if(std::isnan(cost) || cost > 1e-3) {
+		cout << "Dense verification failed ." << endl;
 		return false;
-
+	}
 	return true;
 }
 

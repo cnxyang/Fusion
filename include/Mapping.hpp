@@ -24,6 +24,7 @@ public:
 	void RenderMap(Rendering& render, int num_occupied_blocks);
 	void UpdateDesc(MapDesc& desc);
 	void DownloadDesc();
+	uint IdentifyVisibleBlocks(const Frame& F);
 
 	void IntegrateKeys(Frame&);
 	void CheckKeys(Frame& F);

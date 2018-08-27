@@ -123,9 +123,9 @@ void Viewer::DrawCamera() {
 
 	bool lost = (mpTracker->mNextState == mpTracker->LOST);
 	if(lost)
-		glColor3f(0.0, 1.0, 0.0);
-	else
 		glColor3f(1.0, 0.0, 0.0);
+	else
+		glColor3f(0.0, 1.0, 0.0);
 	glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
 	glDrawVertices(cam.size()/3, (GLfloat*)&cam[0], GL_TRIANGLES, 3);
 	glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);

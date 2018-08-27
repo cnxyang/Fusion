@@ -44,46 +44,6 @@ void Mapping::ReleaseDeviceMemory() {
 	mEntryPtr.release();
 }
 
-Mapping::operator DeviceMap() {
-	DeviceMap map;
-	map.heapMem = mMemory;
-	map.heapCounter = mUsedMem;
-	map.noVisibleBlocks = mNumVisibleEntries;
-	map.bucketMutex = mBucketMutex;
-	map.hashEntries = mHashEntries;
-	map.visibleEntries = mVisibleEntries;
-	map.voxelBlocks = mVoxelBlocks;
-	map.entryPtr = mEntryPtr;
-	return map;
-}
-
-Mapping::operator const DeviceMap() const {
-	DeviceMap map;
-	map.heapMem = mMemory;
-	map.heapCounter = mUsedMem;
-	map.noVisibleBlocks = mNumVisibleEntries;
-	map.bucketMutex = mBucketMutex;
-	map.hashEntries = mHashEntries;
-	map.visibleEntries = mVisibleEntries;
-	map.voxelBlocks = mVoxelBlocks;
-	map.entryPtr = mEntryPtr;
-	return map;
-}
-
-Mapping::operator KeyMap() {
-	KeyMap map;
-	map.Keys = mORBKeys;
-	map.Mutex = mKeyMutex;
-	return map;
-}
-
-Mapping::operator const KeyMap() const {
-	KeyMap map;
-	map.Keys = mORBKeys;
-	map.Mutex = mKeyMutex;
-	return map;
-}
-
 void Mapping::IntegrateKeys(Frame& F) {
 
 	std::vector<ORBKey> keys;
@@ -134,4 +94,44 @@ void Mapping::GetKeysHost(std::vector<ORBKey>& vkeys) {
 		vkeys.push_back(key);
 	}
 	delete [] MapKeys;
+}
+
+Mapping::operator DeviceMap() {
+	DeviceMap map;
+	map.heapMem = mMemory;
+	map.heapCounter = mUsedMem;
+	map.noVisibleBlocks = mNumVisibleEntries;
+	map.bucketMutex = mBucketMutex;
+	map.hashEntries = mHashEntries;
+	map.visibleEntries = mVisibleEntries;
+	map.voxelBlocks = mVoxelBlocks;
+	map.entryPtr = mEntryPtr;
+	return map;
+}
+
+Mapping::operator const DeviceMap() const {
+	DeviceMap map;
+	map.heapMem = mMemory;
+	map.heapCounter = mUsedMem;
+	map.noVisibleBlocks = mNumVisibleEntries;
+	map.bucketMutex = mBucketMutex;
+	map.hashEntries = mHashEntries;
+	map.visibleEntries = mVisibleEntries;
+	map.voxelBlocks = mVoxelBlocks;
+	map.entryPtr = mEntryPtr;
+	return map;
+}
+
+Mapping::operator KeyMap() {
+	KeyMap map;
+	map.Keys = mORBKeys;
+	map.Mutex = mKeyMutex;
+	return map;
+}
+
+Mapping::operator const KeyMap() const {
+	KeyMap map;
+	map.Keys = mORBKeys;
+	map.Mutex = mKeyMutex;
+	return map;
 }

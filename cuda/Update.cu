@@ -233,6 +233,38 @@ CUDA_KERNEL void createBlocksKernel(HashIntegrator hi) {
 	hi.CreateBlocks();
 }
 
+uint Mapping::IdentifyVisibleBlocks(const Frame& F) {
+	int pyr = 0;
+	HashIntegrator HI;
+	HI.map = *this;
+	HI.invRot = F.RotInv_gpu();
+	HI.trans = F.Trans_gpu();
+	HI.fx = Frame::fx(pyr);
+	HI.fy = Frame::fy(pyr);
+	HI.cx = Frame::cx(pyr);
+	HI.cy = Frame::cy(pyr);
+	HI.cols = Frame::cols(pyr);
+	HI.rows = Frame::rows(pyr);
+	HI.DEPTH_MAX = DeviceMap::DepthMax;
+	HI.DEPTH_MIN = DeviceMap::DepthMin;
+
+	dim3 block(1024);
+	dim3 grid(cv::divUp((int) DeviceMap::NumEntries, block.x));
+
+	mNumVisibleEntries.zero();
+	compacitifyEntriesKernel<<<grid, block>>>(HI);
+
+	SafeCall(cudaGetLastError());
+	SafeCall(cudaDeviceSynchronize());
+
+	uint noblock = 0;
+	mNumVisibleEntries.download((void*) &noblock);
+	if (noblock == 0)
+		return 0;
+
+	return noblock;
+}
+
 int Mapping::FuseFrame(const Frame& frame) {
 
 	int pyr = 0;

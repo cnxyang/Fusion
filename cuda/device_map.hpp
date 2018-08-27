@@ -143,6 +143,7 @@ struct ORBKey {
 	int obs;
 	float3 pos;
 	float3 normal;
+	int* observation;
 	char descriptor[32];
 };
 
