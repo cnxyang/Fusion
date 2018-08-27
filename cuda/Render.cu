@@ -3,7 +3,7 @@
 #include "device_map.hpp"
 
 #define CUDA_KERNEL __global__
-#define DEV_FUNC __device__ __inline__
+#define DEV_FUNC __device__
 
 #define Render_DownScaleRatio   8
 #define Render_RenderBlockSize  16

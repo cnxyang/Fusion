@@ -38,13 +38,13 @@ bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 		break;
 
 	case LOST:
-		bOK = TrackMap(false);
+		bOK = TrackMap(true);
 		break;
 	}
 
 	if (!bOK) {
 		cout << "lost tracking" << endl;
-		bOK = TrackMap(false);
+		bOK = TrackMap(true);
 		if(!bOK)
 			SetState(LOST);
 	} else {
@@ -198,7 +198,7 @@ bool Tracking::TrackMap(bool bUseGraphMatching) {
 	}
 
 	Eigen::Matrix4d Td = Eigen::Matrix4d::Identity();
-	bool bOK = Solver::SolveAbsoluteOrientation(plist, qlist, mNextFrame.mOutliers, Td, 100);
+	bool bOK = Solver::SolveAbsoluteOrientation(plist, qlist, mNextFrame.mOutliers, Td, 200);
 	mnNoAttempts++;
 
 	if(!bOK) {
@@ -288,9 +288,10 @@ bool Tracking::TrackFrame() {
 		   fabs(ea(2)) > mRotThresh ||
 		   fabs(trans(0)) > mTransThresh ||
 		   fabs(trans(1)) > mTransThresh ||
-		   fabs(trans(2)) > mTransThresh)
+		   fabs(trans(2)) > mTransThresh) {
 			cout << "Initial Pose Estimaton Failed." << endl;
 			return false;
+		}
 	}
 
 	Eigen::Matrix4d Tp = mLastFrame.mPose;

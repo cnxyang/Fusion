@@ -147,9 +147,9 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 	Td.topLeftCorner(3, 3) = R_best;
 	Td.topRightCorner(3, 1) = t_best;
 
-//	if (confidence < 0.5) {
-//		return false;
-//	}
+	if (nIter == maxIter || confidence < 0.8) {
+		return false;
+	}
 
 	return true;
 }
