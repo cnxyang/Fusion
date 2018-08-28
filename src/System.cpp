@@ -97,7 +97,7 @@ void System::Reboot() {
 }
 
 void System::PrintTimings() {
-	Timer::PrintTiming();
+	Timer::Print();
 }
 
 void System::Stop() {

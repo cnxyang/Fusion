@@ -1,7 +1,7 @@
 #ifndef TRACKING_HPP__
 #define TRACKING_HPP__
 
-#include "device_map.cuh"
+#include "device_map.hpp"
 #include "Mapping.hpp"
 #include "Viewer.hpp"
 #include "Frame.hpp"
@@ -21,14 +21,6 @@ public:
 	void AddObservation(const Rendering& render);
 
 public:
-	bool TrackMap();
-	bool TrackICP();
-	bool TrackFrame();
-	bool InitTracking();
-	void UpdateMap();
-	void UpdateFrame();
-	bool TrackLastFrame();
-	void ShowResiduals();
 
 	enum State {
 		NOT_INITIALISED,
@@ -36,16 +28,32 @@ public:
 		LOST
 	};
 
+	bool TrackMap(bool bUseGraph = true);
+	bool TrackICP();
+	bool TrackFrame();
+	bool InitTracking();
+	void UpdateMap();
+	void UpdateFrame();
+	void SetState(State s);
+	bool TrackLastFrame();
+	void ShowResiduals();
+
 	Frame mLastFrame;
 	Frame mNextFrame;
 	State mNextState;
+	State mLastState;
 	Mapping* mpMap;
 	Viewer* mpViewer;
 
-	int mnMapPoints;
-	const float mRotThresh = 0.1;
+	cv::Mat desc;
+	uint mnMapPoints;
+	bool mbGraphMatching;
+	int mnNoAttempts;
+	const float mRotThresh = 0.2;
 	const float mTransThresh = 0.05;
-	DeviceArray<ORBKey> mMapPoints;
+	DeviceArray<ORBKey> mDeviceKeys;
+	std::vector<ORBKey> mHostKeys;
+	std::vector<Eigen::Vector3d> mMapPoints;
 	Ptr<cuda::DescriptorMatcher> mORBMatcher;
 };
 

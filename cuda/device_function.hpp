@@ -3,7 +3,8 @@
 
 #include "Frame.hpp"
 #include "device_array.hpp"
-#include "device_struct.hpp"
+#include "device_map.hpp"
+
 #include <opencv.hpp>
 #include <cuda_runtime.h>
 

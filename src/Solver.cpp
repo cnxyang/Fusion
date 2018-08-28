@@ -4,7 +4,7 @@
 
 #include "Timer.hpp"
 #include "Solver.hpp"
-#include "device_struct.hpp"
+#include "device_map.hpp"
 #include "device_tracking.cuh"
 #include "sophus/se3.hpp"
 
@@ -17,7 +17,8 @@ typedef Eigen::Matrix<float, 6, 1> Vector6f;
 typedef Eigen::Matrix<float, 6, 6> Matrix6f;
 
 bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
-		vector<Vector3d>& ref, vector<bool>& outlier, Matrix4d& Td, int maxIter) {
+		vector<Vector3d>& ref, vector<bool>& outlier,
+		Matrix4d& Td, int maxIter) {
 
 	assert(src.size() == ref.size());
 
@@ -27,8 +28,7 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 	int nMatches = src.size();
 
 	auto now = chrono::system_clock::now();
-	int seed = chrono::duration_cast<chrono::microseconds>(
-			now.time_since_epoch()).count();
+	int seed = chrono::duration_cast<chrono::microseconds>(now.time_since_epoch()).count();
 	srand(seed);
 
 	int nIter = 0;

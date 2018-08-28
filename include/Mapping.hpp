@@ -4,8 +4,7 @@
 #include "Frame.hpp"
 #include "device_function.hpp"
 #include "device_array.hpp"
-#include "device_struct.hpp"
-#include "device_map.cuh"
+#include "device_map.hpp"
 
 #include <vector>
 #include <opencv.hpp>
@@ -25,9 +24,11 @@ public:
 	void RenderMap(Rendering& render, int num_occupied_blocks);
 	void UpdateDesc(MapDesc& desc);
 	void DownloadDesc();
+	uint IdentifyVisibleBlocks(const Frame& F);
 
 	void IntegrateKeys(Frame&);
-	void GetORBKeys(DeviceArray<ORBKey>& keys, int& n);
+	void CheckKeys(Frame& F);
+	void GetORBKeys(DeviceArray<ORBKey>& keys, uint& n);
 	void GetKeysHost(std::vector<ORBKey>& vkeys);
 
 	std::vector<Eigen::Vector3d> GetCamTrace() { return mCamTrace; }
@@ -49,6 +50,8 @@ public:
 	DeviceArray<HashEntry> mHashEntries;
 	DeviceArray<HashEntry> mVisibleEntries;
 	DeviceArray<Voxel> mVoxelBlocks;
+	DeviceArray<int> mEntryPtr;
+
 	MapDesc mDesc;
 
 	DeviceArray<int> mKeyMutex;
