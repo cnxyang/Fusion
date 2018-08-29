@@ -6,20 +6,6 @@
 #include "device_math.hpp"
 
 #define MaxThread 1024
-#define DEV __device__
-#define HOST __host__
-
-struct MapDesc {
-
-	int bucketSize;
-	int numBuckets;
-	int numBlocks;
-	int hashMask;
-	int blockSize;
-	int blockSize3;
-	int maxLinkedList;
-	float voxelSize;
-};
 
 struct Rendering {
 
@@ -46,13 +32,13 @@ struct HashEntry {
 	int  ptr;
 	int  offset;
 
-	DEV HashEntry();
-	DEV HashEntry(const HashEntry& other);
-	DEV HashEntry(int3 pos_, int ptr, int offset) ;
-	DEV void release();
-	DEV void operator=(const HashEntry& other);
-	DEV bool operator==(const int3& pos_) const;
-	DEV bool operator==(const HashEntry& other);
+	DEV_FUNC HashEntry();
+	DEV_FUNC HashEntry(const HashEntry& other);
+	DEV_FUNC HashEntry(int3 pos_, int ptr, int offset) ;
+	DEV_FUNC void release();
+	DEV_FUNC void operator=(const HashEntry& other);
+	DEV_FUNC bool operator==(const int3& pos_) const;
+	DEV_FUNC bool operator==(const HashEntry& other);
 };
 
 enum ENTRYTYPE { EntryAvailable = -1, EntryOccupied = -2 };
@@ -61,17 +47,17 @@ struct Voxel {
 
 	short sdf;
 	short sdfW;
-	static const uint MAX_WEIGHT = 100;
+	static const int MaxWeight = 100;
 	static const int MaxShort = 32767;
 
-	DEV Voxel();
-	DEV Voxel(float sdf, short weight);
-	DEV void release();
-	DEV float GetSdf() const;
-	DEV void SetSdf(float);
-	DEV void operator+=(const Voxel& other);
-	DEV void operator-=(const Voxel& other);
-	DEV void operator=(const Voxel& other);
+	DEV_FUNC Voxel();
+	DEV_FUNC Voxel(float sdf, short weight);
+	DEV_FUNC void release();
+	DEV_FUNC float GetSdf() const;
+	DEV_FUNC void SetSdf(float);
+	DEV_FUNC void operator+=(const Voxel& other);
+	DEV_FUNC void operator-=(const Voxel& other);
+	DEV_FUNC void operator=(const Voxel& other);
 };
 
 struct HostMap {
@@ -80,30 +66,30 @@ struct HostMap {
 
 struct DeviceMap {
 
-	HOST void Release();
-	HOST void Download(DeviceMap& map);
+	HOST_FUNC void Release();
+	HOST_FUNC void Download(DeviceMap& map);
 
-	DEV uint Hash(const int3 & pos);
-	DEV Voxel FindVoxel(const int3& pos);
-	DEV Voxel FindVoxel(const float3& pos);
-	DEV HashEntry FindEntry(const int3& pos);
-	DEV HashEntry FindEntry(const float3& pos);
-	DEV void CreateBlock(const int3& blockPos);
-	DEV bool FindVoxel(const int3& pos, Voxel& vox);
-	DEV bool FindVoxel(const float3& pos, Voxel& vox);
-	DEV HashEntry CreateEntry(const int3& pos, const int& offset);
+	DEV_FUNC uint Hash(const int3 & pos);
+	DEV_FUNC Voxel FindVoxel(const int3& pos);
+	DEV_FUNC Voxel FindVoxel(const float3& pos);
+	DEV_FUNC HashEntry FindEntry(const int3& pos);
+	DEV_FUNC HashEntry FindEntry(const float3& pos);
+	DEV_FUNC void CreateBlock(const int3& blockPos);
+	DEV_FUNC bool FindVoxel(const int3& pos, Voxel& vox);
+	DEV_FUNC bool FindVoxel(const float3& pos, Voxel& vox);
+	DEV_FUNC HashEntry CreateEntry(const int3& pos, const int& offset);
 
-	DEV int3 worldPosToVoxelPos(float3 pos) const;
-	DEV float3 worldPosToVoxelPosF(float3 pos) const;
-	DEV float3 voxelPosToWorldPos(int3 pos) const;
-	DEV int3 voxelPosToBlockPos(const int3& pos) const;
-	DEV int3 blockPosToVoxelPos(const int3& pos) const;
-	DEV int3 voxelPosToLocalPos(const int3& pos) const;
-	DEV int localPosToLocalIdx(const int3& pos) const;
-	DEV int3 localIdxToLocalPos(const int& idx) const;
-	DEV int3 worldPosToBlockPos(const float3& pos) const;
-	DEV float3 blockPosToWorldPos(const int3& pos) const;
-	DEV int voxelPosToLocalIdx(const int3& pos) const;
+	DEV_FUNC int3 worldPosToVoxelPos(float3 pos) const;
+	DEV_FUNC float3 worldPosToVoxelPosF(float3 pos) const;
+	DEV_FUNC float3 voxelPosToWorldPos(int3 pos) const;
+	DEV_FUNC int3 voxelPosToBlockPos(const int3& pos) const;
+	DEV_FUNC int3 blockPosToVoxelPos(const int3& pos) const;
+	DEV_FUNC int3 voxelPosToLocalPos(const int3& pos) const;
+	DEV_FUNC int localPosToLocalIdx(const int3& pos) const;
+	DEV_FUNC int3 localIdxToLocalPos(const int& idx) const;
+	DEV_FUNC int3 worldPosToBlockPos(const float3& pos) const;
+	DEV_FUNC float3 blockPosToWorldPos(const int3& pos) const;
+	DEV_FUNC int voxelPosToLocalIdx(const int3& pos) const;
 
 	static constexpr uint BlockSize = 8;
 	static constexpr uint BlockSize3 = 512;
@@ -112,6 +98,7 @@ struct DeviceMap {
 	static constexpr uint NumExcess = 500000;
 	static constexpr uint NumBuckets = 1000000;
 	static constexpr uint NumSdfBlocks = 750000;
+	static constexpr uint MaxTriangles = 2000 * 2000;
 	static constexpr float VoxelSize = 0.005f;
 	static constexpr float TruncateDist = 0.03f;
 	static constexpr int MaxRenderingBlocks = 260000;

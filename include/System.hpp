@@ -32,6 +32,7 @@ public:
 	void SetParameters(SysDesc& desc);
 	void PrintTimings();
 	void JoinViewer();
+	void SaveMesh();
 	void Reboot();
 	void Stop();
 

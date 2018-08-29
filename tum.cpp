@@ -83,6 +83,9 @@ int main(int argc, char** argv) {
 		case 27: /* Escape */
 			std::cout << "User Requested Termination." << std::endl;
 			exit(0);
+
+		case 's':
+			slam.SaveMesh();
 		}
 	}
 

@@ -1,6 +1,7 @@
 #include "Timer.hpp"
 #include "Mapping.hpp"
 #include "device_mapping.cuh"
+#include "Table.hpp"
 
 bool Mapping::mbFirstCall = true;
 
@@ -8,10 +9,11 @@ Mapping::Mapping() {
 }
 
 Mapping::~Mapping() {
+	free(mHostMesh);
 	ReleaseDeviceMemory();
 }
 
-void Mapping::AllocateDeviceMemory(MapDesc desc) {
+void Mapping::AllocateDeviceMemory() {
 
 	Timer::Start("Initialisation", "Memory Allocation");
 	mMemory.create(DeviceMap::NumSdfBlocks);
@@ -25,10 +27,17 @@ void Mapping::AllocateDeviceMemory(MapDesc desc) {
 
 	mKeyMutex.create(KeyMap::MaxKeys);
 	mORBKeys.create(KeyMap::MaxKeys * KeyMap::nBuckets);
+
+	mMesh.create(DeviceMap::MaxTriangles * 3);
+	mTriTable.create(16, 256);
+	mEdgeTable.create(256);
+	mTriTable.upload(triTable, sizeof(int) * 16, 16, 256);
+	mEdgeTable.upload(edgeTable, 256);
 	Timer::Stop("Initialisation", "Memory Allocation");
 
 	Timer::Start("Initialisation", "ResetMap");
 	ResetDeviceMemory();
+	mHostMesh = (float3*)malloc(sizeof(float3) * DeviceMap::MaxTriangles * 3);
 	Timer::Stop("Initialisation", "ResetMap");
 }
 

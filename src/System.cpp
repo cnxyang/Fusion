@@ -19,7 +19,7 @@ mpTracker(nullptr),
 mbStop(false){
 
 	mpMap = new Mapping();
-	mpMap->AllocateDeviceMemory(MapDesc());
+	mpMap->AllocateDeviceMemory();
 
 	mpViewer = new Viewer();
 	mpTracker = new Tracking();
@@ -85,10 +85,46 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 		rd.Render.download((void*) tmp.data, tmp.step);
 		resize(tmp, tmp, cv::Size(tmp.cols * 2, tmp.rows * 2));
 		imshow("img", tmp);
+
+		mpMap->MeshScene();
 	}
 
 	if(mbStop)
 		exit(0);
+}
+
+void System::SaveMesh() {
+
+	uint n = mpMap->MeshScene();
+	cout << n << endl;
+	float3 * host_tri = (float3 *) malloc(sizeof(float3) * mpMap->mMesh.size());
+	memset(host_tri, 0, sizeof(float3) * mpMap->mMesh.size());
+	mpMap->mMesh.download((void*)host_tri);
+	FILE *f = fopen("scene.stl", "wb+");
+	if (f != NULL) {
+		for (int i = 0; i < 80; i++)
+			fwrite(" ", sizeof(char), 1, f);
+		fwrite(&n, sizeof(int), 1, f);
+		float zero = 0.0f;
+		short attribute = 0;
+		for (uint i = 0; i < n; i++) {
+			fwrite(&zero, sizeof(float), 1, f);
+			fwrite(&zero, sizeof(float), 1, f);
+			fwrite(&zero, sizeof(float), 1, f);
+			fwrite(&host_tri[i * 3 + 0].x, sizeof(float), 1, f);
+			fwrite(&host_tri[i * 3 + 0].y, sizeof(float), 1, f);
+			fwrite(&host_tri[i * 3 + 0].z, sizeof(float), 1, f);
+			fwrite(&host_tri[i * 3 + 1].x, sizeof(float), 1, f);
+			fwrite(&host_tri[i * 3 + 1].y, sizeof(float), 1, f);
+			fwrite(&host_tri[i * 3 + 1].z, sizeof(float), 1, f);
+			fwrite(&host_tri[i * 3 + 2].x, sizeof(float), 1, f);
+			fwrite(&host_tri[i * 3 + 2].y, sizeof(float), 1, f);
+			fwrite(&host_tri[i * 3 + 2].z, sizeof(float), 1, f);
+			fwrite(&attribute, sizeof(short), 1, f);
+		}
+		fclose(f);
+	}
+	delete host_tri;
 }
 
 void System::Reboot() {

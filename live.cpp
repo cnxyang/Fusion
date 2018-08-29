@@ -42,6 +42,9 @@ int main(int argc, char** argv) {
 				camera.StopStreaming();
 				std::cout << "User Requested Termination." << std::endl;
 				exit(0);
+
+			case 's':
+				slam.SaveMesh();
 			}
 		}
 	}

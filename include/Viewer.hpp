@@ -24,6 +24,7 @@ private:
 
 	void Insert(std::vector<GLfloat>& vPt, Eigen::Vector3d& pt);
 	void DrawCamera();
+	void DrawMesh();
 	void DrawKeys();
 	void DrawTrajectory();
 

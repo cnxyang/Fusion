@@ -1,5 +1,7 @@
 #include "Viewer.hpp"
 #include <algorithm>
+#include <pangolin/gl/glcuda.h>
+#include <pangolin/gl/glvbo.h>
 
 using namespace std;
 using namespace pangolin;
@@ -22,6 +24,8 @@ void Viewer::Spin() {
 			      0, 0, 0, 1;
 
 	OpenGlMatrix openglViewMatrix(viewMatrix);
+	GlBufferCudaPtr vertex_array(GlArrayBuffer, DeviceMap::MaxTriangles,
+			GL_FLOAT, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
 
 	OpenGlRenderState s_cam(
 			ProjectionMatrix(640, 480, 525, 525, 320, 240, 0.1f, 1000.0f),
@@ -34,6 +38,7 @@ void Viewer::Spin() {
 	Var<bool> reset_btn("UI.Reset System", false, false);
 	Var<bool> traj_btn("UI.Show Trajectory",false,true);
 	Var<bool> kp_btn("UI.Show Key Points",true,true);
+	Var<bool> mesh_btn("UI.Show Mesh", false, true);
 
 	while (1) {
 
@@ -56,10 +61,18 @@ void Viewer::Spin() {
 		if (kp_btn)
 			DrawKeys();
 
+		if(mesh_btn)
+			DrawMesh();
+
 		DrawCamera();
 
 		FinishFrame();
 	}
+}
+
+void Viewer::DrawMesh() {
+	glColor3f(0.5, 1.0, 1.0);
+	glDrawVertices(mpMap->nTriangle * 3, (GLfloat*)mpMap->mHostMesh, GL_TRIANGLES, 3);
 }
 
 void Viewer::Insert(std::vector<GLfloat>& vPt, Eigen::Vector3d& pt) {

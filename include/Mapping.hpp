@@ -17,13 +17,12 @@ public:
 	Mapping();
 	~Mapping();
 
-	void AllocateDeviceMemory(MapDesc desc);
+	void AllocateDeviceMemory();
 	void ResetDeviceMemory();
 	void ReleaseDeviceMemory();
+	uint MeshScene();
 	int FuseFrame(const Frame& frame);
 	void RenderMap(Rendering& render, int num_occupied_blocks);
-	void UpdateDesc(MapDesc& desc);
-	void DownloadDesc();
 	uint IdentifyVisibleBlocks(const Frame& F);
 
 	void IntegrateKeys(Frame&);
@@ -45,19 +44,23 @@ public:
 
 	DeviceArray<int> mMemory;
 	DeviceArray<int> mUsedMem;
+	DeviceArray<int> mEntryPtr;
 	DeviceArray<int> mBucketMutex;
+	DeviceArray<Voxel> mVoxelBlocks;
 	DeviceArray<uint> mNumVisibleEntries;
 	DeviceArray<HashEntry> mHashEntries;
 	DeviceArray<HashEntry> mVisibleEntries;
-	DeviceArray<Voxel> mVoxelBlocks;
-	DeviceArray<int> mEntryPtr;
-
-	MapDesc mDesc;
 
 	DeviceArray<int> mKeyMutex;
 	DeviceArray<ORBKey> mORBKeys;
 
 	std::vector<Eigen::Vector3d> mCamTrace;
+
+	DeviceArray<float3> mMesh;
+	DeviceArray2D<int> mTriTable;
+	DeviceArray<int> mEdgeTable;
+	float3* mHostMesh;
+	uint nTriangle;
 };
 
 #endif

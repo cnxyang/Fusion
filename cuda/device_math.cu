@@ -2,8 +2,8 @@
 
 DEV_FUNC uchar3 make_uchar3(float3 a) {
 	return make_uchar3(__float2int_rd(a.x),
-			__float2int_rd(a.y),
-			__float2int_rd(a.z));
+					   __float2int_rd(a.y),
+					   __float2int_rd(a.z));
 }
 
 HOST_FUNC DEV_FUNC int2 make_int2(int a) {
@@ -11,7 +11,8 @@ HOST_FUNC DEV_FUNC int2 make_int2(int a) {
 }
 
 DEV_FUNC int2 make_int2(float2 a) {
-	return make_int2(__float2int_rd(a.x), __float2int_rd(a.y));
+	return make_int2(__float2int_rd(a.x),
+				     __float2int_rd(a.y));
 }
 
 HOST_FUNC DEV_FUNC int3 make_int3(int a) {
@@ -23,9 +24,15 @@ DEV_FUNC int3 make_int3(float a) {
 }
 
 DEV_FUNC int3 make_int3(float3 a) {
-	return make_int3(__float2int_rd(a.x), __float2int_rd(a.y),
-			__float2int_rd(a.z));
+	return make_int3(__float2int_rd(a.x),
+					 __float2int_rd(a.y),
+					 __float2int_rd(a.z));
 }
+
+HOST_FUNC DEV_FUNC int4 make_int4(int3 a, int b) {
+	return make_int4(a.x, a.y, a.z, b);
+}
+
 
 HOST_FUNC DEV_FUNC uint2 make_uint2(int a) {
 	return make_uint2(a, a);
@@ -278,8 +285,8 @@ DEV_FUNC void atomicMax(float* address, float val) {
 	int old = *address_as_i, assumed;
 	do {
 		assumed = old;
-		old = ::atomicCAS(address_as_i, assumed,
-				__float_as_int(::fmaxf(val, __int_as_float(assumed))));
+		old = atomicCAS(address_as_i,
+				assumed, __float_as_int(fmaxf(val, __int_as_float(assumed))));
 	} while (assumed != old);
 }
 
@@ -288,8 +295,8 @@ DEV_FUNC void atomicMin(float* address, float val) {
 	int old = *address_as_i, assumed;
 	do {
 		assumed = old;
-		old = ::atomicCAS(address_as_i, assumed,
-				__float_as_int(::fminf(val, __int_as_float(assumed))));
+		old = atomicCAS(address_as_i,
+				assumed, __float_as_int(fminf(val, __int_as_float(assumed))));
 	} while (assumed != old);
 }
 
