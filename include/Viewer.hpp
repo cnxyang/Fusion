@@ -24,9 +24,12 @@ private:
 
 	void Insert(std::vector<GLfloat>& vPt, Eigen::Vector3d& pt);
 	void DrawCamera();
-	void DrawMesh();
 	void DrawKeys();
+	void FollowCam();
+	void DrawNormal();
+	void DrawColor();
 	void DrawTrajectory();
+	void DrawMesh(bool bNormal);
 
 	Mapping* mpMap;
 	System* mpSystem;
@@ -34,11 +37,15 @@ private:
 	GLuint vao;
 	Eigen::Matrix4d T;
 	pangolin::OpenGlRenderState s_cam;
-	pangolin::GlSlProgram program;
+	pangolin::GlSlProgram mPhongProg;
+	pangolin::GlSlProgram mNormalProg;
+	pangolin::GlSlProgram mColorProg;
 	pangolin::GlBufferCudaPtr array;
 	pangolin::GlBufferCudaPtr normal;
+	pangolin::GlBufferCudaPtr color;
 	pangolin::CudaScopedMappedPtr* var;
 	pangolin::CudaScopedMappedPtr* nvar;
+	pangolin::CudaScopedMappedPtr* cvar;
 	bool mbShowMesh;
 	int n = 0;
 };

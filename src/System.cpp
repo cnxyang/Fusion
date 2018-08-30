@@ -7,7 +7,8 @@ using namespace std;
 System::System(const char* str):
 mpMap(nullptr), mpViewer(nullptr),
 mpTracker(nullptr), mpParam(nullptr),
-mptViewer(nullptr), mbStop(false) {
+mptViewer(nullptr), mbStop(false),
+nFrames(0) {
 	if(!str)
 		System(static_cast<SysDesc*>(nullptr));
 }
@@ -16,7 +17,8 @@ System::System(SysDesc* pParam):
 mpMap(nullptr),
 mpViewer(nullptr),
 mpTracker(nullptr),
-mbStop(false){
+mbStop(false),
+nFrames(0){
 
 	mpMap = new Mapping();
 	mpMap->AllocateDeviceMemory();
@@ -65,7 +67,7 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 	bool bOK = mpTracker->Track(imRGB, imD);
 
 	if (bOK) {
-		int no = mpMap->FuseFrame(mpTracker->mLastFrame);
+		int no = mpMap->FuseFrame(mpTracker->mNextFrame);
 		Rendering rd;
 		rd.cols = 640;
 		rd.rows = 480;
@@ -85,8 +87,12 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 //		rd.Render.download((void*) tmp.data, tmp.step);
 //		resize(tmp, tmp, cv::Size(tmp.cols * 2, tmp.rows * 2));
 //		imshow("img", tmp);
-
 //		mpMap->MeshScene();
+		if(nFrames > 30) {
+			nFrames = 0;
+			mpMap->MeshScene();
+		}
+		nFrames++;
 	}
 
 	if(mbStop)

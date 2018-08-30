@@ -672,6 +672,7 @@ struct HashIntegrator {
 
 	uint* nVisibleBlock;
 	PtrStep<float> depth;
+	PtrStep<uchar3> rgb;
 	PtrSz<int> blockVisibilityList;
 	PtrSz<HashEntry> visibleBlockList;
 
@@ -809,12 +810,13 @@ struct HashIntegrator {
 		float sdf = dp_scaled - pos.z;
 		if (sdf >= -trunc_dist) {
 			sdf = fmin(1.0f, sdf / trunc_dist);
-			Voxel curr(sdf, 1);
+			uchar3 color = rgb.ptr(uv.y)[uv.x];
+			Voxel curr(sdf, 1, color, 1);
 			if (abs(entry.ptr + idx) < map.voxelBlocks.size) {
 				Voxel & prev = map.voxelBlocks[entry.ptr + idx];
 				if (fuse) {
-					if (prev.sdfW < 1e-7)
-						curr.sdfW = 1;
+//					if (prev.sdfW < 1e-7)
+//						curr.sdfW = 1;
 					prev += curr;
 				} else {
 					prev -= curr;
@@ -885,6 +887,7 @@ int Mapping::FuseFrame(const Frame& frame) {
 	HI.invfx = 1.0 / Frame::fx(pyr);
 	HI.invfy = 1.0 / Frame::fy(pyr);
 	HI.depth = frame.mDepth[pyr];
+	HI.rgb = frame.mColor;
 	HI.cols = Frame::cols(pyr);
 	HI.rows = Frame::rows(pyr);
 	HI.DEPTH_MAX = DeviceMap::DepthMax;

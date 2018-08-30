@@ -36,6 +36,8 @@ public:
 	void Reboot();
 	void Stop();
 
+	static std::mutex meshMutex;
+
 private:
 	Mapping* mpMap;
 	Viewer* mpViewer;
@@ -44,6 +46,7 @@ private:
 
 	cv::Mat mK;
 	bool mbStop;
+	int nFrames;
 	std::thread* mptViewer;
 };
 

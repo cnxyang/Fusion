@@ -74,6 +74,7 @@ HOST_FUNC DEV_FUNC void operator-=(float3 & a, float3 b);
 /* ----------------- *
  * operator-(type)   *
  *------------------ */
+HOST_FUNC DEV_FUNC uchar3 operator-(uchar3 a, uchar3 b);
 HOST_FUNC DEV_FUNC int2 operator-(int2 a, int2 b);
 HOST_FUNC DEV_FUNC float3 operator-(float3 b);
 HOST_FUNC DEV_FUNC float3 operator-(float3 a, float b);

@@ -5,7 +5,8 @@
 
 bool Mapping::mbFirstCall = true;
 
-Mapping::Mapping(){}
+Mapping::Mapping():
+nTriangle(0), bUpdated(false) {}
 
 Mapping::~Mapping() {
 	ReleaseDeviceMemory();
@@ -28,6 +29,7 @@ void Mapping::AllocateDeviceMemory() {
 
 	mMesh.create(DeviceMap::MaxTriangles * 3);
 	mMeshNormal.create(DeviceMap::MaxTriangles * 3);
+	mColorMap.create(DeviceMap::MaxTriangles * 3);
 	mTriTable.create(16, 256);
 	mEdgeTable.create(256);
 	mTriTable.upload(triTable, sizeof(int) * 16, 16, 256);

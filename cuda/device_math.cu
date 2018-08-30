@@ -124,6 +124,10 @@ HOST_FUNC DEV_FUNC void operator-=(float3 & a, float3 b) {
 	a.z -= b.z;
 }
 
+HOST_FUNC DEV_FUNC uchar3 operator-(uchar3 a, uchar3 b) {
+	return make_uchar3(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+
 HOST_FUNC DEV_FUNC int2 operator-(int2 a, int2 b) {
 	return make_int2(a.x - b.x, a.y - b.y);
 }

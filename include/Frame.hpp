@@ -58,6 +58,7 @@ public:
 
 	DeviceArray2D<float> mDepth[numPyrs];
 	DeviceArray2D<uchar> mGray[numPyrs];
+	DeviceArray2D<uchar3> mColor;
 	DeviceArray2D<float4> mVMap[numPyrs];
 	DeviceArray2D<float3> mNMap[numPyrs];
 	DeviceArray2D<float> mdIx[numPyrs];

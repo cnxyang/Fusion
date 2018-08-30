@@ -47,11 +47,13 @@ struct Voxel {
 
 	short sdf;
 	short sdfW;
+	uchar3 rgb;
+	short rgbW;
 	static const int MaxWeight = 100;
 	static const int MaxShort = 32767;
 
 	DEV_FUNC Voxel();
-	DEV_FUNC Voxel(float sdf, short weight);
+	DEV_FUNC Voxel(float, short, uchar3, short);
 	DEV_FUNC void release();
 	DEV_FUNC float GetSdf() const;
 	DEV_FUNC void SetSdf(float);
@@ -94,10 +96,10 @@ struct DeviceMap {
 	static constexpr uint BlockSize = 8;
 	static constexpr uint BlockSize3 = 512;
 	static constexpr float DepthMin = 0.1f;
-	static constexpr float DepthMax = 3.5f;
+	static constexpr float DepthMax = 2.0f;
 	static constexpr uint NumExcess = 500000;
 	static constexpr uint NumBuckets = 1000000;
-	static constexpr uint NumSdfBlocks = 750000;
+	static constexpr uint NumSdfBlocks = 400000;
 	static constexpr uint MaxTriangles = 2000 * 2000;
 	static constexpr float VoxelSize = 0.006f;
 	static constexpr float TruncateDist = 0.035f;

@@ -28,5 +28,6 @@ void main() {
 	float i2 = lx * kd * dx * max(0.0, dot(normal, L));
 	float i3 = lx * ks * sx * pow(max(0.0, dot(R, V)), n);
 	float Ix = i1 + i2 + i3;
+	//a_color = vec4(normal, 1.0);
 	a_color = vec4(Ix, Ix, Ix, 1.0);
 } 

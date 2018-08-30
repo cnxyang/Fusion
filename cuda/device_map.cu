@@ -36,9 +36,10 @@ DEV_FUNC Voxel::Voxel() :
 		sdf(0x7fff), sdfW(0) {
 }
 
-DEV_FUNC Voxel::Voxel(float sdf, short weight) :
-		sdfW(weight) {
+DEV_FUNC Voxel::Voxel(float sdf, short weight, uchar3 rgb_, short rgbW_) :
+		sdfW(weight), rgb(rgb_), rgbW(rgbW_) {
 	SetSdf(sdf);
+
 }
 
 DEV_FUNC void Voxel::release() {
@@ -60,6 +61,9 @@ DEV_FUNC void Voxel::operator+=(const Voxel & other) {
 	sdf /= (sdfW + other.sdfW);
 	SetSdf(sdf);
 	sdfW += other.sdfW;
+
+	rgb = rgb * rgbW + other.rgb * other.rgbW;
+	rgbW += other.rgbW;
 }
 
 DEV_FUNC void Voxel::operator-=(const Voxel & other) {

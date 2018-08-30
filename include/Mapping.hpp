@@ -34,6 +34,7 @@ public:
 	void GetKeysHost(std::vector<ORBKey>& vkeys);
 
 	std::vector<Eigen::Vector3d> GetCamTrace() { return mCamTrace; }
+	std::mutex mMutexMesh;
 
 	operator DeviceMap();
 	operator const DeviceMap() const;
@@ -63,6 +64,8 @@ public:
 	DeviceArray2D<int> mTriTable;
 	DeviceArray<int> mEdgeTable;
 	DeviceArray<float3> mMeshNormal;
+	DeviceArray<uchar3> mColorMap;
+	bool bUpdated;
 	uint nTriangle;
 };
 
