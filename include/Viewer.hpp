@@ -31,6 +31,16 @@ private:
 	Mapping* mpMap;
 	System* mpSystem;
 	Tracking* mpTracker;
+	GLuint vao;
+	Eigen::Matrix4d T;
+	pangolin::OpenGlRenderState s_cam;
+	pangolin::GlSlProgram program;
+	pangolin::GlBufferCudaPtr array;
+	pangolin::GlBufferCudaPtr normal;
+	pangolin::CudaScopedMappedPtr* var;
+	pangolin::CudaScopedMappedPtr* nvar;
+	bool mbShowMesh;
+	int n = 0;
 };
 
 #endif

@@ -5,11 +5,9 @@
 
 bool Mapping::mbFirstCall = true;
 
-Mapping::Mapping() {
-}
+Mapping::Mapping(){}
 
 Mapping::~Mapping() {
-	free(mHostMesh);
 	ReleaseDeviceMemory();
 }
 
@@ -29,6 +27,7 @@ void Mapping::AllocateDeviceMemory() {
 	mORBKeys.create(KeyMap::MaxKeys * KeyMap::nBuckets);
 
 	mMesh.create(DeviceMap::MaxTriangles * 3);
+	mMeshNormal.create(DeviceMap::MaxTriangles * 3);
 	mTriTable.create(16, 256);
 	mEdgeTable.create(256);
 	mTriTable.upload(triTable, sizeof(int) * 16, 16, 256);
@@ -37,7 +36,6 @@ void Mapping::AllocateDeviceMemory() {
 
 	Timer::Start("Initialisation", "ResetMap");
 	ResetDeviceMemory();
-	mHostMesh = (float3*)malloc(sizeof(float3) * DeviceMap::MaxTriangles * 3);
 	Timer::Stop("Initialisation", "ResetMap");
 }
 

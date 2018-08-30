@@ -8,6 +8,9 @@
 
 #include <vector>
 #include <opencv.hpp>
+#include <pangolin/pangolin.h>
+#include <pangolin/gl/glcuda.h>
+#include <pangolin/gl/glvbo.h>
 
 struct ORBKey;
 class KeyMap;
@@ -59,7 +62,7 @@ public:
 	DeviceArray<float3> mMesh;
 	DeviceArray2D<int> mTriTable;
 	DeviceArray<int> mEdgeTable;
-	float3* mHostMesh;
+	DeviceArray<float3> mMeshNormal;
 	uint nTriangle;
 };
 
