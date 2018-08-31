@@ -15,10 +15,14 @@
 #define HOST_FUNC __host__
 #define DEV_FUNC __device__
 
+DEV_FUNC HOST_FUNC float3 fmaxf(float3 a, float3 b);
+DEV_FUNC HOST_FUNC float3 fminf(float3 a, float3 b);
+
 /* ---------------- *
  * make_uchar(num)  *
  *----------------- */
 DEV_FUNC uchar3 make_uchar3(float3 a);
+DEV_FUNC uchar3 make_uchar3(int a);
 
 /* -------------- *
  * make_int(num)  *

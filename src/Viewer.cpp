@@ -183,7 +183,7 @@ void Viewer::DrawMesh(bool bNormal) {
 	array.Unbind();
 
 	normal.Bind();
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, 0, 0);
 	glEnableVertexAttribArray(1);
 	normal.Unbind();
 

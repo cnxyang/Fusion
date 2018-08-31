@@ -10,6 +10,6 @@ out vec4 a_color;
 
 void main() {
 	gl_Position = projMat * viewMat * vec4(a_position, 1.0);
-	vec3 normal = vec3(viewMat * vec4(a_normal, 0.0));
-	a_color = vec4(normal, 1.0);
+	vec3 normal = vec3(a_normal.y, -a_normal.x, -a_normal.z); 
+	a_color = vec4((normal + 1) / 2, 1);
 }

@@ -815,8 +815,10 @@ struct HashIntegrator {
 			if (abs(entry.ptr + idx) < map.voxelBlocks.size) {
 				Voxel & prev = map.voxelBlocks[entry.ptr + idx];
 				if (fuse) {
-//					if (prev.sdfW < 1e-7)
-//						curr.sdfW = 1;
+					if (prev.sdfW < 1e-7)
+						curr.sdfW = 1;
+					if (prev.rgbW < 1e-7)
+						curr.rgbW = 1;
 					prev += curr;
 				} else {
 					prev -= curr;

@@ -33,7 +33,7 @@ DEV_FUNC bool HashEntry::operator==(const HashEntry & other) {
 }
 
 DEV_FUNC Voxel::Voxel() :
-		sdf(0x7fff), sdfW(0) {
+		sdf(0x7fff), sdfW(0), rgb(make_uchar3(0x7fffffff)), rgbW(0){
 }
 
 DEV_FUNC Voxel::Voxel(float sdf, short weight, uchar3 rgb_, short rgbW_) :
@@ -45,6 +45,8 @@ DEV_FUNC Voxel::Voxel(float sdf, short weight, uchar3 rgb_, short rgbW_) :
 DEV_FUNC void Voxel::release() {
 	sdf = 0x7fff;
 	sdfW = 0;
+	rgb = make_uchar3(0x7fffffff);
+	rgbW = 0;
 }
 
 DEV_FUNC float Voxel::GetSdf() const {
@@ -62,7 +64,11 @@ DEV_FUNC void Voxel::operator+=(const Voxel & other) {
 	SetSdf(sdf);
 	sdfW += other.sdfW;
 
-	rgb = rgb * rgbW + other.rgb * other.rgbW;
+	float3 pcolor = make_float3(rgb);
+	float3 color = make_float3(other.rgb);
+	float3 res =  0.2f * color + 0.8f * pcolor;
+	res = fmaxf(make_float3(0.0), fminf(res, make_float3(254.5f)));
+	rgb = make_uchar3(res);
 	rgbW += other.rgbW;
 }
 
@@ -73,6 +79,8 @@ DEV_FUNC void Voxel::operator-=(const Voxel & other) {
 DEV_FUNC void Voxel::operator=(const Voxel & other) {
 	sdf = other.sdf;
 	sdfW = other.sdfW;
+	rgb = other.rgb;
+	rgbW = other.rgbW;
 }
 
 DEV_FUNC uint DeviceMap::Hash(const int3 & pos) {

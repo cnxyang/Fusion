@@ -10,5 +10,5 @@ out vec4 a_color;
 
 void main() {
 	gl_Position = projMat * viewMat * vec4(a_position, 1.0);
-	a_color = vec4(color, 1.0);
+	a_color = vec4(color / 255.0, 1.0);
 }

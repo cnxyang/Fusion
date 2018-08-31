@@ -1,9 +1,21 @@
 #include "device_math.hpp"
 
+DEV_FUNC HOST_FUNC float3 fmaxf(float3 a, float3 b) {
+	return make_float3(fmaxf(a.x, b.x), fmaxf(a.y, b.y), fmaxf(a.z, b.z));
+}
+
+DEV_FUNC HOST_FUNC float3 fminf(float3 a, float3 b) {
+	return make_float3(fminf(a.x, b.x), fminf(a.y, b.y), fminf(a.z, b.z));
+}
+
 DEV_FUNC uchar3 make_uchar3(float3 a) {
 	return make_uchar3(__float2int_rd(a.x),
 					   __float2int_rd(a.y),
 					   __float2int_rd(a.z));
+}
+
+DEV_FUNC uchar3 make_uchar3(int a) {
+	return make_uchar3(a, a, a);
 }
 
 HOST_FUNC DEV_FUNC int2 make_int2(int a) {

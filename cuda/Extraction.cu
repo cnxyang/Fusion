@@ -158,7 +158,7 @@ struct HashMarchingCube {
 		return true;
 	}
 
-	DEV_FUNC bool FindPoint(float3* p, float3* n,/* uchar3* c,*/ float* sdf, int3 pos) {
+	DEV_FUNC bool FindPoint(float3* p, float3* n, uchar3* c, float* sdf, int3 pos) {
 
 		int3 localPos;
 		Voxel v;
@@ -167,23 +167,23 @@ struct HashMarchingCube {
 		p[0] = make_float3(localPos);
 		v = map.FindVoxel(localPos);
 		sdf[0] = v.GetSdf();
-//		c[0] = v.rgb;
-		if (sdf[0] < -0.5 || isnan(sdf[0]) || sdf[0] > 0.4)
+		c[0] = v.rgb;
+		if (sdf[0] == 1.0 || isnan(sdf[0]))
 			return false;
 
 		localPos = pos + make_int3(1, 0, 0);
 		p[1] = make_float3(localPos);
 		v = map.FindVoxel(localPos);
 		sdf[1] = v.GetSdf();
-//		c[1] = v.rgb;
-		if (sdf[1] < -0.4 || isnan(sdf[1]) || sdf[1] > 0.4)
+		c[1] = v.rgb;
+		if (sdf[1] == 1.0 || isnan(sdf[1]))
 			return false;
 
 		localPos = pos + make_int3(1, 1, 0);
 		p[2] = make_float3(localPos);
 		v = map.FindVoxel(localPos);
 		sdf[2] = v.GetSdf();
-//		c[2] = v.rgb;
+		c[2] = v.rgb;
 		if (sdf[2] == 1.0f || isnan(sdf[2]))
 			return false;
 
@@ -191,7 +191,7 @@ struct HashMarchingCube {
 		p[3] = make_float3(localPos);
 		v = map.FindVoxel(localPos);
 		sdf[3] = v.GetSdf();
-//		c[3] = v.rgb;
+		c[3] = v.rgb;
 		if (sdf[3] == 1.0f || isnan(sdf[3]))
 			return false;
 
@@ -199,7 +199,7 @@ struct HashMarchingCube {
 		p[4] = make_float3(localPos);
 		v = map.FindVoxel(localPos);
 		sdf[4] = v.GetSdf();
-//		c[4] = v.rgb;
+		c[4] = v.rgb;
 		if (sdf[4] == 1.0f || isnan(sdf[4]))
 			return false;
 
@@ -207,7 +207,7 @@ struct HashMarchingCube {
 		p[5] = make_float3(localPos);
 		v = map.FindVoxel(localPos);
 		sdf[5] = v.GetSdf();
-//		c[5] = v.rgb;
+		c[5] = v.rgb;
 		if (sdf[5] == 1.0f || isnan(sdf[5]))
 			return false;
 
@@ -215,7 +215,7 @@ struct HashMarchingCube {
 		p[6] = make_float3(localPos);
 		v = map.FindVoxel(localPos);
 		sdf[6] = v.GetSdf();
-//		c[6] = v.rgb;
+		c[6] = v.rgb;
 		if (sdf[6] == 1.0f || isnan(sdf[6]))
 			return false;
 
@@ -223,7 +223,7 @@ struct HashMarchingCube {
 		p[7] = make_float3(localPos);
 		v = map.FindVoxel(localPos);
 		sdf[7] = v.GetSdf();
-//		c[7] = v.rgb;
+		c[7] = v.rgb;
 		if (sdf[7] == 1.0f || isnan(sdf[7]))
 			return false;
 
@@ -244,13 +244,13 @@ struct HashMarchingCube {
 		return p1 + ((0.0f - val1) / (val2 - val1)) * (p2 - p1);
 	}
 
-	DEV_FUNC int BuildVertex(float3* vertList, float3* nlist,/* uchar3* clist,*/ int3 blockPos, int3 localPos)	{
+	DEV_FUNC int BuildVertex(float3* vertList, float3* nlist, uchar3* clist, int3 blockPos, int3 localPos)	{
 		float3 points[8];
 		float3 normal[8];
-//		uchar3 color[8];
+		uchar3 color[8];
 		float sdf[8];
 
-		if (!FindPoint(points, normal, /*color,*/ sdf, blockPos + localPos))
+		if (!FindPoint(points, normal, color, sdf, blockPos + localPos))
 			return -1;
 
 		int cubeIndex = 0;
@@ -346,10 +346,10 @@ struct HashMarchingCube {
 		if(x < DeviceMap::NumSdfBlocks && x < *noBlocks) {
 			float3 vlist[12];
 			float3 nlist[12];
-//			uchar3 clist[12];
+			uchar3 clist[12];
 			int3 blockPos = vPos[x] * DeviceMap::BlockSize;
 			int3 localPos = make_int3(threadIdx.x, threadIdx.y, threadIdx.z);
-			int cubeIdx = BuildVertex(vlist, nlist,/* clist,*/ blockPos, localPos);
+			int cubeIdx = BuildVertex(vlist, nlist, clist, blockPos, localPos);
 			if(cubeIdx < 0)
 				return;
 			for(int i = 0; triangleTable.ptr(cubeIdx)[i] != -1; i += 3) {
