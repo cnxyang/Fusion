@@ -146,6 +146,6 @@ void System::Stop() {
 void System::JoinViewer() {
 
 	while(!mbStop) {
-		usleep(3000);
+
 	}
 }

@@ -18,16 +18,16 @@ void Viewer::Spin() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	mPhongProg.AddShaderFromFile(GlSlVertexShader, "VertexShader.glsl");
-	mPhongProg.AddShaderFromFile(GlSlFragmentShader, "FragmentShader.glsl");
+	mPhongProg.AddShaderFromFile(GlSlVertexShader, "shader/VertexShader.glsl");
+	mPhongProg.AddShaderFromFile(GlSlFragmentShader, "shader/FragmentShader.glsl");
 	mPhongProg.Link();
 
-	mNormalProg.AddShaderFromFile(GlSlVertexShader, "NormalShader_vertex.glsl");
-	mNormalProg.AddShaderFromFile(GlSlFragmentShader, "FragmentShader.glsl");
+	mNormalProg.AddShaderFromFile(GlSlVertexShader, "shader/NormalShader_vertex.glsl");
+	mNormalProg.AddShaderFromFile(GlSlFragmentShader, "shader/FragmentShader.glsl");
 	mNormalProg.Link();
 
-	mColorProg.AddShaderFromFile(GlSlVertexShader, "ColorShader_vertex.glsl");
-	mColorProg.AddShaderFromFile(GlSlFragmentShader, "FragmentShader.glsl");
+	mColorProg.AddShaderFromFile(GlSlVertexShader, "shader/ColorShader_vertex.glsl");
+	mColorProg.AddShaderFromFile(GlSlFragmentShader, "shader/FragmentShader.glsl");
 	mColorProg.Link();
 
 	s_cam = OpenGlRenderState(
