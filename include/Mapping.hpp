@@ -1,7 +1,7 @@
 #ifndef MAPPING_HPP__
 #define MAPPING_HPP__
 
-#include "Frame.hpp"
+#include "KeyFrame.hpp"
 #include "device_function.hpp"
 #include "device_array.hpp"
 #include "device_map.hpp"
@@ -76,6 +76,24 @@ public:
 	DeviceArray2D<float> mDepthMapMax;
 	bool bUpdated;
 	uint nTriangle;
+
+public:
+
+	bool lost;
+	bool meshUpdated;
+	bool mapPointsUpdated;
+	bool mapUpdated;
+
+	int noBlocksInFrustum;
+	int noRenderingBlocks;
+
+	void push_back(const KeyFrame * kf, Eigen::Matrix4d & dT);
+	void push_back(const KeyFrame * kf);
+	void remove(const KeyFrame * kf);
+
+	Eigen::Matrix3f currentPose;
+	std::set<KeyFrame *> keyFrames;
+	std::set<KeyFrame *, std::vector<Eigen::Matrix4d>> camTrace;
 };
 
 #endif

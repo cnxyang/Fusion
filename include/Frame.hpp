@@ -1,6 +1,7 @@
 #ifndef FRAME_HPP__
 #define FRAME_HPP__
 
+#include "KeyFrame.hpp"
 #include "device_array.hpp"
 #include "device_map.hpp"
 
@@ -10,17 +11,14 @@
 #include <cudaarithm.hpp>
 
 struct ORBKey;
+struct KeyFrame;
 
 class Frame {
 public:
 	Frame();
-	~Frame();
 	Frame(const Frame& other);
-	Frame(const Rendering& observation, Eigen::Matrix4d& pose);
-	Frame(const Frame& other, const Rendering& observation);
 	Frame(const cv::Mat& imRGB, const cv::Mat& imD);
-
-	void release();
+	Frame(const DeviceArray2D<uchar> & img, const cv::Mat & imD, KeyFrame * refKF);
 
 	void SetPose(const Frame& frame);
 	void SetPose(const Eigen::Matrix4d T);
@@ -34,7 +32,6 @@ public:
 
 	static const int numPyrs = 3;
 	static cv::Mat mK[numPyrs];
-	static int N[numPyrs];
 	static int mCols[numPyrs];
 	static int mRows[numPyrs];
 
@@ -56,14 +53,6 @@ public:
 	static float mDepthCutoff;
 	static cv::Ptr<cv::cuda::ORB> mORB;
 
-	DeviceArray2D<float> mDepth[numPyrs];
-	DeviceArray2D<uchar> mGray[numPyrs];
-	DeviceArray2D<uchar3> mColor;
-	DeviceArray2D<float4> mVMap[numPyrs];
-	DeviceArray2D<float3> mNMap[numPyrs];
-	DeviceArray2D<float> mdIx[numPyrs];
-	DeviceArray2D<float> mdIy[numPyrs];
-
 	std::vector<bool> mOutliers;
 	std::vector<cv::Vec3f> mNormals;
 	std::vector<Eigen::Vector3d> mPoints;
@@ -77,6 +66,9 @@ public:
 	cv::Mat rawDepth;
 	cv::Mat rawColor;
 	cv::Mat scaledDepth;
+	KeyFrame * referenceKF;
+	unsigned long frameId;
+	static unsigned long nextId;
 };
 
 #endif

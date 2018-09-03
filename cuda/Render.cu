@@ -308,6 +308,7 @@ struct HashRayCaster {
 
 		pt_out = make_float4(invRot * (pt_result / oneOverVoxelSize - trans),
 				1.f);
+//		pt_out = make_float4(pt_result / oneOverVoxelSize, 1.f);
 		if (pt_found)
 			pt_out.w = confidence + 1.0f;
 		else
@@ -984,65 +985,65 @@ void Mapping::FuseDepthAndColor(const DeviceArray2D<float> & depth,
 
 int Mapping::FuseFrame(const Frame& frame) {
 
-	int pyr = 0;
-	HashIntegrator HI;
-	HI.map = *this;
-	HI.Rot = frame.Rot_gpu();
-	HI.invRot = frame.RotInv_gpu();
-	HI.trans = frame.Trans_gpu();
-	HI.fx = Frame::fx(pyr);
-	HI.fy = Frame::fy(pyr);
-	HI.cx = Frame::cx(pyr);
-	HI.cy = Frame::cy(pyr);
-	HI.invfx = 1.0 / Frame::fx(pyr);
-	HI.invfy = 1.0 / Frame::fy(pyr);
-	HI.depth = frame.mDepth[pyr];
-	HI.rgb = frame.mColor;
-	HI.cols = Frame::cols(pyr);
-	HI.rows = Frame::rows(pyr);
-	HI.DEPTH_MAX = DeviceMap::DepthMax;
-	HI.DEPTH_MIN = DeviceMap::DepthMin;
-
-	dim3 block(32, 8);
-	dim3 grid(cv::divUp(Frame::cols(pyr), block.x),
-			cv::divUp(Frame::rows(pyr), block.y));
-
-	Timer::Start("Mapping", "Create Blocks");
-	createBlocksKernel<<<grid, block>>>(HI);
-
-	SafeCall(cudaGetLastError());
-	SafeCall(cudaDeviceSynchronize());
-	Timer::Stop("Mapping", "Create Blocks");
-
-	dim3 block1(1024);
-	dim3 grid1(cv::divUp((int) DeviceMap::NumEntries, block1.x));
-
-	mNumVisibleEntries.zero();
-	Timer::Start("Mapping", "Create Visible List");
-	compacitifyEntriesKernel<<<grid1, block1>>>(HI);
-
-	SafeCall(cudaGetLastError());
-	SafeCall(cudaDeviceSynchronize());
-	Timer::Stop("Mapping", "Create Visible List");
-
-	uint noblock = 0;
-	mNumVisibleEntries.download((void*) &noblock);
-	if (noblock == 0)
-		return 0;
-
-	dim3 block2(512);
-	dim3 grid2(noblock);
-
-	Timer::Start("Mapping", "Integrate Depth");
-	hashIntegrateKernal<true> <<<grid2, block2>>>(HI);
-
-	SafeCall(cudaGetLastError());
-	SafeCall(cudaDeviceSynchronize());
-	Timer::Stop("Mapping", "Integrate Depth");
-
-	mCamTrace.push_back(frame.mPose.topRightCorner(3, 1));
-
-	return noblock;
+//	int pyr = 0;
+//	HashIntegrator HI;
+//	HI.map = *this;
+//	HI.Rot = frame.Rot_gpu();
+//	HI.invRot = frame.RotInv_gpu();
+//	HI.trans = frame.Trans_gpu();
+//	HI.fx = Frame::fx(pyr);
+//	HI.fy = Frame::fy(pyr);
+//	HI.cx = Frame::cx(pyr);
+//	HI.cy = Frame::cy(pyr);
+//	HI.invfx = 1.0 / Frame::fx(pyr);
+//	HI.invfy = 1.0 / Frame::fy(pyr);
+//	HI.depth = frame.mDepth[pyr];
+//	HI.rgb = frame.mColor;
+//	HI.cols = Frame::cols(pyr);
+//	HI.rows = Frame::rows(pyr);
+//	HI.DEPTH_MAX = DeviceMap::DepthMax;
+//	HI.DEPTH_MIN = DeviceMap::DepthMin;
+//
+//	dim3 block(32, 8);
+//	dim3 grid(cv::divUp(Frame::cols(pyr), block.x),
+//			cv::divUp(Frame::rows(pyr), block.y));
+//
+//	Timer::Start("Mapping", "Create Blocks");
+//	createBlocksKernel<<<grid, block>>>(HI);
+//
+//	SafeCall(cudaGetLastError());
+//	SafeCall(cudaDeviceSynchronize());
+//	Timer::Stop("Mapping", "Create Blocks");
+//
+//	dim3 block1(1024);
+//	dim3 grid1(cv::divUp((int) DeviceMap::NumEntries, block1.x));
+//
+//	mNumVisibleEntries.zero();
+//	Timer::Start("Mapping", "Create Visible List");
+//	compacitifyEntriesKernel<<<grid1, block1>>>(HI);
+//
+//	SafeCall(cudaGetLastError());
+//	SafeCall(cudaDeviceSynchronize());
+//	Timer::Stop("Mapping", "Create Visible List");
+//
+//	uint noblock = 0;
+//	mNumVisibleEntries.download((void*) &noblock);
+//	if (noblock == 0)
+//		return 0;
+//
+//	dim3 block2(512);
+//	dim3 grid2(noblock);
+//
+//	Timer::Start("Mapping", "Integrate Depth");
+//	hashIntegrateKernal<true> <<<grid2, block2>>>(HI);
+//
+//	SafeCall(cudaGetLastError());
+//	SafeCall(cudaDeviceSynchronize());
+//	Timer::Stop("Mapping", "Integrate Depth");
+//
+//	mCamTrace.push_back(frame.mPose.topRightCorner(3, 1));
+//
+//	return noblock;
 }
 
 CUDA_KERNEL void resetHashKernel(HashEntry * hash, HashEntry * compact) {

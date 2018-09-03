@@ -172,47 +172,47 @@ static void inline CreateMatrix(float* host_data, float* host_a,
 
 float ICPReduceSum(Frame& NextFrame, Frame& LastFrame, int pyr, float* host_a,
 		float* host_b) {
-
-	DeviceArray2D<float> sum(29, 96);
-	DeviceArray<float> result(29);
-	result.zero();
-	sum.zero();
-
-	ICPReduce icp;
-	icp.out = sum;
-	icp.VMapCurr = NextFrame.mVMap[pyr];
-	icp.NMapCurr = NextFrame.mNMap[pyr];
-	icp.VMapLast = LastFrame.mVMap[pyr];
-	icp.NMapLast = LastFrame.mNMap[pyr];
-	icp.cols = Frame::cols(pyr);
-	icp.rows = Frame::rows(pyr);
-	icp.N = Frame::pixels(pyr);
-	icp.Rcurr = NextFrame.Rot_gpu();
-	icp.tcurr = NextFrame.Trans_gpu();
-	icp.Rlast = LastFrame.Rot_gpu();
-	icp.invRlast = LastFrame.RotInv_gpu();
-	icp.tlast = LastFrame.Trans_gpu();
-	icp.angleThresh = 0.6;
-	icp.distThresh = 0.1;
-	icp.fx = Frame::fx(pyr);
-	icp.fy = Frame::fy(pyr);
-	icp.cx = Frame::cx(pyr);
-	icp.cy = Frame::cy(pyr);
-
-	ICPReduceSum_device<<<96, 224>>>(icp);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-
-	ReduceSum<float, 29> <<<1, MaxThread>>>(sum, result, 96);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-
-	float host_data[29];
-	result.download(host_data);
-	CreateMatrix(host_data, host_a, host_b);
-	return sqrt(host_data[27]) / host_data[28];
+//
+//	DeviceArray2D<float> sum(29, 96);
+//	DeviceArray<float> result(29);
+//	result.zero();
+//	sum.zero();
+//
+//	ICPReduce icp;
+//	icp.out = sum;
+//	icp.VMapCurr = NextFrame.mVMap[pyr];
+//	icp.NMapCurr = NextFrame.mNMap[pyr];
+//	icp.VMapLast = LastFrame.mVMap[pyr];
+//	icp.NMapLast = LastFrame.mNMap[pyr];
+//	icp.cols = Frame::cols(pyr);
+//	icp.rows = Frame::rows(pyr);
+//	icp.N = Frame::pixels(pyr);
+//	icp.Rcurr = NextFrame.Rot_gpu();
+//	icp.tcurr = NextFrame.Trans_gpu();
+//	icp.Rlast = LastFrame.Rot_gpu();
+//	icp.invRlast = LastFrame.RotInv_gpu();
+//	icp.tlast = LastFrame.Trans_gpu();
+//	icp.angleThresh = 0.6;
+//	icp.distThresh = 0.1;
+//	icp.fx = Frame::fx(pyr);
+//	icp.fy = Frame::fy(pyr);
+//	icp.cx = Frame::cx(pyr);
+//	icp.cy = Frame::cy(pyr);
+//
+//	ICPReduceSum_device<<<96, 224>>>(icp);
+//
+//	SafeCall(cudaDeviceSynchronize());
+//	SafeCall(cudaGetLastError());
+//
+//	ReduceSum<float, 29> <<<1, MaxThread>>>(sum, result, 96);
+//
+//	SafeCall(cudaDeviceSynchronize());
+//	SafeCall(cudaGetLastError());
+//
+//	float host_data[29];
+//	result.download(host_data);
+//	CreateMatrix(host_data, host_a, host_b);
+//	return sqrt(host_data[27]) / host_data[28];
 }
 
 struct RGBReduce {
@@ -321,57 +321,57 @@ __global__ void RGBReduceSum_device(const RGBReduce rgb) {
 float RGBReduceSum(Frame& NextFrame, Frame& LastFrame, int pyr, float* host_a,
 		float* host_b) {
 
-	DeviceArray2D<uchar> Corres(Frame::cols(pyr), Frame::rows(pyr));
-	DeviceArray2D<float> sum(29, 96);
-	DeviceArray<float> result(29);
-	Corres.zero();
-	result.zero();
-	sum.zero();
-
-	float minGxy[3] = { 25, 9, 1 };
-
-	RGBReduce rgb;
-	rgb.out = sum;
-	rgb.corres = Corres;
-	rgb.minGxy = minGxy[pyr];
-	rgb.dIx = LastFrame.mdIx[pyr];
-	rgb.dIy = LastFrame.mdIy[pyr];
-	rgb.GrayCurr = NextFrame.mGray[pyr];
-	rgb.VMapCurr = NextFrame.mVMap[pyr];
-	rgb.GrayLast = LastFrame.mGray[pyr];
-	rgb.VMapLast = LastFrame.mVMap[pyr];
-	rgb.cols = Frame::cols(pyr);
-	rgb.rows = Frame::rows(pyr);
-	rgb.N = Frame::pixels(pyr);
-	rgb.Rcurr = NextFrame.Rot_gpu();
-	rgb.tcurr = NextFrame.Trans_gpu();
-	rgb.Rlast = LastFrame.Rot_gpu();
-	rgb.invRlast = LastFrame.RotInv_gpu();
-	rgb.tlast = LastFrame.Trans_gpu();
-	rgb.fx = Frame::fx(pyr);
-	rgb.fy = Frame::fy(pyr);
-	rgb.cx = Frame::cx(pyr);
-	rgb.cy = Frame::cy(pyr);
-
-	RGBReduceSum_device<<<96, 224>>>(rgb);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-
-	ReduceSum<float, 29> <<<1, MaxThread>>>(sum, result, 96);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-
-	cv::Mat hostcorres(Frame::rows(pyr), Frame::cols(pyr), CV_8UC1);
-	Corres.download((void*) hostcorres.data, hostcorres.step);
-	cv::imshow("corresp", hostcorres);
-	cv::imwrite("corresp.jpg", hostcorres);
-
-	float host_data[29];
-	result.download(host_data);
-	CreateMatrix(host_data, host_a, host_b);
-	return sqrt(host_data[27]) / host_data[28];
+//	DeviceArray2D<uchar> Corres(Frame::cols(pyr), Frame::rows(pyr));
+//	DeviceArray2D<float> sum(29, 96);
+//	DeviceArray<float> result(29);
+//	Corres.zero();
+//	result.zero();
+//	sum.zero();
+//
+//	float minGxy[3] = { 25, 9, 1 };
+//
+//	RGBReduce rgb;
+//	rgb.out = sum;
+//	rgb.corres = Corres;
+//	rgb.minGxy = minGxy[pyr];
+//	rgb.dIx = LastFrame.mdIx[pyr];
+//	rgb.dIy = LastFrame.mdIy[pyr];
+//	rgb.GrayCurr = NextFrame.mGray[pyr];
+//	rgb.VMapCurr = NextFrame.mVMap[pyr];
+//	rgb.GrayLast = LastFrame.mGray[pyr];
+//	rgb.VMapLast = LastFrame.mVMap[pyr];
+//	rgb.cols = Frame::cols(pyr);
+//	rgb.rows = Frame::rows(pyr);
+//	rgb.N = Frame::pixels(pyr);
+//	rgb.Rcurr = NextFrame.Rot_gpu();
+//	rgb.tcurr = NextFrame.Trans_gpu();
+//	rgb.Rlast = LastFrame.Rot_gpu();
+//	rgb.invRlast = LastFrame.RotInv_gpu();
+//	rgb.tlast = LastFrame.Trans_gpu();
+//	rgb.fx = Frame::fx(pyr);
+//	rgb.fy = Frame::fy(pyr);
+//	rgb.cx = Frame::cx(pyr);
+//	rgb.cy = Frame::cy(pyr);
+//
+//	RGBReduceSum_device<<<96, 224>>>(rgb);
+//
+//	SafeCall(cudaDeviceSynchronize());
+//	SafeCall(cudaGetLastError());
+//
+//	ReduceSum<float, 29> <<<1, MaxThread>>>(sum, result, 96);
+//
+//	SafeCall(cudaDeviceSynchronize());
+//	SafeCall(cudaGetLastError());
+//
+//	cv::Mat hostcorres(Frame::rows(pyr), Frame::cols(pyr), CV_8UC1);
+//	Corres.download((void*) hostcorres.data, hostcorres.step);
+//	cv::imshow("corresp", hostcorres);
+//	cv::imwrite("corresp.jpg", hostcorres);
+//
+//	float host_data[29];
+//	result.download(host_data);
+//	CreateMatrix(host_data, host_a, host_b);
+//	return sqrt(host_data[27]) / host_data[28];
 }
 
 struct RGB {

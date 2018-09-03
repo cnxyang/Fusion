@@ -62,6 +62,7 @@ void Mapping::IntegrateKeys(Frame& F) {
 	std::vector<ORBKey> keys;
 	cv::Mat desc;
 	F.mDescriptors.download(desc);
+	std::cout << F.mNkp << std::endl;
 	for (int i = 0; i < F.mNkp; ++i) {
 //		if (!F.mOutliers[i]) {
 			ORBKey key;
@@ -147,4 +148,8 @@ Mapping::operator const KeyMap() const {
 	map.Keys = mORBKeys;
 	map.Mutex = mKeyMutex;
 	return map;
+}
+
+void Mapping::push_back(const KeyFrame * kf) {
+
 }

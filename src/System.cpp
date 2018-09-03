@@ -66,11 +66,10 @@ nFrames(0){
 void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 
 	Timer::Start("Total", "Total");
-	bool bOK = mpTracker->Track(imRGB, imD);
+	bool bOK = mpTracker->grabFrame(imRGB, imD);
 
 	if (bOK) {
 		Timer::Start("Total", "Integration");
-//		int no = mpMap->FuseFrame(mpTracker->mNextFrame);
 		uint no;
 		mpMap->FuseDepthAndColor(mpTracker->nextDepth[0], mpTracker->color,
 				mpTracker->mNextFrame.Rot_gpu(),
@@ -81,41 +80,19 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 				0.1f, 3.0f, no);
 		Timer::Stop("Total", "Integration");
 
-//		Rendering rd;
-//		rd.VMap = mpTracker->nextVMap[0];
-//		rd.NMap = mpTracker->nextNMap[0];
-//		rd.cols = 640;
-//		rd.rows = 480;
-//		rd.fx = mK.at<float>(0, 0);
-//		rd.fy = mK.at<float>(1, 1);
-//		rd.cx = mK.at<float>(0, 2);
-//		rd.cy = mK.at<float>(1, 2);
-//		rd.Rview = mpTracker->mNextFrame.Rot_gpu();
-//		rd.invRview = mpTracker->mNextFrame.RotInv_gpu();
-//		rd.maxD = 5.0f;
-//		rd.minD = 0.1f;
-//		rd.tview = mpTracker->mNextFrame.Trans_gpu();
-//		Timer::Stop("Total", "Mapping");
-
 		Timer::Start("Total", "Render");
-//		mpMap->RenderMap(rd, no);
 		mpMap->RenderMap(mpTracker->nextVMap[0], mpTracker->nextNMap[0],
 				mpTracker->mNextFrame.Rot_gpu(),
 				mpTracker->mNextFrame.RotInv_gpu(),
 				mpTracker->mNextFrame.Trans_gpu(), no);
 		Timer::Stop("Total", "Render");
-//		mpTracker->AddObservation(rd);
-//		Mat tmp(rd.rows, rd.cols, CV_8UC4);
-//		rd.Render.download((void*) tmp.data, tmp.step);
-//		resize(tmp, tmp, cv::Size(tmp.cols * 2, tmp.rows * 2));
-//		imshow("img", tmp);
-//		mpMap->MeshScene();
+
 		if(nFrames > 30) {
 			nFrames = 0;
 			mpMap->MeshScene();
 		}
 		nFrames++;
-		Timer::Print();
+//		Timer::Print();
 	}
 	Timer::Stop("Total", "Total");
 

@@ -98,17 +98,17 @@ __global__ void WarpGrayScaleImageDevice(PtrStepSz<float4> src,
 void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2,
 		DeviceArray2D<uchar>& diff) {
 
-	dim3 block(8, 8);
-	dim3 grid(cv::divUp(diff.cols(), block.x), cv::divUp(diff.rows(), block.y));
-
-	const int pyr = 0;
-	WarpGrayScaleImageDevice<<<grid, block>>>(frame1.mVMap[pyr],
-			frame2.mGray[pyr], frame1.Rot_gpu(), frame2.RotInv_gpu(),
-			frame1.Trans_gpu(), frame2.Trans_gpu(), Frame::fx(pyr),
-			Frame::fy(pyr), Frame::cx(pyr), Frame::cy(pyr), diff);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+//	dim3 block(8, 8);
+//	dim3 grid(cv::divUp(diff.cols(), block.x), cv::divUp(diff.rows(), block.y));
+//
+//	const int pyr = 0;
+//	WarpGrayScaleImageDevice<<<grid, block>>>(frame1.mVMap[pyr],
+//			frame2.mGray[pyr], frame1.Rot_gpu(), frame2.RotInv_gpu(),
+//			frame1.Trans_gpu(), frame2.Trans_gpu(), Frame::fx(pyr),
+//			Frame::fy(pyr), Frame::cx(pyr), Frame::cy(pyr), diff);
+//
+//	SafeCall(cudaDeviceSynchronize());
+//	SafeCall(cudaGetLastError());
 }
 
 __global__ void ComputeResidualImageDevice(PtrStepSz<uchar> src,
@@ -124,17 +124,17 @@ __global__ void ComputeResidualImageDevice(PtrStepSz<uchar> src,
 
 void ComputeResidualImage(const DeviceArray2D<uchar>& src,
 		DeviceArray2D<uchar>& residual, const Frame& frame) {
-	dim3 block(8, 8);
-	dim3 grid(cv::divUp(residual.cols(), block.x),
-			cv::divUp(residual.rows(), block.y));
-
-	const int pyrlvl = 0;
-
-	ComputeResidualImageDevice<<<grid, block>>>(src, frame.mGray[pyrlvl],
-			residual);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+//	dim3 block(8, 8);
+//	dim3 grid(cv::divUp(residual.cols(), block.x),
+//			cv::divUp(residual.rows(), block.y));
+//
+//	const int pyrlvl = 0;
+//
+//	ComputeResidualImageDevice<<<grid, block>>>(src, frame.mGray[pyrlvl],
+//			residual);
+//
+//	SafeCall(cudaDeviceSynchronize());
+//	SafeCall(cudaGetLastError());
 }
 
 __global__ void RenderImageDevice(const PtrStep<float4> vmap,

@@ -156,40 +156,40 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 
 float Solver::SolveICP(Frame& src, Frame& ref) {
 
-	float cost = 0;
-	const float w = 0.1;
-	const int iter[3] = { 10, 5, 3 };
-
-	Vector6d result;
-	Matrix6f host_a;
-	Vector6f host_b;
-
-	for (int i = 2; i >= 0; --i) {
-		for (int j = 0; j < iter[i]; j++) {
-
-			cost = ICPReduceSum(src, ref, i, host_a.data(), host_b.data());
-
-			Matrix6d dA_icp = host_a.cast<double>();
-			Vector6d db_icp = host_b.cast<double>();
-
-//			cost = RGBReduceSum(src, ref, i, host_a.data(), host_b.data());
-//			Matrix6d dA_rgb = host_a.cast<double>();
-//			Vector6d db_rgb = host_b.cast<double>();
-//			Matrix6d dA = w * w * dA_icp + dA_rgb;
-//			Vector6d db = w * db_icp + db_rgb;
-
-			Matrix6d dA = dA_icp;
-			Vector6d db = db_icp;
-			result = dA.ldlt().solve(db);
-			auto e = Sophus::SE3d::exp(result);
-			auto dT = e.matrix();
-
-			Eigen::Matrix4d Tc = src.mPose;
-			Eigen::Matrix4d Tp = ref.mPose;
-			Tc = Tp * (dT.inverse() * Tc.inverse() * Tp).inverse();
-			src.SetPose(Tc);
-		}
-	}
-
-	return cost;
+//	float cost = 0;
+//	const float w = 0.1;
+//	const int iter[3] = { 10, 5, 3 };
+//
+//	Vector6d result;
+//	Matrix6f host_a;
+//	Vector6f host_b;
+//
+//	for (int i = 2; i >= 0; --i) {
+//		for (int j = 0; j < iter[i]; j++) {
+//
+//			cost = ICPReduceSum(src, ref, i, host_a.data(), host_b.data());
+//
+//			Matrix6d dA_icp = host_a.cast<double>();
+//			Vector6d db_icp = host_b.cast<double>();
+//
+////			cost = RGBReduceSum(src, ref, i, host_a.data(), host_b.data());
+////			Matrix6d dA_rgb = host_a.cast<double>();
+////			Vector6d db_rgb = host_b.cast<double>();
+////			Matrix6d dA = w * w * dA_icp + dA_rgb;
+////			Vector6d db = w * db_icp + db_rgb;
+//
+//			Matrix6d dA = dA_icp;
+//			Vector6d db = db_icp;
+//			result = dA.ldlt().solve(db);
+//			auto e = Sophus::SE3d::exp(result);
+//			auto dT = e.matrix();
+//
+//			Eigen::Matrix4d Tc = src.mPose;
+//			Eigen::Matrix4d Tp = ref.mPose;
+//			Tc = Tp * (dT.inverse() * Tc.inverse() * Tp).inverse();
+//			src.SetPose(Tc);
+//		}
+//	}
+//
+//	return cost;
 }

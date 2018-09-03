@@ -256,7 +256,7 @@ void icpStep(const DeviceArray2D<float4> & nextVMap,
 	icp.lastR = lastFrame->Rot_gpu();
 	icp.lastRinv = lastFrame->RotInv_gpu();
 	icp.lastt = lastFrame->Trans_gpu();
-	icp.angleThresh = 0.6;
+	icp.angleThresh = sin(20.f * 3.14159254f / 180.f);
 	icp.distThresh = 0.1;
 
 	icpStepKernel<<<96, 224>>>(icp);

@@ -1,35 +1,24 @@
 #include "Frame.hpp"
 #include "device_function.hpp"
-
+#include "Timer.hpp"
 #include <Eigen/Dense>
 
 using namespace cv;
 using namespace std;
 
-int Frame::N[numPyrs];
 Mat Frame::mK[numPyrs];
 bool Frame::mbFirstCall = true;
 float Frame::mDepthCutoff = 8.0f;
 float Frame::mDepthScale = 1000.0f;
 int Frame::mCols[numPyrs];
 int Frame::mRows[numPyrs];
+unsigned long Frame::nextId = 0;
 Ptr<cuda::ORB> Frame::mORB;
 
 Frame::Frame():mNkp(0) {}
 
-Frame::~Frame() { release(); }
-
 Frame::Frame(const Frame& other):mNkp(0) {
 
-	for(int i = 0; i < numPyrs; ++i) {
-		other.mDepth[i].copyTo(mDepth[i]);
-		other.mGray[i].copyTo(mGray[i]);
-		other.mVMap[i].copyTo(mVMap[i]);
-		other.mNMap[i].copyTo(mNMap[i]);
-		other.mdIx[i].copyTo(mdIx[i]);
-		other.mdIy[i].copyTo(mdIy[i]);
-	}
-
 	mPoints = other.mPoints;
 	mKeyPoints = other.mKeyPoints;
 	other.mDescriptors.copyTo(mDescriptors);
@@ -38,47 +27,126 @@ Frame::Frame(const Frame& other):mNkp(0) {
 	mPoseInv = other.mPoseInv;
 }
 
-Frame::Frame(const Rendering& observation, Eigen::Matrix4d& pose) {
+bool computeVertexAndNormal(const cv::Mat & imD, float & x, float & y,
+		float3 v00, float3 & n, float invfx, float invfy, float cx, float cy,
+		int cols, int rows, float depthScale, float depthCutoff) {
 
-	for(int i = 0; i < numPyrs; ++i) {
-		if(i == 0) {
-			observation.VMap.copyTo(mVMap[0]);
-			observation.NMap.copyTo(mNMap[0]);
-		}
-		else {
-			ResizeMap(mVMap[i - 1], mNMap[i - 1], mVMap[i], mNMap[i]);
-		}
+	if(std::isnan(v00.x))
+		return false;
 
-		mDepth[i].create(Frame::cols(i), Frame::rows(i));
-		ProjectToDepth(mVMap[i], mDepth[i]);
-	}
+	float3 v01;
+	int x01 = (int) (x + 1.5);
+	int y01 = (int) (y + 0.5);
+	if(x01 < 0 || x01 >= cols || y01 < 0 || y01 >= rows)
+		return false;
 
-	SetPose(pose);
+	v01.z = imD.at<unsigned short>(y01, x01) / depthScale;
+	if(std::isnan(v01.z) || v01.z > depthCutoff)
+		return false;
+
+	v01.x = v01.z * (x01 - cx) * invfx;
+	v01.y = v01.z * (y01 - cy) * invfy;
+
+	float3 v10;
+	int x10 = (int) (x + 0.5);
+	int y10 = (int) (y + 1.5);
+	if(x10 < 0 || x10 >= cols || y10 < 0 || y10 >= rows)
+		return false;
+
+	v10.z = imD.at<unsigned short>(y10, x10) / depthScale;
+	if(std::isnan(v10.z) || v10.z > depthCutoff)
+		return false;
+
+	v10.x = v10.z * (x10 - cx) * invfx;
+	v10.y = v10.z * (y10 - cy) * invfy;
+
+	n = normalised(cross(v01 - v00, v10 - v00));
+
+	if(std::isnan(n.x))
+		return false;
+
+	return true;
 }
 
-Frame::Frame(const Frame& other, const Rendering& observation) {
+Frame::Frame(const DeviceArray2D<uchar> & img, const cv::Mat & imD, KeyFrame * kf) {
 
-	for(int i = 0; i < numPyrs; ++i) {
-		if(i == 0) {
-			observation.VMap.copyTo(mVMap[0]);
-			observation.NMap.copyTo(mNMap[0]);
+	if(mbFirstCall) {
+		mORB = cv::cuda::ORB::create(1000);
+		for(int i = 0; i < numPyrs; ++i) {
+			mCols[i] = imD.cols / (1 << i);
+			mRows[i] = imD.rows / (1 << i);
 		}
-		else {
-			ResizeMap(mVMap[i - 1], mNMap[i - 1], mVMap[i], mNMap[i]);
-		}
-
-		mDepth[i].create(Frame::cols(i), Frame::rows(i));
-		ProjectToDepth(mVMap[i], mDepth[i]);
-		other.mGray[i].copyTo(mGray[i]);
-		other.mdIx[i].copyTo(mdIx[i]);
-		other.mdIy[i].copyTo(mdIy[i]);
+		mbFirstCall = false;
 	}
 
-	mPoints = other.mPoints;
-	mKeyPoints = other.mKeyPoints;
-	other.mDescriptors.copyTo(mDescriptors);
-	mPose = other.mPose;
-	mPoseInv = other.mPoseInv;
+	frameId = nextId++;
+
+	rawDepth = imD;
+	referenceKF = kf;
+
+	cv::cuda::GpuMat cudaImage(img.rows(), img.cols(), CV_8UC1);
+	SafeCall(cudaMemcpy2D((void*) cudaImage.data,
+			 	 	 	  cudaImage.step,
+			 	 	 	  img.data(),
+			 	 	 	  img.step(),
+			 	 	 	  img.cols() * sizeof(char),
+			 	 	 	  img.rows(),
+			 	 	 	  cudaMemcpyDeviceToDevice));
+
+	cv::Mat desc, descTemp;
+	cuda::GpuMat DescTemp;
+	std::vector<KeyPoint> KPTemp;
+
+	Timer::Start("test", "create frame");
+	mORB->detectAndCompute(cudaImage, cuda::GpuMat(), KPTemp, DescTemp);
+	Timer::Stop("test", "create frame");
+
+	std::cout << KPTemp.size() << std::endl;
+	mNkp = KPTemp.size();
+	if (mNkp <= 0)
+		return;
+
+	float invfx = 1.0 / fx(0);
+	float invfy = 1.0 / fy(0);
+	float cx0 = cx(0);
+	float cy0 = cy(0);
+	//		cv::Mat cpuNormal(rows(0), cols(0), CV_32FC3);
+	DescTemp.download(descTemp);
+
+	for (int i = 0; i < mNkp; ++i) {
+		cv::KeyPoint& kp = KPTemp[i];
+		float x = kp.pt.x;
+		float y = kp.pt.y;
+		float dp = (float) imD.at<unsigned short>((int) (y + 0.5),
+				(int) (x + 0.5)) / mDepthScale;
+		Eigen::Vector3d pos = Eigen::Vector3d::Zero();
+		if (dp > 1e-1 && dp < mDepthCutoff) {
+			pos(2) = dp;
+			pos(0) = dp * (x - cx0) * invfx;
+			pos(1) = dp * (y - cy0) * invfy;
+			float3 normal;
+			float3 v00 = { (float) pos(0), (float) pos(1), (float) pos(2) };
+
+			bool valid = computeVertexAndNormal(imD, x, y, v00, normal, invfx,
+					invfy, cx0, cy0, cols(0), rows(0), mDepthScale,
+					mDepthCutoff);
+			if (!valid)
+				continue;
+
+			cv::Vec3f n;
+			n(0) = normal.x;
+			n(1) = normal.y;
+			n(2) = normal.z;
+			mPoints.push_back(pos);
+			mNormals.push_back(n);
+			mKeyPoints.push_back(kp);
+			desc.push_back(descTemp.row(i));
+		}
+	}
+	mNkp = mKeyPoints.size();
+	mDescriptors.upload(desc);
+
+	SetPose(Eigen::Matrix4d::Identity());
 }
 
 Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
@@ -86,103 +154,76 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 	SetPose(Eigen::Matrix4d::Identity());
 
 	if(mbFirstCall) {
-		mORB = cv::cuda::ORB::create(2000, 1.2f, 8, 31, 0, 2, cv::cuda::ORB::FAST_SCORE);
+		mORB = cv::cuda::ORB::create(1000);
 		for(int i = 0; i < numPyrs; ++i) {
 			mCols[i] = imD.cols / (1 << i);
 			mRows[i] = imD.rows / (1 << i);
-			N[i] = mCols[i] * mRows[i];
 		}
 		mbFirstCall = false;
 	}
 
 	rawDepth = imD;
 	rawColor = imRGB;
+	cv::Mat img;
+	cv::cvtColor(imRGB, img, cv::COLOR_BGR2GRAY);
+	cv::cuda::GpuMat Image(img);
 
-	mColor.create(cols(0), rows(0));
-	DeviceArray2D<ushort> rawDepth(cols(0), rows(0));
-	mColor.upload((void*)imRGB.data, imRGB.step, cols(0), rows(0));
-	rawDepth.upload((void*)imD.data, imD.step, cols(0), rows(0));
-//	for(int i = 0; i < numPyrs; ++i) {
-//		mdIx[i].create(cols(i), rows(i));
-//		mdIy[i].create(cols(i), rows(i));
-//		mGray[i].create(cols(i), rows(i));
-//		mVMap[i].create(cols(i), rows(i));
-//		mNMap[i].create(cols(i), rows(i));
-//		mDepth[i].create(cols(i), rows(i));
-//		if(i == 0) {
-//			BilateralFiltering(rawDepth, mDepth[0], mDepthScale);
-//			ColourImageToIntensity(mColor, mGray[0]);
-//		}
-//		else {
-//			PyrDownGaussian(mGray[i - 1], mGray[i]);
-//			PyrDownGaussian(mDepth[i - 1], mDepth[i]);
-//		}
-//		BackProjectPoints(mDepth[i], mVMap[i], mDepthCutoff, fx(i), fy(i), cx(i), cy(i));
-//		ComputeNormalMap(mVMap[i], mNMap[i]);
-//		ComputeDerivativeImage(mGray[i], mdIx[i], mdIy[i]);
-//	}
-
-	mDepth[0].create(cols(0), rows(0));
-	BilateralFiltering(rawDepth, mDepth[0], mDepthScale);
-	mGray[0].create(cols(0), rows(0));
-	ColourImageToIntensity(mColor, mGray[0]);
 	cv::Mat desc, descTemp;
-	cuda::GpuMat GrayTemp, DescTemp;
-	vector<KeyPoint> KPTemp;
-	GrayTemp.create(rows(0), cols(0), CV_8UC1);
-	SafeCall(cudaMemcpy2D((void*)GrayTemp.data, GrayTemp.step,
-			(void*)mGray[0], mGray[0].step(), sizeof(char) * mGray[0].cols(),
-			 mGray[0].rows(), cudaMemcpyDeviceToDevice));
-	mORB->detectAndCompute(GrayTemp, cuda::GpuMat(), KPTemp, DescTemp);
+	cuda::GpuMat DescTemp;
+	std::vector<KeyPoint> KPTemp;
 
+	mORB->detectAndCompute(Image, cuda::GpuMat(), KPTemp, DescTemp);
 	mNkp = KPTemp.size();
-	if (mNkp > 0) {
-		float invfx = 1.0 / fx(0);
-		float invfy = 1.0 / fy(0);
-		float cx0 = cx(0);
-		float cy0 = cy(0);
-		cv::Mat cpuNormal(rows(0), cols(0), CV_32FC3);
-		DescTemp.download(descTemp);
-		mNMap[0].download((void*)cpuNormal.data, cpuNormal.step);
-		for(int i = 0; i < mNkp; ++i) {
-			cv::KeyPoint& kp = KPTemp[i];
-			float x = kp.pt.x;
-			float y = kp.pt.y;
-			float dp = (float)imD.at<unsigned short>((int)(y + 0.5), (int)(x + 0.5)) / mDepthScale;
-			Eigen::Vector3d pos = Eigen::Vector3d::Zero();
-			if (dp > 1e-1 && dp < mDepthCutoff) {
-				pos(2) = dp;
-				pos(0) = dp * (x - cx0) * invfx;
-				pos(1) = dp * (y - cy0) * invfy;
-				cv::Vec3f normal = cpuNormal.at<cv::Vec3f>((int)(y + 0.5), (int)(x + 0.5));
-				if(!std::isnan(normal(0)) && !std::isnan(normal(1) && !std::isnan(normal(2)))) {
-					mPoints.push_back(pos);
-					mNormals.push_back(normal);
-					mKeyPoints.push_back(kp);
-					desc.push_back(descTemp.row(i));
-				}
-			}
+	if (mNkp <= 0)
+		return;
+
+	float invfx = 1.0 / fx(0);
+	float invfy = 1.0 / fy(0);
+	float cx0 = cx(0);
+	float cy0 = cy(0);
+//		cv::Mat cpuNormal(rows(0), cols(0), CV_32FC3);
+	DescTemp.download(descTemp);
+
+	Timer::Start("test", "keypoint");
+	for (int i = 0; i < mNkp; ++i) {
+		cv::KeyPoint& kp = KPTemp[i];
+		float x = kp.pt.x;
+		float y = kp.pt.y;
+		float dp = (float) imD.at<unsigned short>((int) (y + 0.5),
+				(int) (x + 0.5)) / mDepthScale;
+		Eigen::Vector3d pos = Eigen::Vector3d::Zero();
+		if (dp > 1e-1 && dp < mDepthCutoff) {
+			pos(2) = dp;
+			pos(0) = dp * (x - cx0) * invfx;
+			pos(1) = dp * (y - cy0) * invfy;
+			float3 normal;
+			float3 v00 = { (float) pos(0), (float) pos(1), (float) pos(2) };
+
+			bool valid = computeVertexAndNormal(imD, x, y, v00, normal, invfx,
+					invfy, cx0, cy0, cols(0), rows(0), mDepthScale,
+					mDepthCutoff);
+			if (!valid)
+				continue;
+
+			cv::Vec3f n;
+			n(0) = normal.x;
+			n(1) = normal.y;
+			n(2) = normal.z;
+			mPoints.push_back(pos);
+			mNormals.push_back(n);
+			mKeyPoints.push_back(kp);
+			desc.push_back(descTemp.row(i));
 		}
-		mNkp = mKeyPoints.size();
-		mDescriptors.upload(desc);
 	}
+	mNkp = mKeyPoints.size();
+	mDescriptors.upload(desc);
+	Timer::Stop("test", "keypoint");
+
 }
 
 void Frame::SetPose(const Frame& frame) {
 	mPose = frame.mPose;
 	mPoseInv = frame.mPoseInv;
-}
-
-void Frame::release() {
-	for(int i = 0; i < numPyrs; ++i) {
-		mdIx[i].release();
-		mdIy[i].release();
-		mGray[i].release();
-		mVMap[i].release();
-		mNMap[i].release();
-		mDepth[i].release();
-		mDescriptors.release();
-	}
 }
 
 Matrix3f Frame::Rot_gpu() const {
@@ -259,9 +300,4 @@ int Frame::cols(int pyr) {
 int Frame::rows(int pyr) {
 	assert(pyr >= 0 && pyr <= numPyrs);
 	return mRows[pyr];
-}
-
-int Frame::pixels(int pyr) {
-	assert(pyr >= 0 && pyr <= numPyrs);
-	return N[pyr];
 }

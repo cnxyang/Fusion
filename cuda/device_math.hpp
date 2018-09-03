@@ -158,20 +158,20 @@ DEV_FUNC void atomicMin(float* address, float val);
 /* ------------ *
  *  norm(type)  *
  *------------- */
-DEV_FUNC float norm(float3 a);
-DEV_FUNC float norm(float4 a);
+HOST_FUNC DEV_FUNC float norm(float3 a);
+HOST_FUNC DEV_FUNC float norm(float4 a);
 
 /* -------------------- *
  *  inverse norm(type)  *
  *--------------------- */
-DEV_FUNC float inv_norm(float3 a);
-DEV_FUNC float inv_norm(float4 a);
+HOST_FUNC DEV_FUNC float inv_norm(float3 a);
+HOST_FUNC DEV_FUNC float inv_norm(float4 a);
 
 /* ----------------- *
  *  Normalised(type) *
  *------------------ */
-DEV_FUNC float3 normalised(float3 a);
-DEV_FUNC float4 normalised(float4 a);
+HOST_FUNC DEV_FUNC float3 normalised(float3 a);
+HOST_FUNC DEV_FUNC float4 normalised(float4 a);
 
 /*------------- *
  *  floor(vec)  *

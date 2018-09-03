@@ -286,12 +286,12 @@ bool operator==(int3 a, int3 b) {
 	return a.x == b.x && a.y == b.y && a.z == b.z;
 }
 
-DEV_FUNC float3 cross(float3 a, float3 b) {
+HOST_FUNC DEV_FUNC float3 cross(float3 a, float3 b) {
 	return make_float3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z,
 			a.x * b.y - a.y * b.x);
 }
 
-DEV_FUNC float3 cross(float4 a, float4 b) {
+HOST_FUNC DEV_FUNC float3 cross(float4 a, float4 b) {
 	return make_float3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z,
 			a.x * b.y - a.y * b.x);
 }
@@ -316,31 +316,31 @@ DEV_FUNC void atomicMin(float* address, float val) {
 	} while (assumed != old);
 }
 
-DEV_FUNC
+HOST_FUNC DEV_FUNC
 float norm(float3 a) {
 	return sqrtf(a * a);
 }
 
-DEV_FUNC
+HOST_FUNC DEV_FUNC
 float norm(float4 a) {
 	return sqrtf(a * a);
 }
 
-DEV_FUNC
+HOST_FUNC DEV_FUNC
 float inv_norm(float3 a) {
 	return rsqrtf(a * a);
 }
 
-DEV_FUNC
+HOST_FUNC DEV_FUNC
 float inv_norm(float4 a) {
 	return rsqrtf(a * a);
 }
 
-DEV_FUNC float3 normalised(float3 a) {
+HOST_FUNC DEV_FUNC float3 normalised(float3 a) {
 	return a / norm(a);
 }
 
-DEV_FUNC float4 normalised(float4 a) {
+HOST_FUNC DEV_FUNC float4 normalised(float4 a) {
 	return a / norm(a);
 }
 

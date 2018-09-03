@@ -109,8 +109,8 @@ void icpStep(const DeviceArray2D<float4> & nextVertex,
 			 DeviceArray<JtJJtrSE3> & sum,
 			 DeviceArray<JtJJtrSE3> & out,
 			 float * residual,
-			 double * JtJ_host,
-			 double * Jtr_host,
+			 double * matA_data,
+			 double * vecB_data,
 			 MatK K,
 			 Frame * nextFrame,
 			 Frame * lastFrame);
@@ -123,7 +123,7 @@ public:
 	void SetViewer(Viewer* pViewer);
 	bool Track(Mat& imRGB, Mat& imD);
 	void ResetTracking();
-	void AddObservation(const Rendering& render);
+//	void AddObservation(const Rendering& render);
 
 public:
 
@@ -134,16 +134,15 @@ public:
 	};
 
 	bool TrackMap(bool bUseGraph = true);
-	bool TrackICP();
-	void initICP();
-	void computeSE3();
+//	bool TrackICP();
+
 	bool TrackFrame();
 	bool InitTracking();
-	void UpdateMap();
-	void UpdateFrame();
+//	void UpdateMap();
+//	void UpdateFrame();
 	void SetState(State s);
 	bool TrackLastFrame();
-	void ShowResiduals();
+//	void ShowResiduals();
 
 	Frame mLastFrame;
 	Frame mNextFrame;
@@ -165,18 +164,26 @@ public:
 
 public:
 
+	void computeICP();
+	bool computeSE3();
+	void swapFrame();
+	bool grabFrame(cv::Mat & imRGB, cv::Mat & imD);
+	void needKeyFrame();
+	void createKeyFrame(const Frame * f);
+	bool trackKeyFrame();
+
 	static const int NUM_PYRS = 3;
 	MatK K;
-	DeviceArray2D<ushort> depth;
+	DeviceArray2D<unsigned short> depth;
 	DeviceArray2D<uchar3> color;
 
 	DeviceArray2D<float> lastDepth[NUM_PYRS];
-	DeviceArray2D<uchar> lastImage[NUM_PYRS];
+	DeviceArray2D<unsigned char> lastImage[NUM_PYRS];
 	DeviceArray2D<float4> lastVMap[NUM_PYRS];
 	DeviceArray2D<float3> lastNMap[NUM_PYRS];
 
 	DeviceArray2D<float> nextDepth[NUM_PYRS];
-	DeviceArray2D<uchar> nextImage[NUM_PYRS];
+	DeviceArray2D<unsigned char> nextImage[NUM_PYRS];
 	DeviceArray2D<float4> nextVMap[NUM_PYRS];
 	DeviceArray2D<float3> nextNMap[NUM_PYRS];
 	DeviceArray2D<short> nextIdx[NUM_PYRS];
@@ -187,8 +194,13 @@ public:
 	DeviceArray<JtJJtrSE3> outSE3;
 	DeviceArray<JtJJtrSO3> outSO3;
 
-	Frame* nextFrame;
-	Frame* lastFrame;
+	Frame * nextFrame;
+	Frame * lastFrame;
+
+	bool needNewKF;
+	unsigned long relocKF;
+	KeyFrame * referenceKF;
+	KeyFrame * lastKF;
 
 	Eigen::Matrix4d nextPose;
 	Eigen::Matrix4d lastPose;
@@ -198,9 +210,6 @@ public:
 	int iteration[NUM_PYRS];
 	float icpResidual[2];
 	float lastIcpError;
-
-	std::vector<ORBKey> mapPoints;
-	cv::cuda::GpuMat mapDescriptors;
 };
 
 #endif

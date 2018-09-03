@@ -150,6 +150,8 @@ public:
 
 	int rows() const;
 
+	void* data() const;
+
 	operator T*();
 
 	operator const T*() const;
@@ -459,6 +461,11 @@ template<class T> inline int
 DeviceArray2D<T>::rows() const {
 	return mRows;
 };
+
+template<class T> inline
+void* DeviceArray2D<T>::data() const {
+	return (void*) mpData;
+}
 
 template<class T> inline
 DeviceArray2D<T>::operator T*() {
