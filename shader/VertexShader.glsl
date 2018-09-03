@@ -9,10 +9,10 @@ uniform mat4 viewMat;
 out vec4 a_color;
 
 void main() {
-	vec3 lightpos = vec3(0.0, 0.0, 3.0);
+	vec3 lightpos = vec3(0.0, 0.0, -1.0);
 	gl_Position = projMat * viewMat * vec4(a_position, 1.0);
 	vec3 pos = a_position;
-	vec3 normal = vec3(a_normal.y, -a_normal.x, -a_normal.z); 
+	vec3 normal = a_normal; 
 	const float ka = 0.3;
 	const float kd = 0.5;
 	const float ks = 0.2;

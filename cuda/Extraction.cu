@@ -276,63 +276,63 @@ struct HashMarchingCube {
 
 		if (edgeTable[cubeIndex] & 1) {
 			vertList[0] = Interp<float3>(points[0], points[1], sdf[0], sdf[1]);
-			nlist[0] = Interp<float3>(normal[0], normal[1], sdf[0], sdf[1]);
-//			clist[0] = Interp<uchar3>(color[0], color[1], sdf[0], sdf[1]);
+//			nlist[0] = Interp<float3>(normal[0], normal[1], sdf[0], sdf[1]);
+			clist[0] = Interp<uchar3>(color[0], color[1], sdf[0], sdf[1]);
 		}
 		if (edgeTable[cubeIndex] & 2) {
 			vertList[1] = Interp<float3>(points[1], points[2], sdf[1], sdf[2]);
-			nlist[1] = Interp<float3>(normal[1], normal[2], sdf[1], sdf[2]);
-//			clist[1] = Interp<uchar3>(color[1], color[2], sdf[1], sdf[2]);
+//			nlist[1] = Interp<float3>(normal[1], normal[2], sdf[1], sdf[2]);
+			clist[1] = Interp<uchar3>(color[1], color[2], sdf[1], sdf[2]);
 		}
 		if (edgeTable[cubeIndex] & 4) {
 			vertList[2] = Interp<float3>(points[2], points[3], sdf[2], sdf[3]);
-			nlist[2] = Interp<float3>(normal[2], normal[3], sdf[2], sdf[3]);
-//			clist[2] = Interp<uchar3>(color[2], color[3], sdf[2], sdf[3]);
+//			nlist[2] = Interp<float3>(normal[2], normal[3], sdf[2], sdf[3]);
+			clist[2] = Interp<uchar3>(color[2], color[3], sdf[2], sdf[3]);
 		}
 		if (edgeTable[cubeIndex] & 8) {
 			vertList[3] = Interp<float3>(points[3], points[0], sdf[3], sdf[0]);
-			nlist[3] = Interp<float3>(normal[3], normal[0], sdf[3], sdf[0]);
-//			clist[3] = Interp<uchar3>(color[3], color[0], sdf[3], sdf[0]);
+//			nlist[3] = Interp<float3>(normal[3], normal[0], sdf[3], sdf[0]);
+			clist[3] = Interp<uchar3>(color[3], color[0], sdf[3], sdf[0]);
 		}
 		if (edgeTable[cubeIndex] & 16) {
 			vertList[4] = Interp<float3>(points[4], points[5], sdf[4], sdf[5]);
-			nlist[4] = Interp<float3>(normal[4], normal[5], sdf[4], sdf[5]);
-//			clist[4] = Interp<uchar3>(color[4], color[5], sdf[4], sdf[5]);
+//			nlist[4] = Interp<float3>(normal[4], normal[5], sdf[4], sdf[5]);
+			clist[4] = Interp<uchar3>(color[4], color[5], sdf[4], sdf[5]);
 		}
 		if (edgeTable[cubeIndex] & 32) {
 			vertList[5] = Interp<float3>(points[5], points[6], sdf[5], sdf[6]);
-			nlist[5] = Interp<float3>(normal[5], normal[6], sdf[5], sdf[6]);
-//			clist[5] = Interp<uchar3>(color[5], color[6], sdf[5], sdf[6]);
+//			nlist[5] = Interp<float3>(normal[5], normal[6], sdf[5], sdf[6]);
+			clist[5] = Interp<uchar3>(color[5], color[6], sdf[5], sdf[6]);
 		}
 		if (edgeTable[cubeIndex] & 64) {
 			vertList[6] = Interp<float3>(points[6], points[7], sdf[6], sdf[7]);
-			nlist[6] = Interp<float3>(normal[6], normal[7], sdf[6], sdf[7]);
-//			clist[6] = Interp<uchar3>(color[6], color[7], sdf[6], sdf[7]);
+//			nlist[6] = Interp<float3>(normal[6], normal[7], sdf[6], sdf[7]);
+			clist[6] = Interp<uchar3>(color[6], color[7], sdf[6], sdf[7]);
 		}
 		if (edgeTable[cubeIndex] & 128) {
 			vertList[7] = Interp<float3>(points[7], points[4], sdf[7], sdf[4]);
-			nlist[7] = Interp<float3>(normal[7], normal[4], sdf[7], sdf[4]);
-//			clist[7] = Interp<uchar3>(color[7], color[4], sdf[7], sdf[4]);
+//			nlist[7] = Interp<float3>(normal[7], normal[4], sdf[7], sdf[4]);
+			clist[7] = Interp<uchar3>(color[7], color[4], sdf[7], sdf[4]);
 		}
 		if (edgeTable[cubeIndex] & 256) {
 			vertList[8] = Interp<float3>(points[0], points[4], sdf[0], sdf[4]);
-			nlist[8] = Interp<float3>(normal[0], normal[4], sdf[0], sdf[4]);
-//			clist[8] = Interp<uchar3>(color[0], color[4], sdf[0], sdf[4]);
+//			nlist[8] = Interp<float3>(normal[0], normal[4], sdf[0], sdf[4]);
+			clist[8] = Interp<uchar3>(color[0], color[4], sdf[0], sdf[4]);
 		}
 		if (edgeTable[cubeIndex] & 512) {
 			vertList[9] = Interp<float3>(points[1], points[5], sdf[1], sdf[5]);
-			nlist[9] = Interp<float3>(normal[1], normal[5], sdf[1], sdf[5]);
-//			clist[9] = Interp<uchar3>(color[1], color[5], sdf[1], sdf[5]);
+//			nlist[9] = Interp<float3>(normal[1], normal[5], sdf[1], sdf[5]);
+			clist[9] = Interp<uchar3>(color[1], color[5], sdf[1], sdf[5]);
 		}
 		if (edgeTable[cubeIndex] & 1024) {
 			vertList[10] = Interp<float3>(points[2], points[6], sdf[2], sdf[6]);
-			nlist[10] = Interp<float3>(normal[2], normal[6], sdf[2], sdf[6]);
-//			clist[10] = Interp<uchar3>(color[2], color[6], sdf[2], sdf[6]);
+//			nlist[10] = Interp<float3>(normal[2], normal[6], sdf[2], sdf[6]);
+			clist[10] = Interp<uchar3>(color[2], color[6], sdf[2], sdf[6]);
 		}
 		if (edgeTable[cubeIndex] & 2048) {
 			vertList[11] = Interp<float3>(points[3], points[7], sdf[3], sdf[7]);
-			nlist[11] = Interp<float3>(normal[3], normal[7], sdf[3], sdf[7]);
-//			clist[11] = Interp<uchar3>(color[3], color[7], sdf[3], sdf[7]);
+//			nlist[11] = Interp<float3>(normal[3], normal[7], sdf[3], sdf[7]);
+			clist[11] = Interp<uchar3>(color[3], color[7], sdf[3], sdf[7]);
 		}
 
 		return cubeIndex;
@@ -358,12 +358,12 @@ struct HashMarchingCube {
 					triangles[tid * 3 + 0] = vlist[triangleTable.ptr(cubeIdx)[i + 0]] * DeviceMap::VoxelSize;
 					triangles[tid * 3 + 1] = vlist[triangleTable.ptr(cubeIdx)[i + 1]] * DeviceMap::VoxelSize;
 					triangles[tid * 3 + 2] = vlist[triangleTable.ptr(cubeIdx)[i + 2]] * DeviceMap::VoxelSize;
-				    normals[tid * 3 + 0] = normalised(nlist[triangleTable.ptr(cubeIdx)[i + 0]]);
-					normals[tid * 3 + 1] = normalised(nlist[triangleTable.ptr(cubeIdx)[i + 1]]);
-					normals[tid * 3 + 2] = normalised(nlist[triangleTable.ptr(cubeIdx)[i + 2]]);
-//					color[tid * 3 + 0] = clist[triangleTable.ptr(cubeIdx)[i + 0]];
-//					color[tid * 3 + 1] = clist[triangleTable.ptr(cubeIdx)[i + 1]];
-//					color[tid * 3 + 2] = clist[triangleTable.ptr(cubeIdx)[i + 2]];
+//				    normals[tid * 3 + 0] = normalised(nlist[triangleTable.ptr(cubeIdx)[i + 0]]);
+//					normals[tid * 3 + 1] = normalised(nlist[triangleTable.ptr(cubeIdx)[i + 1]]);
+//					normals[tid * 3 + 2] = normalised(nlist[triangleTable.ptr(cubeIdx)[i + 2]]);
+					color[tid * 3 + 0] = clist[triangleTable.ptr(cubeIdx)[i + 0]];
+					color[tid * 3 + 1] = clist[triangleTable.ptr(cubeIdx)[i + 1]];
+					color[tid * 3 + 2] = clist[triangleTable.ptr(cubeIdx)[i + 2]];
 				}
 			}
 		}
