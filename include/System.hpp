@@ -7,9 +7,8 @@
 #include <thread>
 
 class Viewer;
+class Mapping;
 class Tracking;
-
-using namespace std;
 
 struct SysDesc {
 	int cols, rows;
@@ -20,7 +19,7 @@ struct SysDesc {
 	float DepthCutoff;
 	float DepthScale;
 	bool TrackModel;
-	string path;
+	std::string path;
 	bool bUseDataset;
 };
 

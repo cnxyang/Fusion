@@ -20,18 +20,6 @@ mpTracker(nullptr),
 mbStop(false),
 nFrames(0){
 
-	mpMap = new Mapping();
-	mpMap->AllocateDeviceMemory();
-
-	mpViewer = new Viewer();
-	mpTracker = new Tracking();
-
-	mpViewer->SetMap(mpMap);
-	mpViewer->SetSystem(this);
-	mpViewer->SetTracker(mpTracker);
-
-	mpTracker->SetMap(mpMap);
-
 	if(pParam) {
 		mpParam = new SysDesc();
 		memcpy((void*)mpParam, (void*)pParam, sizeof(SysDesc));
@@ -56,33 +44,67 @@ nFrames(0){
 	mK.at<float>(1, 2) = mpParam->cy;
 	Frame::SetK(mK);
 
+	mpMap = new Mapping();
+	mpMap->AllocateDeviceMemory();
+
+	mpViewer = new Viewer();
+	mpTracker = new Tracking();
+
+	mpViewer->SetMap(mpMap);
+	mpViewer->SetSystem(this);
+	mpViewer->SetTracker(mpTracker);
+
+	mpTracker->SetMap(mpMap);
+
 	mptViewer = new thread(&Viewer::Spin, mpViewer);
 
 	Frame::mDepthScale = mpParam->DepthScale;
 	Frame::mDepthCutoff = mpParam->DepthCutoff;
+	Timer::Enable();
 }
 
 void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 
+	Timer::Start("Total", "Total");
 	bool bOK = mpTracker->Track(imRGB, imD);
 
 	if (bOK) {
-		int no = mpMap->FuseFrame(mpTracker->mNextFrame);
-		Rendering rd;
-		rd.cols = 640;
-		rd.rows = 480;
-		rd.fx = mK.at<float>(0, 0);
-		rd.fy = mK.at<float>(1, 1);
-		rd.cx = mK.at<float>(0, 2);
-		rd.cy = mK.at<float>(1, 2);
-		rd.Rview = mpTracker->mLastFrame.Rot_gpu();
-		rd.invRview = mpTracker->mLastFrame.RotInv_gpu();
-		rd.maxD = 5.0f;
-		rd.minD = 0.1f;
-		rd.tview = mpTracker->mLastFrame.Trans_gpu();
+		Timer::Start("Total", "Integration");
+//		int no = mpMap->FuseFrame(mpTracker->mNextFrame);
+		uint no;
+		mpMap->FuseDepthAndColor(mpTracker->nextDepth[0], mpTracker->color,
+				mpTracker->mNextFrame.Rot_gpu(),
+				mpTracker->mNextFrame.RotInv_gpu(),
+				mpTracker->mNextFrame.Trans_gpu(),
+				Frame::fx(0), Frame::fy(0),
+				Frame::cx(0), Frame::cy(0),
+				0.1f, 3.0f, no);
+		Timer::Stop("Total", "Integration");
 
-		mpMap->RenderMap(rd, no);
-		mpTracker->AddObservation(rd);
+//		Rendering rd;
+//		rd.VMap = mpTracker->nextVMap[0];
+//		rd.NMap = mpTracker->nextNMap[0];
+//		rd.cols = 640;
+//		rd.rows = 480;
+//		rd.fx = mK.at<float>(0, 0);
+//		rd.fy = mK.at<float>(1, 1);
+//		rd.cx = mK.at<float>(0, 2);
+//		rd.cy = mK.at<float>(1, 2);
+//		rd.Rview = mpTracker->mNextFrame.Rot_gpu();
+//		rd.invRview = mpTracker->mNextFrame.RotInv_gpu();
+//		rd.maxD = 5.0f;
+//		rd.minD = 0.1f;
+//		rd.tview = mpTracker->mNextFrame.Trans_gpu();
+//		Timer::Stop("Total", "Mapping");
+
+		Timer::Start("Total", "Render");
+//		mpMap->RenderMap(rd, no);
+		mpMap->RenderMap(mpTracker->nextVMap[0], mpTracker->nextNMap[0],
+				mpTracker->mNextFrame.Rot_gpu(),
+				mpTracker->mNextFrame.RotInv_gpu(),
+				mpTracker->mNextFrame.Trans_gpu(), no);
+		Timer::Stop("Total", "Render");
+//		mpTracker->AddObservation(rd);
 //		Mat tmp(rd.rows, rd.cols, CV_8UC4);
 //		rd.Render.download((void*) tmp.data, tmp.step);
 //		resize(tmp, tmp, cv::Size(tmp.cols * 2, tmp.rows * 2));
@@ -93,7 +115,9 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 			mpMap->MeshScene();
 		}
 		nFrames++;
+		Timer::Print();
 	}
+	Timer::Stop("Total", "Total");
 
 	if(mbStop)
 		exit(0);

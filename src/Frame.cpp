@@ -9,7 +9,7 @@ using namespace std;
 int Frame::N[numPyrs];
 Mat Frame::mK[numPyrs];
 bool Frame::mbFirstCall = true;
-float Frame::mDepthCutoff = 8.0f;
+float Frame::mDepthCutoff = 3.0f;
 float Frame::mDepthScale = 1000.0f;
 int Frame::mCols[numPyrs];
 int Frame::mRows[numPyrs];
@@ -83,6 +83,8 @@ Frame::Frame(const Frame& other, const Rendering& observation) {
 
 Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 
+	SetPose(Eigen::Matrix4d::Identity());
+
 	if(mbFirstCall) {
 		mORB = cv::cuda::ORB::create(2000, 1.2f, 8, 31, 0, 2, cv::cuda::ORB::FAST_SCORE);
 		for(int i = 0; i < numPyrs; ++i) {
@@ -93,30 +95,37 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 		mbFirstCall = false;
 	}
 
+	rawDepth = imD;
+	rawColor = imRGB;
+
 	mColor.create(cols(0), rows(0));
 	DeviceArray2D<ushort> rawDepth(cols(0), rows(0));
 	mColor.upload((void*)imRGB.data, imRGB.step, cols(0), rows(0));
 	rawDepth.upload((void*)imD.data, imD.step, cols(0), rows(0));
-	for(int i = 0; i < numPyrs; ++i) {
-		mdIx[i].create(cols(i), rows(i));
-		mdIy[i].create(cols(i), rows(i));
-		mGray[i].create(cols(i), rows(i));
-		mVMap[i].create(cols(i), rows(i));
-		mNMap[i].create(cols(i), rows(i));
-		mDepth[i].create(cols(i), rows(i));
-		if(i == 0) {
-			BilateralFiltering(rawDepth, mDepth[0], mDepthScale);
-			ColourImageToIntensity(mColor, mGray[0]);
-		}
-		else {
-			PyrDownGaussian(mGray[i - 1], mGray[i]);
-			PyrDownGaussian(mDepth[i - 1], mDepth[i]);
-		}
-		BackProjectPoints(mDepth[i], mVMap[i], mDepthCutoff, fx(i), fy(i), cx(i), cy(i));
-		ComputeNormalMap(mVMap[i], mNMap[i]);
-		ComputeDerivativeImage(mGray[i], mdIx[i], mdIy[i]);
-	}
+//	for(int i = 0; i < numPyrs; ++i) {
+//		mdIx[i].create(cols(i), rows(i));
+//		mdIy[i].create(cols(i), rows(i));
+//		mGray[i].create(cols(i), rows(i));
+//		mVMap[i].create(cols(i), rows(i));
+//		mNMap[i].create(cols(i), rows(i));
+//		mDepth[i].create(cols(i), rows(i));
+//		if(i == 0) {
+//			BilateralFiltering(rawDepth, mDepth[0], mDepthScale);
+//			ColourImageToIntensity(mColor, mGray[0]);
+//		}
+//		else {
+//			PyrDownGaussian(mGray[i - 1], mGray[i]);
+//			PyrDownGaussian(mDepth[i - 1], mDepth[i]);
+//		}
+//		BackProjectPoints(mDepth[i], mVMap[i], mDepthCutoff, fx(i), fy(i), cx(i), cy(i));
+//		ComputeNormalMap(mVMap[i], mNMap[i]);
+//		ComputeDerivativeImage(mGray[i], mdIx[i], mdIy[i]);
+//	}
 
+	mDepth[0].create(cols(0), rows(0));
+	BilateralFiltering(rawDepth, mDepth[0], mDepthScale);
+	mGray[0].create(cols(0), rows(0));
+	ColourImageToIntensity(mColor, mGray[0]);
 	cv::Mat desc, descTemp;
 	cuda::GpuMat GrayTemp, DescTemp;
 	vector<KeyPoint> KPTemp;

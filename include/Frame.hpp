@@ -73,6 +73,10 @@ public:
 	Eigen::Matrix4d mPose;
 	Eigen::Matrix4d mPoseInv;
 	int mNkp;
+
+	cv::Mat rawDepth;
+	cv::Mat rawColor;
+	cv::Mat scaledDepth;
 };
 
 #endif

@@ -8,6 +8,7 @@
 #include <pangolin/pangolin.h>
 
 class System;
+class Mapping;
 class Tracking;
 
 class Viewer {

@@ -27,7 +27,13 @@ public:
 	int FuseFrame(const Frame& frame);
 	void RenderMap(Rendering& render, int num_occupied_blocks);
 	uint IdentifyVisibleBlocks(const Frame& F);
-
+	void FuseDepthAndColor(const DeviceArray2D<float> & depth,
+			const DeviceArray2D<uchar3> & color, Matrix3f viewRot,
+			Matrix3f viewRotInv, float3 viewTrans, float fx, float fy, float cx,
+			float cy, float depthMin, float depthMax, uint& noblock);
+	void RenderMap(DeviceArray2D<float4> & vmap, DeviceArray2D<float3> & nmap,
+			Matrix3f viewRot, Matrix3f viewRotInv, float3 viewTrans,
+			int num_occupied_blocks);
 	void IntegrateKeys(Frame&);
 	void CheckKeys(Frame& F);
 	void GetORBKeys(DeviceArray<ORBKey>& keys, uint& n);
@@ -65,6 +71,9 @@ public:
 	DeviceArray<int> mEdgeTable;
 	DeviceArray<float3> mMeshNormal;
 	DeviceArray<uchar3> mColorMap;
+	DeviceArray<RenderingBlock> mRenderingBlockList;
+	DeviceArray2D<float> mDepthMapMin;
+	DeviceArray2D<float> mDepthMapMax;
 	bool bUpdated;
 	uint nTriangle;
 };

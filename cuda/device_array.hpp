@@ -134,6 +134,8 @@ public:
 
 	void zero();
 
+	void swap(DeviceArray2D<T> & other);
+
 	void release();
 
 	void copyTo(DeviceArray2D<T>& other) const;
@@ -382,6 +384,15 @@ DeviceArray2D<T>::upload(void* host_ptr, size_t host_step, int cols, int rows) {
 	if(empty())
 		create(cols, rows);
 	SafeCall(cudaMemcpy2D(mpData, mStep, host_ptr, host_step, sizeof(T) * mCols, mRows, cudaMemcpyHostToDevice));
+}
+
+template<class T> inline
+void DeviceArray2D<T>::swap(DeviceArray2D<T> & other) {
+	std::swap(mpData, other.mpData);
+	std::swap(mCols, other.mCols);
+	std::swap(mRows, other.mRows);
+	std::swap(mStep, other.mStep);
+	std::swap(mpRef, other.mpRef);
 }
 
 template<class T> inline void

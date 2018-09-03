@@ -34,6 +34,10 @@ void Mapping::AllocateDeviceMemory() {
 	mEdgeTable.create(256);
 	mTriTable.upload(triTable, sizeof(int) * 16, 16, 256);
 	mEdgeTable.upload(edgeTable, 256);
+	mRenderingBlockList.create(DeviceMap::MaxRenderingBlocks);
+	mDepthMapMin.create(80, 60);
+	mDepthMapMax.create(80, 60);
+
 	Timer::Stop("Initialisation", "Memory Allocation");
 
 	Timer::Start("Initialisation", "ResetMap");

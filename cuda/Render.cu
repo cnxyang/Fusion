@@ -572,27 +572,85 @@ CUDA_KERNEL void FillArray2DKernel(PtrStepSz<T> array, T val) {
 	}
 }
 
+void Mapping::RenderMap(DeviceArray2D<float4> & vmap,
+						DeviceArray2D<float3> & nmap,
+						Matrix3f viewRot,
+						Matrix3f viewRotInv,
+						float3 viewTrans,
+						int num_occupied_blocks) {
+
+	if (num_occupied_blocks == 0)
+		return;
+
+	DeviceArray<uint> noTotalBlocks(1);
+	noTotalBlocks.zero();
+
+	dim3 b(8, 8);
+	dim3 g(cv::divUp(mDepthMapMin.cols(), b.x),
+		   cv::divUp(mDepthMapMin.rows(), b.y));
+
+	FillArray2DKernel<float> <<<g, b>>>(mDepthMapMin, DeviceMap::DepthMax);
+	FillArray2DKernel<float> <<<g, b>>>(mDepthMapMax, DeviceMap::DepthMin);
+
+	HashRayCaster hrc;
+	hrc.map = *this;
+	hrc.nVoxelBlocks = num_occupied_blocks;
+	hrc.fx = Frame::fx(0);
+	hrc.fy = Frame::fy(0);
+	hrc.cx = Frame::cx(0);
+	hrc.cy = Frame::cy(0);
+	hrc.cols = vmap.cols();
+	hrc.rows = vmap.rows();
+	hrc.Rot = viewRot;
+	hrc.invRot = viewRotInv;
+	hrc.trans = viewTrans;
+	hrc.renderingBlockList = mRenderingBlockList;
+	hrc.minDepthMap = mDepthMapMin;
+	hrc.maxDepthMap = mDepthMapMax;
+	hrc.nRenderingBlocks = noTotalBlocks;
+	hrc.vmap = vmap;
+	hrc.nmap = nmap;
+
+	const dim3 block(256);
+	const dim3 grid(cv::divUp(num_occupied_blocks, block.x));
+
+	projectAndSplitBlocksKernel<<<grid, block>>>(hrc);
+
+
+	uint totalBlocks;
+	noTotalBlocks.download((void*) &totalBlocks);
+	if (totalBlocks == 0 || totalBlocks >= DeviceMap::MaxRenderingBlocks)
+		return;
+
+	dim3 blocks = dim3(16, 16);
+	dim3 grids = dim3((unsigned int) ceil((float) totalBlocks / 4.0f), 4);
+
+	fillBlocksKernel<<<grids, blocks>>>(hrc);
+
+	dim3 block1(32, 8);
+	dim3 grid1(cv::divUp(vmap.cols(), block1.x),
+			cv::divUp(vmap.rows(), block1.y));
+
+	hashRayCastKernel<<<grid1, block1>>>(hrc);
+	computeNormalAndAngleKernel<<<grid1, block1>>>(hrc);
+}
+
 void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 
 	if (num_occupied_blocks == 0)
 		return;
 
-	render.VMap.create(render.cols, render.rows);
-	render.NMap.create(render.cols, render.rows);
-	render.Render.create(render.cols, render.rows);
-
-	DeviceArray<RenderingBlock> RenderingBlockList(
-			DeviceMap::MaxRenderingBlocks);
+//	render.VMap.create(render.cols, render.rows);
+//	render.NMap.create(render.cols, render.rows);
+//	render.Render.create(render.cols, render.rows);
 	DeviceArray<uint> noTotalBlocks(1);
 	noTotalBlocks.zero();
-	DeviceArray2D<float> DepthMapMin(render.cols, render.rows);
-	DeviceArray2D<float> DepthMapMax(render.cols, render.rows);
 
 	dim3 b(8, 8);
-	dim3 g(cv::divUp(DepthMapMin.cols(), b.x),
-			cv::divUp(DepthMapMin.rows(), b.y));
-	FillArray2DKernel<float> <<<g, b>>>(DepthMapMin, DeviceMap::DepthMax);
-	FillArray2DKernel<float> <<<g, b>>>(DepthMapMax, DeviceMap::DepthMin);
+	dim3 g(cv::divUp(mDepthMapMin.cols(), b.x),
+		   cv::divUp(mDepthMapMin.rows(), b.y));
+	FillArray2DKernel<float> <<<g, b>>>(mDepthMapMin, DeviceMap::DepthMax);
+	FillArray2DKernel<float> <<<g, b>>>(mDepthMapMax, DeviceMap::DepthMin);
 
 	HashRayCaster hrc;
 	hrc.map = *this;
@@ -606,9 +664,9 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 	hrc.Rot = render.Rview;
 	hrc.invRot = render.invRview;
 	hrc.trans = render.tview;
-	hrc.renderingBlockList = RenderingBlockList;
-	hrc.minDepthMap = DepthMapMin;
-	hrc.maxDepthMap = DepthMapMax;
+	hrc.renderingBlockList = mRenderingBlockList;
+	hrc.minDepthMap = mDepthMapMin;
+	hrc.maxDepthMap = mDepthMapMax;
 	hrc.map = *this;
 	hrc.nRenderingBlocks = noTotalBlocks;
 	hrc.vmap = render.VMap;
@@ -633,10 +691,10 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 	dim3 grids = dim3((unsigned int) ceil((float) totalBlocks / 4.0f), 4);
 
 	fillBlocksKernel<<<grids, blocks>>>(hrc);
-	Timer::Stop("Mapping", "Project Blocks");
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
+	Timer::Stop("Mapping", "Project Blocks");
 
 	dim3 block1(32, 8);
 	dim3 grid1(cv::divUp(render.cols, block1.x),
@@ -644,19 +702,19 @@ void Mapping::RenderMap(Rendering& render, int num_occupied_blocks) {
 
 	Timer::Start("Mapping", "Ray Cast");
 	hashRayCastKernel<<<grid1, block1>>>(hrc);
-	Timer::Stop("Mapping", "Ray Cast");
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
+	Timer::Stop("Mapping", "Ray Cast");
 
-	Timer::Start("Mapping", "Render");
+//	Timer::Start("Mapping", "Render");
 	computeNormalAndAngleKernel<<<grid1, block1>>>(hrc);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 
-	RenderImage(render.VMap, render.NMap, make_float3(0), render.Render);
-	Timer::Stop("Mapping", "Render");
+//	RenderImage(render.VMap, render.NMap, make_float3(0), render.Render);
+//	Timer::Stop("Mapping", "Render");
 }
 
 struct HashIntegrator {
@@ -874,6 +932,56 @@ uint Mapping::IdentifyVisibleBlocks(const Frame& F) {
 	return noblock;
 }
 
+void Mapping::FuseDepthAndColor(const DeviceArray2D<float> & depth,
+		const DeviceArray2D<uchar3> & color, Matrix3f viewRot,
+		Matrix3f viewRotInv, float3 viewTrans, float fx, float fy, float cx,
+		float cy, float depthMin, float depthMax, uint& noblock) {
+
+	int cols = depth.cols();
+	int rows = depth.rows();
+
+	HashIntegrator HI;
+	HI.map = *this;
+	HI.Rot = viewRot;
+	HI.invRot = viewRotInv;
+	HI.trans = viewTrans;
+	HI.fx = fx;
+	HI.fy = fy;
+	HI.cx = cx;
+	HI.cy = cy;
+	HI.invfx = 1.0 / fx;
+	HI.invfy = 1.0 / fy;
+	HI.depth = depth;
+	HI.rgb = color;
+	HI.rows = rows;
+	HI.cols = cols;
+	HI.DEPTH_MAX = depthMax;
+	HI.DEPTH_MIN = depthMin;
+
+	dim3 block(32, 8);
+	dim3 grid(cv::divUp(cols, block.x), cv::divUp(rows, block.y));
+	createBlocksKernel<<<grid, block>>>(HI);
+
+	dim3 block1(1024);
+	dim3 grid1(cv::divUp((int)DeviceMap::NumEntries, block1.x));
+
+	mNumVisibleEntries.zero();
+	compacitifyEntriesKernel<<<grid1, block1>>>(HI);
+
+	noblock = 0;
+	mNumVisibleEntries.download((void*) &noblock);
+
+	if (noblock == 0)
+		return;
+
+	dim3 block2(512);
+	dim3 grid2(noblock);
+	hashIntegrateKernal<true> <<<grid2, block2>>>(HI);
+
+	return;
+}
+
+
 int Mapping::FuseFrame(const Frame& frame) {
 
 	int pyr = 0;
@@ -901,10 +1009,10 @@ int Mapping::FuseFrame(const Frame& frame) {
 
 	Timer::Start("Mapping", "Create Blocks");
 	createBlocksKernel<<<grid, block>>>(HI);
-	Timer::Stop("Mapping", "Create Blocks");
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
+	Timer::Stop("Mapping", "Create Blocks");
 
 	dim3 block1(1024);
 	dim3 grid1(cv::divUp((int) DeviceMap::NumEntries, block1.x));
@@ -912,10 +1020,10 @@ int Mapping::FuseFrame(const Frame& frame) {
 	mNumVisibleEntries.zero();
 	Timer::Start("Mapping", "Create Visible List");
 	compacitifyEntriesKernel<<<grid1, block1>>>(HI);
-	Timer::Stop("Mapping", "Create Visible List");
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
+	Timer::Stop("Mapping", "Create Visible List");
 
 	uint noblock = 0;
 	mNumVisibleEntries.download((void*) &noblock);
@@ -927,10 +1035,10 @@ int Mapping::FuseFrame(const Frame& frame) {
 
 	Timer::Start("Mapping", "Integrate Depth");
 	hashIntegrateKernal<true> <<<grid2, block2>>>(HI);
-	Timer::Stop("Mapping", "Integrate Depth");
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
+	Timer::Stop("Mapping", "Integrate Depth");
 
 	mCamTrace.push_back(frame.mPose.topRightCorner(3, 1));
 

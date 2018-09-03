@@ -5,18 +5,138 @@
 #include "Tracking.hpp"
 #include "Solver.hpp"
 #include "Timer.hpp"
+#include "sophus/se3.hpp"
 
 using namespace cv;
 
-Tracking::Tracking():
-mpMap(nullptr),
-mpViewer(nullptr),
-mnMapPoints(0),
-mbGraphMatching(false),
-mnNoAttempts(0),
-mLastState(NOT_INITIALISED),
-mNextState(NOT_INITIALISED) {
+Tracking::Tracking() {
+	int w = 640;
+	int h = 480;
+	for(int i = 0; i < NUM_PYRS; ++i) {
+		int cols = w / (1 << i);
+		int rows = h / (1 << i);
+		lastDepth[i].create(cols, rows);
+		lastImage[i].create(cols, rows);
+		lastVMap[i].create(cols, rows);
+		lastNMap[i].create(cols, rows);
+		nextDepth[i].create(cols, rows);
+		nextImage[i].create(cols, rows);
+		nextVMap[i].create(cols, rows);
+		nextNMap[i].create(cols, rows);
+		nextIdx[i].create(cols, rows);
+		nextIdy[i].create(cols, rows);
+	}
+
+	depth.create(w, h);
+	color.create(w, h);
+	sumSE3.create(MaxThread);
+	sumSO3.create(MaxThread);
+	outSE3.create(1);
+	outSO3.create(1);
+
+	K = MatK(Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0));
+	iteration[0] = 10;
+	iteration[1] = 5;
+	iteration[2] = 3;
+
+	mNextState = NOT_INITIALISED;
 	mORBMatcher = cuda::DescriptorMatcher::createBFMatcher(NORM_HAMMING);
+}
+
+//Tracking::Tracking():
+//mpMap(nullptr),
+//mpViewer(nullptr),
+//mnMapPoints(0),
+//mbGraphMatching(false),
+//mnNoAttempts(0),
+//mLastState(NOT_INITIALISED),
+//mNextState(NOT_INITIALISED) {
+//	mORBMatcher = cuda::DescriptorMatcher::createBFMatcher(NORM_HAMMING);
+//}
+
+void Tracking::initICP() {
+
+	for(int i = 0; i < NUM_PYRS; ++i) {
+		nextImage[i].swap(lastImage[i]);
+		nextDepth[i].swap(lastDepth[i]);
+		nextVMap[i].swap(lastVMap[i]);
+		nextNMap[i].swap(lastNMap[i]);
+
+//		nextImage[i].copyTo(lastImage[i]);
+//		nextDepth[i].copyTo(lastDepth[i]);
+//		nextVMap[i].copyTo(lastVMap[i]);
+//		nextNMap[i].copyTo(lastNMap[i]);
+	}
+
+//	cv::Mat test(480, 640, CV_32FC3);
+//	lastNMap[0].download((void*)test.data, test.step);
+//	cv::imshow("test", test);
+//	cv::waitKey(0);
+
+	depth.upload((void*)mNextFrame.rawDepth.data,
+			mNextFrame.rawDepth.step,
+			mNextFrame.rawDepth.cols,
+			mNextFrame.rawDepth.rows);
+	BilateralFiltering(depth, nextDepth[0], Frame::mDepthScale);
+	color.upload((void*)mNextFrame.rawColor.data,
+			mNextFrame.rawColor.step,
+			mNextFrame.rawColor.cols,
+			mNextFrame.rawColor.rows);
+//	ColourImageToIntensity(color, nextImage[0]);
+
+	for(int i = 1; i < NUM_PYRS; ++i) {
+		PyrDownGaussian(nextDepth[i - 1], nextDepth[i]);
+//		PyrDownGaussian(nextImage[i - 1], nextImage[i]);
+	}
+
+//	nextDepth[0].download((void*)nextFrame->scaledDepth, sizeof(float)*640);
+
+	for(int i = 0; i < NUM_PYRS; ++i) {
+		BackProjectPoints(nextDepth[i], nextVMap[i], Frame::mDepthCutoff,
+				Frame::fx(i), Frame::fy(i), Frame::cx(i), Frame::cy(i));
+		ComputeNormalMap(nextVMap[i], nextNMap[i]);
+		//ComputeDerivativeImage(nextImage[i], nextIdx[i], nextIdy[i]);
+	}
+}
+
+void Tracking::computeSE3() {
+
+	float residual[2];
+//	nextPose = lastFrame->mPose;
+//	lastPose = lastFrame->mPose;
+	nextPose = mLastFrame.mPose;
+	lastPose = mLastFrame.mPose;
+	lastUpdatedPose = nextPose;
+	mNextFrame.SetPose(nextPose);
+	for(int i = NUM_PYRS - 1; i >= 0; --i) {
+		for(int j = 0; j < iteration[i]; ++j) {
+
+			Eigen::Matrix<double, 6, 6, Eigen::RowMajor> matA;
+			Eigen::Matrix<double, 6, 1> vecB;
+			icpStep(nextVMap[i],
+					lastVMap[i],
+					nextNMap[i],
+					lastNMap[i],
+					sumSE3,
+					outSE3,
+					residual,
+					matA.data(),
+					vecB.data(),
+					K(i),
+					&mNextFrame,
+					&mLastFrame);
+
+			Eigen::Matrix<double, 6, 1> result;
+			result = matA.ldlt().solve(vecB);
+			auto e = Sophus::SE3d::exp(result);
+			auto dT = e.matrix();
+			nextPose = lastPose * (dT.inverse() * nextPose.inverse() * lastPose).inverse();
+			mNextFrame.SetPose(nextPose);
+		}
+	}
+//	nextFrame->SetPose(nextPose);
+	mNextFrame.mDepth[0] = nextDepth[0];
+//	mNextFrame.mColor = color;
 }
 
 bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
@@ -25,16 +145,20 @@ bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 	mNextFrame = Frame(imRGB, imD);
 	Timer::Stop("Tracking", "Create Frame");
 
-	mNextFrame.SetPose(Eigen::Matrix4d::Identity());
-
 	bool bOK;
 	switch (mNextState) {
 	case NOT_INITIALISED:
+		initICP();
 		bOK = InitTracking();
 		break;
 
 	case OK:
-		bOK = TrackLastFrame();
+//		bOK = TrackLastFrame();
+		initICP();
+		Timer::Start("test", "test");
+		computeSE3();
+		Timer::Stop("test", "test");
+		bOK = true;
 		break;
 
 	case LOST:
@@ -43,19 +167,20 @@ bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 	}
 
 	if (!bOK) {
-		cout << "lost tracking" << endl;
+		std::cout << "lost tracking" << std::endl;
 		bOK = TrackMap(true);
 		if(!bOK)
 			SetState(LOST);
 	} else {
 		mLastFrame = Frame(mNextFrame);
+		currentPose = nextPose;
 		if(mNextState == OK && mLastState != LOST) {
-			mpMap->IntegrateKeys(mNextFrame);
-			mpMap->CheckKeys(mNextFrame);
+//			mpMap->IntegrateKeys(mNextFrame);
+//			mpMap->CheckKeys(mNextFrame);
 		}
 		SetState(OK);
 		if(mLastState == LOST)
-			cout << "Relocalisation finished in : " << mnNoAttempts << " iterations" << endl;
+			std::cout << "Relocalisation finished in : " << mnNoAttempts << " iterations" << std::endl;
 	}
 
 	return bOK;
@@ -202,7 +327,7 @@ bool Tracking::TrackMap(bool bUseGraphMatching) {
 	mnNoAttempts++;
 
 	if(!bOK) {
-		cout << "Relocalisation Failed. Attempts: " << mnNoAttempts << endl;
+		std::cout << "Relocalisation Failed. Attempts: " << mnNoAttempts << std::endl;
 		return false;
 	}
 
@@ -218,15 +343,15 @@ bool Tracking::TrackLastFrame() {
 
 	mNextFrame.SetPose(mLastFrame);
 
-	Timer::Start("Tracking", "Track Frame");
-	bool bOK = TrackFrame();
-	Timer::Stop("Tracking", "Track Frame");
-
-	if (!bOK)
-		return false;
+//	Timer::Start("Tracking", "Track Frame");
+//	bool bOK = TrackFrame();
+//	Timer::Stop("Tracking", "Track Frame");
+//
+//	if (!bOK)
+//		return false;
 
 	Timer::Start("Tracking", "ICP");
-	bOK = TrackICP();
+	bool bOK = TrackICP();
 	Timer::Stop("Tracking", "ICP");
 
 	return bOK;
@@ -267,7 +392,7 @@ bool Tracking::TrackFrame() {
 		   fabs(trans(0)) > mTransThresh ||
 		   fabs(trans(1)) > mTransThresh ||
 		   fabs(trans(2)) > mTransThresh) {
-			cout << "Initial Pose Estimaton Failed." << endl;
+			std::cout << "Initial Pose Estimaton Failed." << std::endl;
 			return false;
 		}
 	}
@@ -285,7 +410,7 @@ bool Tracking::TrackICP() {
 	float cost = Solver::SolveICP(mNextFrame, mLastFrame);
 
 	if(std::isnan(cost) || cost > 1e-3) {
-		cout << "Dense verification failed ." << endl;
+		std::cout << "Dense verification failed ." << std::endl;
 		return false;
 	}
 	return true;
