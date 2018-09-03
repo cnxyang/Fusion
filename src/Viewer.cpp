@@ -8,8 +8,7 @@ using namespace pangolin;
 
 Viewer::Viewer()
 :mpMap(nullptr), mpTracker(nullptr), mpSystem(nullptr),
- mbShowMesh(false){
-}
+ mbShowMesh(false), var(nullptr), nvar(nullptr), cvar(nullptr) {}
 
 void Viewer::Spin() {
 
@@ -57,9 +56,7 @@ void Viewer::Spin() {
 	Var<bool> BtnShowNormal("UI.Show Normal", false, true);
 	Var<bool> BtnShowColor("UI.Show Color Map", false, true);
 
-	while (1) {
-
-		T = s_cam.GetModelViewMatrix().Inverse();
+	while (true) {
 
 		if (ShouldQuit()) {
 			mpSystem->Stop();
@@ -252,7 +249,6 @@ void Viewer::DrawCamera() {
 	Insert(cam, p[2]);
 	Insert(cam, p[3]);
 	Insert(cam, p[4]);
-
 	bool lost = (mpTracker->mNextState == mpTracker->LOST);
 	if(lost)
 		glColor3f(1.0, 0.0, 0.0);
