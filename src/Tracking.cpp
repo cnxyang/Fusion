@@ -61,17 +61,7 @@ void Tracking::initICP() {
 		nextDepth[i].swap(lastDepth[i]);
 		nextVMap[i].swap(lastVMap[i]);
 		nextNMap[i].swap(lastNMap[i]);
-
-//		nextImage[i].copyTo(lastImage[i]);
-//		nextDepth[i].copyTo(lastDepth[i]);
-//		nextVMap[i].copyTo(lastVMap[i]);
-//		nextNMap[i].copyTo(lastNMap[i]);
 	}
-
-//	cv::Mat test(480, 640, CV_32FC3);
-//	lastNMap[0].download((void*)test.data, test.step);
-//	cv::imshow("test", test);
-//	cv::waitKey(0);
 
 	depth.upload((void*)mNextFrame.rawDepth.data,
 			mNextFrame.rawDepth.step,
@@ -102,17 +92,15 @@ void Tracking::initICP() {
 void Tracking::computeSE3() {
 
 	float residual[2];
-//	nextPose = lastFrame->mPose;
-//	lastPose = lastFrame->mPose;
-	nextPose = mLastFrame.mPose;
+	nextPose = mNextFrame.mPose;
 	lastPose = mLastFrame.mPose;
 	lastUpdatedPose = nextPose;
-	mNextFrame.SetPose(nextPose);
+	Eigen::Matrix<double, 6, 1> vecB;
+	Eigen::Matrix<double, 6, 1> result;
+	Eigen::Matrix<double, 6, 6, Eigen::RowMajor> matA;
 	for(int i = NUM_PYRS - 1; i >= 0; --i) {
 		for(int j = 0; j < iteration[i]; ++j) {
 
-			Eigen::Matrix<double, 6, 6, Eigen::RowMajor> matA;
-			Eigen::Matrix<double, 6, 1> vecB;
 			icpStep(nextVMap[i],
 					lastVMap[i],
 					nextNMap[i],
@@ -126,7 +114,6 @@ void Tracking::computeSE3() {
 					&mNextFrame,
 					&mLastFrame);
 
-			Eigen::Matrix<double, 6, 1> result;
 			result = matA.ldlt().solve(vecB);
 			auto e = Sophus::SE3d::exp(result);
 			auto dT = e.matrix();
@@ -135,7 +122,7 @@ void Tracking::computeSE3() {
 		}
 	}
 //	nextFrame->SetPose(nextPose);
-	mNextFrame.mDepth[0] = nextDepth[0];
+//	mNextFrame.mDepth[0] = nextDepth[0];
 //	mNextFrame.mColor = color;
 }
 
@@ -153,12 +140,7 @@ bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 		break;
 
 	case OK:
-//		bOK = TrackLastFrame();
-		initICP();
-		Timer::Start("test", "test");
-		computeSE3();
-		Timer::Stop("test", "test");
-		bOK = true;
+		bOK = TrackLastFrame();
 		break;
 
 	case LOST:
@@ -175,8 +157,8 @@ bool Tracking::Track(cv::Mat& imRGB, cv::Mat& imD) {
 		mLastFrame = Frame(mNextFrame);
 		currentPose = nextPose;
 		if(mNextState == OK && mLastState != LOST) {
-//			mpMap->IntegrateKeys(mNextFrame);
-//			mpMap->CheckKeys(mNextFrame);
+			mpMap->IntegrateKeys(mNextFrame);
+			mpMap->CheckKeys(mNextFrame);
 		}
 		SetState(OK);
 		if(mLastState == LOST)
@@ -343,16 +325,18 @@ bool Tracking::TrackLastFrame() {
 
 	mNextFrame.SetPose(mLastFrame);
 
-//	Timer::Start("Tracking", "Track Frame");
-//	bool bOK = TrackFrame();
-//	Timer::Stop("Tracking", "Track Frame");
-//
-//	if (!bOK)
-//		return false;
+	Timer::Start("Tracking", "Track Frame");
+	bool bOK = TrackFrame();
+	Timer::Stop("Tracking", "Track Frame");
 
-	Timer::Start("Tracking", "ICP");
-	bool bOK = TrackICP();
-	Timer::Stop("Tracking", "ICP");
+	if (!bOK)
+		return false;
+
+//	Timer::Start("Tracking", "ICP");
+//	bool bOK = TrackICP();
+//	Timer::Stop("Tracking", "ICP");
+	initICP();
+	computeSE3();
 
 	return bOK;
 }

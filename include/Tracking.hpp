@@ -198,6 +198,9 @@ public:
 	int iteration[NUM_PYRS];
 	float icpResidual[2];
 	float lastIcpError;
+
+	std::vector<ORBKey> mapPoints;
+	cv::cuda::GpuMat mapDescriptors;
 };
 
 #endif

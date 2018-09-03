@@ -202,12 +202,12 @@ void Viewer::DrawTrajectory() {
 
 	vector<GLfloat> vPos;
 	vector<Eigen::Vector3d> trace = mpMap->GetCamTrace();
-	for(int i = 0; i < trace.size(); ++i) {
+	for (int i = 0; i < trace.size(); ++i) {
 		Insert(vPos, trace[i]);
 	}
 
 	glColor3f(0.0, 0.0, 1.0);
-	glDrawVertices(vPos.size()/3, (GLfloat*)&vPos[0], GL_LINE_STRIP, 3);
+	glDrawVertices(vPos.size() / 3, (GLfloat*) &vPos[0], GL_LINE_STRIP, 3);
 }
 
 void Viewer::DrawCamera() {
