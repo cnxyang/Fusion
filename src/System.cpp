@@ -7,7 +7,8 @@ using namespace std;
 System::System(const char* str):
 mpMap(nullptr), mpViewer(nullptr),
 mpTracker(nullptr), mpParam(nullptr),
-mptViewer(nullptr), mbStop(false) {
+mptViewer(nullptr), mbStop(false),
+nFrames(0) {
 	if(!str)
 		System(static_cast<SysDesc*>(nullptr));
 }
@@ -16,10 +17,11 @@ System::System(SysDesc* pParam):
 mpMap(nullptr),
 mpViewer(nullptr),
 mpTracker(nullptr),
-mbStop(false){
+mbStop(false),
+nFrames(0){
 
 	mpMap = new Mapping();
-	mpMap->AllocateDeviceMemory(MapDesc());
+	mpMap->AllocateDeviceMemory();
 
 	mpViewer = new Viewer();
 	mpTracker = new Tracking();
@@ -65,7 +67,7 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 	bool bOK = mpTracker->Track(imRGB, imD);
 
 	if (bOK) {
-		int no = mpMap->FuseFrame(mpTracker->mLastFrame);
+		int no = mpMap->FuseFrame(mpTracker->mNextFrame);
 		Rendering rd;
 		rd.cols = 640;
 		rd.rows = 480;
@@ -81,14 +83,51 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 
 		mpMap->RenderMap(rd, no);
 		mpTracker->AddObservation(rd);
-		Mat tmp(rd.rows, rd.cols, CV_8UC4);
-		rd.Render.download((void*) tmp.data, tmp.step);
-		resize(tmp, tmp, cv::Size(tmp.cols * 2, tmp.rows * 2));
-		imshow("img", tmp);
+//		Mat tmp(rd.rows, rd.cols, CV_8UC4);
+//		rd.Render.download((void*) tmp.data, tmp.step);
+//		resize(tmp, tmp, cv::Size(tmp.cols * 2, tmp.rows * 2));
+//		imshow("img", tmp);
+//		mpMap->MeshScene();
+		if(nFrames > 30) {
+			nFrames = 0;
+			mpMap->MeshScene();
+		}
+		nFrames++;
 	}
 
 	if(mbStop)
 		exit(0);
+}
+
+void System::SaveMesh() {
+
+	uint n = mpMap->MeshScene();
+//	float3 * host_tri = mpMap->mHostMesh;
+//	FILE *f = fopen("scene.stl", "wb+");
+//	if (f != NULL) {
+//		for (int i = 0; i < 80; i++)
+//			fwrite(" ", sizeof(char), 1, f);
+//		fwrite(&n, sizeof(int), 1, f);
+//		float zero = 0.0f;
+//		short attribute = 0;
+//		for (uint i = 0; i < n; i++) {
+//			fwrite(&zero, sizeof(float), 1, f);
+//			fwrite(&zero, sizeof(float), 1, f);
+//			fwrite(&zero, sizeof(float), 1, f);
+//			fwrite(&host_tri[i * 3 + 0].x, sizeof(float), 1, f);
+//			fwrite(&host_tri[i * 3 + 0].y, sizeof(float), 1, f);
+//			fwrite(&host_tri[i * 3 + 0].z, sizeof(float), 1, f);
+//			fwrite(&host_tri[i * 3 + 1].x, sizeof(float), 1, f);
+//			fwrite(&host_tri[i * 3 + 1].y, sizeof(float), 1, f);
+//			fwrite(&host_tri[i * 3 + 1].z, sizeof(float), 1, f);
+//			fwrite(&host_tri[i * 3 + 2].x, sizeof(float), 1, f);
+//			fwrite(&host_tri[i * 3 + 2].y, sizeof(float), 1, f);
+//			fwrite(&host_tri[i * 3 + 2].z, sizeof(float), 1, f);
+//			fwrite(&attribute, sizeof(short), 1, f);
+//		}
+//		fclose(f);
+//	}
+//	delete host_tri;
 }
 
 void System::Reboot() {
@@ -107,6 +146,6 @@ void System::Stop() {
 void System::JoinViewer() {
 
 	while(!mbStop) {
-		usleep(3000);
+
 	}
 }

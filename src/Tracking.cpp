@@ -206,28 +206,6 @@ bool Tracking::TrackMap(bool bUseGraphMatching) {
 		return false;
 	}
 
-//	Frame dummy = Frame();
-//	dummy.SetPose(Td.inverse());
-//	Rendering rd;
-//	rd.cols = 640;
-//	rd.rows = 480;
-//	rd.fx = Frame::fx(0);
-//	rd.fy = Frame::fy(0);
-//	rd.cx = Frame::cx(0);
-//	rd.cy = Frame::cy(0);
-//	rd.Rview = dummy.Rot_gpu();
-//	rd.invRview = dummy.RotInv_gpu();
-//	rd.tview = dummy.Trans_gpu();
-//	rd.maxD = 3.5f;
-//	rd.minD = 0.1f;
-//	uint noblocks = mpMap->IdentifyVisibleBlocks(dummy);
-//	mpMap->RenderMap(rd, noblocks);
-//	dummy = Frame(rd, dummy.mPose);
-//	float cost = Solver::SolveICP(mNextFrame, dummy);
-//	if(std::isnan(cost) || cost > 1e-3) {
-//		cout << "Dense verification failed ." << endl;
-//		return false;
-//	}
 	mNextFrame.SetPose(Td.inverse());
 	return true;
 }

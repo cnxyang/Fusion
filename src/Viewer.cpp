@@ -1,12 +1,14 @@
 #include "Viewer.hpp"
 #include <algorithm>
+#include <pangolin/gl/glcuda.h>
+#include <pangolin/gl/glvbo.h>
 
 using namespace std;
 using namespace pangolin;
 
-Viewer::Viewer() :
-		mpMap(nullptr), mpTracker(nullptr), mpSystem(nullptr) {
-}
+Viewer::Viewer()
+:mpMap(nullptr), mpTracker(nullptr), mpSystem(nullptr),
+ mbShowMesh(false), var(nullptr), nvar(nullptr), cvar(nullptr) {}
 
 void Viewer::Spin() {
 
@@ -15,51 +17,178 @@ void Viewer::Spin() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	Eigen::Matrix4f viewMatrix;
-	viewMatrix << 1, 0, 0, 0,
-			      0,-1, 0, 0,
-			      0, 0,-1,-2,
-			      0, 0, 0, 1;
+	mPhongProg.AddShaderFromFile(GlSlVertexShader, "shader/VertexShader.glsl");
+	mPhongProg.AddShaderFromFile(GlSlFragmentShader, "shader/FragmentShader.glsl");
+	mPhongProg.Link();
 
-	OpenGlMatrix openglViewMatrix(viewMatrix);
+	mNormalProg.AddShaderFromFile(GlSlVertexShader, "shader/NormalShader_vertex.glsl");
+	mNormalProg.AddShaderFromFile(GlSlFragmentShader, "shader/FragmentShader.glsl");
+	mNormalProg.Link();
 
-	OpenGlRenderState s_cam(
+	mColorProg.AddShaderFromFile(GlSlVertexShader, "shader/ColorShader_vertex.glsl");
+	mColorProg.AddShaderFromFile(GlSlFragmentShader, "shader/FragmentShader.glsl");
+	mColorProg.Link();
+
+	s_cam = OpenGlRenderState(
 			ProjectionMatrix(640, 480, 525, 525, 320, 240, 0.1f, 1000.0f),
-			openglViewMatrix);
+			ModelViewLookAtRUB(0, 0, 0, 0, 0, 1, 0, -1, 0));
+
+	glGenVertexArrays(1, &vao);
+	array.Reinitialise(GlArrayBuffer, DeviceMap::MaxTriangles * 6,
+			GL_FLOAT, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
+	var = new CudaScopedMappedPtr(array);
+	normal.Reinitialise(GlArrayBuffer, DeviceMap::MaxTriangles * 3,
+			GL_FLOAT, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
+	nvar = new CudaScopedMappedPtr(normal);
+	color.Reinitialise(GlArrayBuffer, DeviceMap::MaxTriangles * 3,
+			GL_UNSIGNED_BYTE, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
+	cvar = new CudaScopedMappedPtr(color);
 
 	View& d_cam = CreateDisplay().SetBounds(0.0, 1.0, Attach::Pix(200), 1.0,
 			-640.0 / 480).SetHandler(new Handler3D(s_cam));
-
 	CreatePanel("UI").SetBounds(0.0, 1.0, 0.0, Attach::Pix(200));
-	Var<bool> reset_btn("UI.Reset System", false, false);
-	Var<bool> traj_btn("UI.Show Trajectory",false,true);
-	Var<bool> kp_btn("UI.Show Key Points",true,true);
+	Var<bool> BtnReset("UI.Reset System", false, false);
+	Var<bool> BtnShowTrajectory("UI.Show Trajectory",false,true);
+	Var<bool> BtnShowKeyPoint("UI.Show Key Points",true,true);
+	Var<bool> BtnShowMesh("UI.Show Mesh", false, true);
+	Var<bool> BtnShowCam("UI.Show Camera", true, true);
+	Var<bool> BtnFollowCam("UI.Fllow Camera", false, true);
+	Var<bool> BtnShowNormal("UI.Show Normal", false, true);
+	Var<bool> BtnShowColor("UI.Show Color Map", false, true);
 
-	while (1) {
+	while (true) {
 
 		if (ShouldQuit()) {
 			mpSystem->Stop();
-			return;
+			exit(0);
 		}
 
-		if (Pushed(reset_btn)) {
+		if (Pushed(BtnReset)) {
 			cout << "requesting system reboot.." << endl;
 			mpSystem->Reboot();
 		}
 
+		glClearColor(0, 0, 0, 0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		d_cam.Activate(s_cam);
 
-		if (traj_btn)
+		if (BtnShowTrajectory)
 			DrawTrajectory();
 
-		if (kp_btn)
+		if (BtnShowKeyPoint)
 			DrawKeys();
 
-		DrawCamera();
+		if (BtnShowMesh) {
+			if(BtnShowNormal)
+				BtnShowNormal = false;
+			DrawMesh(false);
+		}
+
+		if (BtnShowNormal) {
+			if(BtnShowMesh)
+				BtnShowMesh = false;
+			DrawMesh(true);
+		}
+
+		if (BtnShowColor) {
+			DrawColor();
+		}
+
+		if (BtnShowCam)
+			DrawCamera();
+
+		if (BtnFollowCam)
+			FollowCam();
 
 		FinishFrame();
 	}
+}
+
+void Viewer::DrawColor() {
+	if(mpMap->bUpdated) {
+		cudaMemcpy((void*) **var, (void*) mpMap->mMesh,
+				sizeof(float3) * mpMap->nTriangle * 3, cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **cvar, (void*) mpMap->mColorMap,
+				sizeof(uchar3) * mpMap->nTriangle * 3, cudaMemcpyDeviceToDevice);
+		mpMap->mMutexMesh.lock();
+		mpMap->bUpdated = false;
+		mpMap->mMutexMesh.unlock();
+	}
+
+	mColorProg.SaveBind();
+	mColorProg.SetUniform("viewMat", s_cam.GetModelViewMatrix());
+	mColorProg.SetUniform("projMat", s_cam.GetProjectionMatrix());
+	glBindVertexArray(vao);
+	array.Bind();
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(0);
+	array.Unbind();
+
+	color.Bind();
+	glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(1);
+	color.Unbind();
+
+	glDrawArrays(GL_TRIANGLES, 0, mpMap->nTriangle * 3);
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+	mColorProg.Unbind();
+	glBindVertexArray(0);
+}
+
+void Viewer::FollowCam() {
+	Eigen::Matrix3d R = mpTracker->mNextFrame.Rotation();
+	Eigen::Vector3d t = mpTracker->mNextFrame.Translation();
+	Eigen::Vector3d up = { 0, -1, 0 };
+	Eigen::Vector3d eye = { 0, 0, 0 };
+	Eigen::Vector3d look = { 0, 0, 1 };
+	up = R * up + t;
+	eye = R * eye + t;
+	look = R * look + t;
+	s_cam.SetModelViewMatrix(ModelViewLookAtRUB(eye(0), eye(1), eye(2), look(0), look(1),
+					look(2), up(0), up(1), up(2)));
+}
+
+void Viewer::DrawMesh(bool bNormal) {
+
+	if(mpMap->nTriangle == 0)
+		return;
+
+	if(mpMap->bUpdated) {
+		cudaMemcpy((void*) **var, (void*) mpMap->mMesh,
+				sizeof(float3) * mpMap->nTriangle * 3, cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **nvar, (void*) mpMap->mMeshNormal,
+				sizeof(float3) * mpMap->nTriangle * 3, cudaMemcpyDeviceToDevice);
+		mpMap->mMutexMesh.lock();
+		mpMap->bUpdated = false;
+		mpMap->mMutexMesh.unlock();
+	}
+
+	pangolin::GlSlProgram* program;
+	if(bNormal)
+		program = &mNormalProg;
+	else
+		program = &mPhongProg;
+
+	program->SaveBind();
+	program->SetUniform("viewMat", s_cam.GetModelViewMatrix());
+	program->SetUniform("projMat", s_cam.GetProjectionMatrix());
+	glBindVertexArray(vao);
+	array.Bind();
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(0);
+	array.Unbind();
+
+	normal.Bind();
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, 0, 0);
+	glEnableVertexAttribArray(1);
+	normal.Unbind();
+
+	glDrawArrays(GL_TRIANGLES, 0, mpMap->nTriangle * 3);
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+	program->Unbind();
+	glBindVertexArray(0);
 }
 
 void Viewer::Insert(std::vector<GLfloat>& vPt, Eigen::Vector3d& pt) {
@@ -120,7 +249,6 @@ void Viewer::DrawCamera() {
 	Insert(cam, p[2]);
 	Insert(cam, p[3]);
 	Insert(cam, p[4]);
-
 	bool lost = (mpTracker->mNextState == mpTracker->LOST);
 	if(lost)
 		glColor3f(1.0, 0.0, 0.0);
@@ -143,8 +271,10 @@ void Viewer::DrawKeys() {
 		vGLKeys.push_back(key.pos.z);
 	}
 
-	glColor3f(1.0, 1.0, 1.0);
+	glColor3f(1.0, 0.0, 0.0);
+	glPointSize(3.0);
 	glDrawVertices(vGLKeys.size() / 3, (GLfloat*) &vGLKeys[0], GL_POINTS, 3);
+	glPointSize(1.0);
 }
 
 void Viewer::SetMap(Mapping* pMap) {

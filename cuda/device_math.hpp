@@ -15,10 +15,14 @@
 #define HOST_FUNC __host__
 #define DEV_FUNC __device__
 
+DEV_FUNC HOST_FUNC float3 fmaxf(float3 a, float3 b);
+DEV_FUNC HOST_FUNC float3 fminf(float3 a, float3 b);
+
 /* ---------------- *
  * make_uchar(num)  *
  *----------------- */
 DEV_FUNC uchar3 make_uchar3(float3 a);
+DEV_FUNC uchar3 make_uchar3(int a);
 
 /* -------------- *
  * make_int(num)  *
@@ -28,6 +32,7 @@ DEV_FUNC int3 make_int3(float a);
 DEV_FUNC int3 make_int3(float3 a);
 HOST_FUNC DEV_FUNC int2 make_int2(int a);
 HOST_FUNC DEV_FUNC int3 make_int3(int a);
+HOST_FUNC DEV_FUNC int4 make_int4(int3 a, int b);
 
 /* -------------- *
  * make_uint(num) *
@@ -73,6 +78,7 @@ HOST_FUNC DEV_FUNC void operator-=(float3 & a, float3 b);
 /* ----------------- *
  * operator-(type)   *
  *------------------ */
+HOST_FUNC DEV_FUNC uchar3 operator-(uchar3 a, uchar3 b);
 HOST_FUNC DEV_FUNC int2 operator-(int2 a, int2 b);
 HOST_FUNC DEV_FUNC float3 operator-(float3 b);
 HOST_FUNC DEV_FUNC float3 operator-(float3 a, float b);
@@ -91,7 +97,7 @@ HOST_FUNC DEV_FUNC float operator*(float4 a, float4 b);
 /* ---------------------- *
  * operator(vec)*(scalar) *
  *----------------------- */
-HOST_FUNC DEV_FUNC uchar3 operator*(uchar3 a, unsigned short b);
+HOST_FUNC DEV_FUNC uchar3 operator*(uchar3 a, ushort b);
 HOST_FUNC DEV_FUNC uchar3 operator*(uchar3 a, int b);
 HOST_FUNC DEV_FUNC uchar3 operator*(int b, uchar3 a);
 HOST_FUNC DEV_FUNC int3 operator*(int3 a, uint b);
@@ -105,13 +111,9 @@ HOST_FUNC DEV_FUNC float4 operator*(float4 a, float b);
 /* ------------------- *
  * operator(vec)/(vec) *
  *-------------------- */
-
 HOST_FUNC DEV_FUNC int3 operator/(int3 a, int3 b);
-
 HOST_FUNC DEV_FUNC float3 operator/(float3 a, int3 b);
-
 HOST_FUNC DEV_FUNC float3 operator/(float3 a, float3 b);
-
 HOST_FUNC DEV_FUNC float4 operator/(float4 a, float4 b);
 
 /* ---------------------- *
@@ -176,7 +178,9 @@ DEV_FUNC float4 normalised(float4 a);
  *------------- */
 DEV_FUNC float3 floor(float3 a);
 
-
+/*------------- *
+ *   Matrix3f   *
+ *------------- */
 struct Matrix3f {
 	HOST_FUNC DEV_FUNC Matrix3f();
 	HOST_FUNC DEV_FUNC static Matrix3f Identity();

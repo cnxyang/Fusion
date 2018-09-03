@@ -35,14 +35,6 @@ int main(int argc, char** argv) {
 		if (camera.FetchFrame(imD, imRGB)) {
 			slam.GrabImageRGBD(imRGB, imD);
 			slam.PrintTimings();
-			int key = cv::waitKey(10);
-			switch (key) {
-
-			case 27: /* Escape */
-				camera.StopStreaming();
-				std::cout << "User Requested Termination." << std::endl;
-				exit(0);
-			}
 		}
 	}
 }

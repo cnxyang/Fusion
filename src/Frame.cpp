@@ -93,9 +93,9 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 		mbFirstCall = false;
 	}
 
-	DeviceArray2D<uchar3> rawRGB(cols(0), rows(0));
+	mColor.create(cols(0), rows(0));
 	DeviceArray2D<ushort> rawDepth(cols(0), rows(0));
-	rawRGB.upload((void*)imRGB.data, imRGB.step, cols(0), rows(0));
+	mColor.upload((void*)imRGB.data, imRGB.step, cols(0), rows(0));
 	rawDepth.upload((void*)imD.data, imD.step, cols(0), rows(0));
 	for(int i = 0; i < numPyrs; ++i) {
 		mdIx[i].create(cols(i), rows(i));
@@ -106,7 +106,7 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 		mDepth[i].create(cols(i), rows(i));
 		if(i == 0) {
 			BilateralFiltering(rawDepth, mDepth[0], mDepthScale);
-			ColourImageToIntensity(rawRGB, mGray[0]);
+			ColourImageToIntensity(mColor, mGray[0]);
 		}
 		else {
 			PyrDownGaussian(mGray[i - 1], mGray[i]);

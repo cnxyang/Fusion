@@ -71,19 +71,9 @@ int main(int argc, char** argv) {
 	std::cout << "----------------------------------------------\n"
 			<< "Total Images to be processed: " << nImages << std::endl;
 	for (int i = 0; i < nImages; ++i) {
-
 		cv::Mat imD = cv::imread(vsDList[i], cv::IMREAD_UNCHANGED);
 		cv::Mat imRGB = cv::imread(vsRGBList[i], cv::IMREAD_UNCHANGED);
-
 		slam.GrabImageRGBD(imRGB, imD);
-		slam.PrintTimings();
-		int key = cv::waitKey(10);
-
-		switch (key) {
-		case 27: /* Escape */
-			std::cout << "User Requested Termination." << std::endl;
-			exit(0);
-		}
 	}
 
 	slam.JoinViewer();

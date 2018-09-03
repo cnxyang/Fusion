@@ -32,8 +32,11 @@ public:
 	void SetParameters(SysDesc& desc);
 	void PrintTimings();
 	void JoinViewer();
+	void SaveMesh();
 	void Reboot();
 	void Stop();
+
+	static std::mutex meshMutex;
 
 private:
 	Mapping* mpMap;
@@ -43,6 +46,7 @@ private:
 
 	cv::Mat mK;
 	bool mbStop;
+	int nFrames;
 	std::thread* mptViewer;
 };
 

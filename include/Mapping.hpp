@@ -8,6 +8,9 @@
 
 #include <vector>
 #include <opencv.hpp>
+#include <pangolin/pangolin.h>
+#include <pangolin/gl/glcuda.h>
+#include <pangolin/gl/glvbo.h>
 
 struct ORBKey;
 class KeyMap;
@@ -17,13 +20,12 @@ public:
 	Mapping();
 	~Mapping();
 
-	void AllocateDeviceMemory(MapDesc desc);
+	void AllocateDeviceMemory();
 	void ResetDeviceMemory();
 	void ReleaseDeviceMemory();
+	uint MeshScene();
 	int FuseFrame(const Frame& frame);
 	void RenderMap(Rendering& render, int num_occupied_blocks);
-	void UpdateDesc(MapDesc& desc);
-	void DownloadDesc();
 	uint IdentifyVisibleBlocks(const Frame& F);
 
 	void IntegrateKeys(Frame&);
@@ -32,6 +34,7 @@ public:
 	void GetKeysHost(std::vector<ORBKey>& vkeys);
 
 	std::vector<Eigen::Vector3d> GetCamTrace() { return mCamTrace; }
+	std::mutex mMutexMesh;
 
 	operator DeviceMap();
 	operator const DeviceMap() const;
@@ -45,19 +48,25 @@ public:
 
 	DeviceArray<int> mMemory;
 	DeviceArray<int> mUsedMem;
+	DeviceArray<int> mEntryPtr;
 	DeviceArray<int> mBucketMutex;
+	DeviceArray<Voxel> mVoxelBlocks;
 	DeviceArray<uint> mNumVisibleEntries;
 	DeviceArray<HashEntry> mHashEntries;
 	DeviceArray<HashEntry> mVisibleEntries;
-	DeviceArray<Voxel> mVoxelBlocks;
-	DeviceArray<int> mEntryPtr;
-
-	MapDesc mDesc;
 
 	DeviceArray<int> mKeyMutex;
 	DeviceArray<ORBKey> mORBKeys;
 
 	std::vector<Eigen::Vector3d> mCamTrace;
+
+	DeviceArray<float3> mMesh;
+	DeviceArray2D<int> mTriTable;
+	DeviceArray<int> mEdgeTable;
+	DeviceArray<float3> mMeshNormal;
+	DeviceArray<uchar3> mColorMap;
+	bool bUpdated;
+	uint nTriangle;
 };
 
 #endif
