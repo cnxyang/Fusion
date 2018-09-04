@@ -232,9 +232,12 @@ void icpStep(const DeviceArray2D<float4> & nextVMap,
 			 float * residual,
 			 double * JtJ_host,
 			 double * Jtr_host,
-			 MatK K,
-			 Frame * nextFrame,
-			 Frame * lastFrame) {
+			 Matrix3f Rcurr,
+			 float3 tcurr,
+			 Matrix3f Rlast,
+			 Matrix3f RlastInv,
+			 float3 tlast,
+			 MatK K) {
 
 	int cols = nextVMap.cols();
 	int rows = nextVMap.rows();
@@ -251,11 +254,11 @@ void icpStep(const DeviceArray2D<float4> & nextVMap,
 	icp.lastVMap = lastVMap;
 	icp.nextNMap = nextNMap;
 	icp.lastNMap = lastNMap;
-	icp.nextR = nextFrame->Rot_gpu();
-	icp.nextt = nextFrame->Trans_gpu();
-	icp.lastR = lastFrame->Rot_gpu();
-	icp.lastRinv = lastFrame->RotInv_gpu();
-	icp.lastt = lastFrame->Trans_gpu();
+	icp.nextR = Rcurr;
+	icp.nextt = tcurr;
+	icp.lastR = Rlast;
+	icp.lastRinv = RlastInv;
+	icp.lastt = tlast;
 	icp.angleThresh = sin(20.f * 3.14159254f / 180.f);
 	icp.distThresh = 0.1;
 

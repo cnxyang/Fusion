@@ -102,18 +102,25 @@ struct MatK {
 	}
 };
 
-void icpStep(const DeviceArray2D<float4> & nextVertex,
-			 const DeviceArray2D<float4> & lastVertex,
-			 const DeviceArray2D<float3> & nextNormal,
-			 const DeviceArray2D<float3> & lastNormal,
+struct RGBRes {
+
+};
+
+void icpStep(const DeviceArray2D<float4> & nextVMap,
+			 const DeviceArray2D<float4> & lastVMap,
+			 const DeviceArray2D<float3> & nextNMap,
+			 const DeviceArray2D<float3> & lastNMap,
 			 DeviceArray<JtJJtrSE3> & sum,
 			 DeviceArray<JtJJtrSE3> & out,
 			 float * residual,
-			 double * matA_data,
-			 double * vecB_data,
-			 MatK K,
-			 Frame * nextFrame,
-			 Frame * lastFrame);
+			 double * JtJ_host,
+			 double * Jtr_host,
+			 Matrix3f Rcurr,
+			 float3 tcurr,
+			 Matrix3f Rlast,
+			 Matrix3f RlastInv,
+			 float3 tlast,
+			 MatK K);
 
 class Tracking {
 public:
@@ -123,9 +130,6 @@ public:
 	void SetViewer(Viewer* pViewer);
 	bool Track(Mat& imRGB, Mat& imD);
 	void ResetTracking();
-//	void AddObservation(const Rendering& render);
-
-public:
 
 	enum State {
 		NOT_INITIALISED,
@@ -134,15 +138,9 @@ public:
 	};
 
 	bool TrackMap(bool bUseGraph = true);
-//	bool TrackICP();
-
 	bool TrackFrame();
 	bool InitTracking();
-//	void UpdateMap();
-//	void UpdateFrame();
 	void SetState(State s);
-	bool TrackLastFrame();
-//	void ShowResiduals();
 
 	Frame mLastFrame;
 	Frame mNextFrame;
@@ -164,16 +162,27 @@ public:
 
 public:
 
-	void computeICP();
-	bool computeSE3();
+	void reset();
+	void initIcp();
 	void swapFrame();
-	bool grabFrame(cv::Mat & imRGB, cv::Mat & imD);
-	void needKeyFrame();
-	void createKeyFrame(const Frame * f);
-	bool trackKeyFrame();
+	void initTracking();
+	void createNewKF();
 
-	static const int NUM_PYRS = 3;
+	bool track();
+	bool trackFrame();
+	bool trackKF();
+	bool needNewKF();
+	bool computeSO3();
+	bool computeSE3();
+	bool trackKeys();
+	bool grabFrame(cv::Mat & imRgb, cv::Mat & imD);
+	bool relocalise();
+
 	MatK K;
+	bool useIcp;
+	bool useSo3;
+	bool graphMatching;
+	static const int NUM_PYRS = 3;
 	DeviceArray2D<unsigned short> depth;
 	DeviceArray2D<uchar3> color;
 
@@ -188,6 +197,7 @@ public:
 	DeviceArray2D<float3> nextNMap[NUM_PYRS];
 	DeviceArray2D<short> nextIdx[NUM_PYRS];
 	DeviceArray2D<short> nextIdy[NUM_PYRS];
+	DeviceArray2D<RGBRes> corresImage[NUM_PYRS];
 
 	DeviceArray<JtJJtrSE3> sumSE3;
 	DeviceArray<JtJJtrSO3> sumSO3;
@@ -197,19 +207,25 @@ public:
 	Frame * nextFrame;
 	Frame * lastFrame;
 
-	bool needNewKF;
-	unsigned long relocKF;
 	KeyFrame * referenceKF;
 	KeyFrame * lastKF;
+	unsigned long lastReloc;
 
 	Eigen::Matrix4d nextPose;
 	Eigen::Matrix4d lastPose;
 	Eigen::Matrix4d currentPose;
-	Eigen::Matrix4d lastUpdatedPose;
+	Eigen::Matrix4d lastUpdatePose;
 
 	int iteration[NUM_PYRS];
 	float icpResidual[2];
 	float lastIcpError;
+	float rgbResidual[2];
+	float lastRgbError;
+	float so3Residual[2];
+	float lastSo3Error;
+
+	int state;
+	int lastState;
 };
 
 #endif
