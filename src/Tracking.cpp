@@ -10,14 +10,12 @@
 
 using namespace cv;
 
-Tracking::Tracking()
+Tracking::Tracking(int w, int h, float fx, float fy, float cx, float cy)
 	:nextFrame(nullptr), lastFrame(nullptr),
 	 referenceKF(nullptr), lastKF(nullptr),
 	 useIcp(true), useSo3(true),
 	 lastReloc(0) {
 
-	int w = 640;
-	int h = 480;
 	for(int i = 0; i < NUM_PYRS; ++i) {
 		int cols = w / (1 << i);
 		int rows = h / (1 << i);
@@ -49,8 +47,7 @@ Tracking::Tracking()
 	lastSo3Error = std::numeric_limits<float>::max();
 
 	state = lastState = 1;
-	K = MatK(Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0));
-//	mNextState = NOT_INITIALISED;
+	K = MatK(fx, fy, cx, cy);
 	mORBMatcher = cuda::DescriptorMatcher::createBFMatcher(NORM_HAMMING);
 }
 

@@ -175,7 +175,7 @@ public:
 	bool computeSO3();
 	bool computeSE3();
 	bool trackKeys();
-	bool grabFrame(cv::Mat & imRgb, cv::Mat & imD);
+	bool grabFrame(cv::Mat & rgb, cv::Mat & depth);
 	bool relocalise();
 
 	MatK K;
@@ -203,6 +203,11 @@ public:
 	DeviceArray<JtJJtrSO3> sumSO3;
 	DeviceArray<JtJJtrSE3> outSE3;
 	DeviceArray<JtJJtrSO3> outSO3;
+
+	std::vector<cv::KeyPoint> nextKeyPoints;
+	std::vector<cv::KeyPoint> lastKeyPoints;
+	cv::cuda::GpuMat nextDescriptors;
+	cv::cuda::GpuMat lastDescriptors;
 
 	Frame * nextFrame;
 	Frame * lastFrame;

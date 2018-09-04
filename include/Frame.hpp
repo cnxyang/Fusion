@@ -30,10 +30,10 @@ public:
 	Matrix3f Rot_gpu() const;
 	Matrix3f RotInv_gpu() const;
 
-	static const int numPyrs = 3;
-	static cv::Mat mK[numPyrs];
-	static int mCols[numPyrs];
-	static int mRows[numPyrs];
+	static const int NUM_PYRS = 3;
+	static cv::Mat mK[NUM_PYRS];
+	static int mCols[NUM_PYRS];
+	static int mRows[NUM_PYRS];
 
 	static float fx(int pyr);
 	static float fy(int pyr);

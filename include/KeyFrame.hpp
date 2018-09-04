@@ -7,6 +7,14 @@
 #include "device_array.hpp"
 
 class Frame;
+struct KeyFrame;
+
+struct SubFrame {
+	Eigen::Matrix4f deltaPose;
+	KeyFrame * referenceKF;
+	cv::Mat scaledDepth;
+	cv::Mat rawColor;
+};
 
 struct KeyFrame {
 
@@ -20,7 +28,7 @@ struct KeyFrame {
 	bool valid;
 	int N;
 	Eigen::Matrix4d pose;
-	std::set<Frame*> subFrames;
+	std::set<SubFrame *> subFrames;
 
 	DeviceArray2D<float4> vmap;
 	DeviceArray2D<float3> nmap;

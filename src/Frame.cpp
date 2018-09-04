@@ -84,14 +84,7 @@ Frame::Frame(const DeviceArray2D<uchar> & img, const cv::Mat & imD, KeyFrame * k
 	rawDepth = imD;
 	referenceKF = kf;
 
-	cv::cuda::GpuMat cudaImage(img.rows(), img.cols(), CV_8UC1);
-	SafeCall(cudaMemcpy2D((void*) cudaImage.data,
-			 	 	 	  cudaImage.step,
-			 	 	 	  img.data(),
-			 	 	 	  img.step(),
-			 	 	 	  img.cols() * sizeof(char),
-			 	 	 	  img.rows(),
-			 	 	 	  cudaMemcpyDeviceToDevice));
+	cv::cuda::GpuMat cudaImage(img.rows(), img.cols(), CV_8UC1, img.data(), img.step());
 
 	cv::Mat desc, descTemp;
 	cuda::GpuMat DescTemp;

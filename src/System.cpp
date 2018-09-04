@@ -48,7 +48,12 @@ nFrames(0){
 	mpMap->AllocateDeviceMemory();
 
 	mpViewer = new Viewer();
-	mpTracker = new Tracking();
+	mpTracker = new Tracking(mpParam->cols,
+							 mpParam->rows,
+							 mpParam->fx,
+							 mpParam->fy,
+							 mpParam->cx,
+							 mpParam->cy);
 
 	mpViewer->SetMap(mpMap);
 	mpViewer->SetSystem(this);
