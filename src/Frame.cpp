@@ -6,25 +6,25 @@
 using namespace cv;
 using namespace std;
 
-Mat Frame::mK[numPyrs];
+Mat Frame::mK[NUM_PYRS];
 bool Frame::mbFirstCall = true;
 float Frame::mDepthCutoff = 8.0f;
 float Frame::mDepthScale = 1000.0f;
-int Frame::mCols[numPyrs];
-int Frame::mRows[numPyrs];
+int Frame::mCols[NUM_PYRS];
+int Frame::mRows[NUM_PYRS];
 unsigned long Frame::nextId = 0;
 Ptr<cuda::ORB> Frame::mORB;
 
-Frame::Frame():mNkp(0) {}
+Frame::Frame():N(0) {}
 
-Frame::Frame(const Frame& other):mNkp(0) {
+Frame::Frame(const Frame& other):N(0) {
 
 	mPoints = other.mPoints;
-	mKeyPoints = other.mKeyPoints;
-	other.mDescriptors.copyTo(mDescriptors);
+	keys = other.keys;
+	other.descriptors.copyTo(descriptors);
 
-	mPose = other.mPose;
-	mPoseInv = other.mPoseInv;
+	pose = other.pose;
+//	mPoseInv = other.mPoseInv;
 }
 
 bool computeVertexAndNormal(const cv::Mat & imD, float & x, float & y,
@@ -72,7 +72,7 @@ Frame::Frame(const DeviceArray2D<uchar> & img, const cv::Mat & imD, KeyFrame * k
 
 	if(mbFirstCall) {
 		mORB = cv::cuda::ORB::create(1000);
-		for(int i = 0; i < numPyrs; ++i) {
+		for(int i = 0; i < NUM_PYRS; ++i) {
 			mCols[i] = imD.cols / (1 << i);
 			mRows[i] = imD.rows / (1 << i);
 		}
@@ -95,8 +95,8 @@ Frame::Frame(const DeviceArray2D<uchar> & img, const cv::Mat & imD, KeyFrame * k
 	Timer::Stop("test", "create frame");
 
 	std::cout << KPTemp.size() << std::endl;
-	mNkp = KPTemp.size();
-	if (mNkp <= 0)
+	N = KPTemp.size();
+	if (N <= 0)
 		return;
 
 	float invfx = 1.0 / fx(0);
@@ -106,7 +106,7 @@ Frame::Frame(const DeviceArray2D<uchar> & img, const cv::Mat & imD, KeyFrame * k
 	//		cv::Mat cpuNormal(rows(0), cols(0), CV_32FC3);
 	DescTemp.download(descTemp);
 
-	for (int i = 0; i < mNkp; ++i) {
+	for (int i = 0; i < N; ++i) {
 		cv::KeyPoint& kp = KPTemp[i];
 		float x = kp.pt.x;
 		float y = kp.pt.y;
@@ -132,12 +132,12 @@ Frame::Frame(const DeviceArray2D<uchar> & img, const cv::Mat & imD, KeyFrame * k
 			n(2) = normal.z;
 			mPoints.push_back(pos);
 			mNormals.push_back(n);
-			mKeyPoints.push_back(kp);
+			keys.push_back(kp);
 			desc.push_back(descTemp.row(i));
 		}
 	}
-	mNkp = mKeyPoints.size();
-	mDescriptors.upload(desc);
+	N = keys.size();
+	descriptors.upload(desc);
 
 	SetPose(Eigen::Matrix4d::Identity());
 }
@@ -148,7 +148,7 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 
 	if(mbFirstCall) {
 		mORB = cv::cuda::ORB::create(1000);
-		for(int i = 0; i < numPyrs; ++i) {
+		for(int i = 0; i < NUM_PYRS; ++i) {
 			mCols[i] = imD.cols / (1 << i);
 			mRows[i] = imD.rows / (1 << i);
 		}
@@ -166,8 +166,8 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 	std::vector<KeyPoint> KPTemp;
 
 	mORB->detectAndCompute(Image, cuda::GpuMat(), KPTemp, DescTemp);
-	mNkp = KPTemp.size();
-	if (mNkp <= 0)
+	N = KPTemp.size();
+	if (N <= 0)
 		return;
 
 	float invfx = 1.0 / fx(0);
@@ -178,7 +178,7 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 	DescTemp.download(descTemp);
 
 	Timer::Start("test", "keypoint");
-	for (int i = 0; i < mNkp; ++i) {
+	for (int i = 0; i < N; ++i) {
 		cv::KeyPoint& kp = KPTemp[i];
 		float x = kp.pt.x;
 		float y = kp.pt.y;
@@ -204,31 +204,32 @@ Frame::Frame(const cv::Mat& imRGB, const cv::Mat& imD) {
 			n(2) = normal.z;
 			mPoints.push_back(pos);
 			mNormals.push_back(n);
-			mKeyPoints.push_back(kp);
+			keys.push_back(kp);
 			desc.push_back(descTemp.row(i));
 		}
 	}
-	mNkp = mKeyPoints.size();
-	mDescriptors.upload(desc);
+	N = keys.size();
+	descriptors.upload(desc);
 	Timer::Stop("test", "keypoint");
 
 }
 
 void Frame::SetPose(const Frame& frame) {
-	mPose = frame.mPose;
-	mPoseInv = frame.mPoseInv;
+	pose = frame.pose;
+//	mPoseInv = frame.mPoseInv;
 }
 
 Matrix3f Frame::Rot_gpu() const {
 	Matrix3f Rot;
-	Rot.rowx = make_float3(mPose(0, 0), mPose(0, 1), mPose(0, 2));
-	Rot.rowy = make_float3(mPose(1, 0), mPose(1, 1), mPose(1, 2));
-	Rot.rowz = make_float3(mPose(2, 0), mPose(2, 1), mPose(2, 2));
+	Rot.rowx = make_float3(pose(0, 0), pose(0, 1), pose(0, 2));
+	Rot.rowy = make_float3(pose(1, 0), pose(1, 1), pose(1, 2));
+	Rot.rowz = make_float3(pose(2, 0), pose(2, 1), pose(2, 2));
 	return Rot;
 }
 
 Matrix3f Frame::RotInv_gpu() const {
 	Matrix3f Rot;
+	Eigen::Matrix4d mPoseInv = pose.inverse();
 	Rot.rowx = make_float3(mPoseInv(0, 0), mPoseInv(0, 1), mPoseInv(0, 2));
 	Rot.rowy = make_float3(mPoseInv(1, 0), mPoseInv(1, 1), mPoseInv(1, 2));
 	Rot.rowz = make_float3(mPoseInv(2, 0), mPoseInv(2, 1), mPoseInv(2, 2));
@@ -236,27 +237,23 @@ Matrix3f Frame::RotInv_gpu() const {
 }
 
 float3 Frame::Trans_gpu() const {
-	return make_float3(mPose(0, 3), mPose(1, 3), mPose(2, 3));
+	return make_float3(pose(0, 3), pose(1, 3), pose(2, 3));
 }
 
 void Frame::SetPose(const Eigen::Matrix4d T) {
-	mPose = T;
-	Eigen::Matrix3d R = Rotation().transpose();
-	Eigen::Vector3d t = -R * Translation();
-	mPoseInv.topLeftCorner(3, 3) = R;
-	mPoseInv.topRightCorner(3, 1) = t;
+	pose = T;
 }
 
 Eigen::Matrix3d Frame::Rotation() {
-	return mPose.topLeftCorner(3, 3);
+	return pose.topLeftCorner(3, 3);
 }
 
 Eigen::Vector3d Frame::Translation() {
-	return mPose.topRightCorner(3, 1);
+	return pose.topRightCorner(3, 1);
 }
 
 void Frame::SetK(cv::Mat& K) {
-	for(int i = 0; i < numPyrs; ++i) {
+	for(int i = 0; i < NUM_PYRS; ++i) {
 		mK[i] = cv::Mat::eye(3, 3, CV_32FC1);
 		mK[i].at<float>(0, 0) = K.at<float>(0, 0) / (1 << i);
 		mK[i].at<float>(1, 1) = K.at<float>(1, 1) / (1 << i);
@@ -266,31 +263,31 @@ void Frame::SetK(cv::Mat& K) {
 }
 
 float Frame::fx(int pyr) {
-	assert(pyr >= 0 && pyr <= numPyrs);
+	assert(pyr >= 0 && pyr <= NUM_PYRS);
 	return mK[pyr].at<float>(0, 0);
 }
 
 float Frame::fy(int pyr) {
-	assert(pyr >= 0 && pyr <= numPyrs);
+	assert(pyr >= 0 && pyr <= NUM_PYRS);
 	return mK[pyr].at<float>(1, 1);
 }
 
 float Frame::cx(int pyr) {
-	assert(pyr >= 0 && pyr <= numPyrs);
+	assert(pyr >= 0 && pyr <= NUM_PYRS);
 	return mK[pyr].at<float>(0, 2);
 }
 
 float Frame::cy(int pyr) {
-	assert(pyr >= 0 && pyr <= numPyrs);
+	assert(pyr >= 0 && pyr <= NUM_PYRS);
 	return mK[pyr].at<float>(1, 2);
 }
 
 int Frame::cols(int pyr) {
-	assert(pyr >= 0 && pyr <= numPyrs);
+	assert(pyr >= 0 && pyr <= NUM_PYRS);
 	return mCols[pyr];
 }
 
 int Frame::rows(int pyr) {
-	assert(pyr >= 0 && pyr <= numPyrs);
+	assert(pyr >= 0 && pyr <= NUM_PYRS);
 	return mRows[pyr];
 }

@@ -53,8 +53,8 @@ Tracking::Tracking(int w, int h, float fx, float fy, float cx, float cy)
 
 void Tracking::reset() {
 
-	state = -1;
-	lastState = -1;
+	state = 1;
+	lastState = 1;
 	nextFrame = nullptr;
 	lastFrame = nullptr;
 	referenceKF = nullptr;
@@ -66,49 +66,42 @@ void Tracking::reset() {
 bool Tracking::track() {
 
 	bool valid = false;
-	std::swap(state, lastState);
 
 	switch(lastState) {
 	case 1:
 		std::cout << "init" << std::endl;
 		initTracking();
+		swapFrame();
+		std::cout << state << " " << lastState << std::endl;
 		return true;
 
 	case 0:
 		valid = trackKF();
+		if(valid) {
+			state = 0;
+			if(needNewKF())
+				createNewKF();
+			swapFrame();
+			return true;
+		}
+
 		break;
 
 	case -1:
 		std::cout << "reloc" << std::endl;
 		valid = relocalise();
+		if(valid) {
+			state = 0;
+			return false;
+		}
+
 		break;
 	}
 
-	// loc or reloc failure
 	if (!valid) {
 		state = -1;
-		swapFrame();
 		return false;
 	}
-
-	mLastFrame = Frame(mNextFrame);
-
-	// reloc succeeded
-	if (lastState == -1 && valid) {
-		state = 0;
-		swapFrame();
-		return true;
-	}
-
-	// loc succeeded
-	if (lastState == 0 && valid) {
-		state = 0;
-		// check if we insert a new kf
-		if (needNewKF())
-			createNewKF();
-	}
-
-	return true;
 }
 
 bool Tracking::trackKF() {
@@ -131,7 +124,7 @@ bool Tracking::trackKeys() {
 
 	std::vector<cv::DMatch> refined;
 	std::vector<std::vector<cv::DMatch>> rawMatches;
-	mORBMatcher->knnMatch(mNextFrame.mDescriptors, mLastFrame.mDescriptors, rawMatches, 2);
+	mORBMatcher->knnMatch(mNextFrame.descriptors, mLastFrame.descriptors, rawMatches, 2);
 
 	for (int i = 0; i < rawMatches.size(); ++i) {
 		if (rawMatches[i][0].distance < 0.8 * rawMatches[i][1].distance) {
@@ -152,10 +145,10 @@ bool Tracking::trackKeys() {
 	}
 
 	Eigen::Matrix4d dT = Eigen::Matrix4d::Identity();
-	bool result = Solver::SolveAbsoluteOrientation(src, ref, mNextFrame.mOutliers, dT, 100);
+	bool result = Solver::SolveAbsoluteOrientation(src, ref, mNextFrame.outliers, dT, 100);
 	result = true;
 	if (result) {
-		lastUpdatePose = dT.inverse() * mLastFrame.mPose;
+		lastUpdatePose = dT.inverse() * mLastFrame.pose;
 		mNextFrame.SetPose(lastUpdatePose);
 	}
 
@@ -169,13 +162,12 @@ void Tracking::initTracking() {
 		initIcp();
 	createNewKF();
 	state = 0;
-	mLastFrame = Frame(mNextFrame);
 	return;
 }
 
 bool Tracking::grabFrame(cv::Mat & imRgb, cv::Mat & imD) {
 
-	swapFrame();
+//	swapFrame();
 	color.upload((void*) imRgb.data, imRgb.step, imRgb.cols, imRgb.rows);
 	ColourImageToIntensity(color, nextImage[0]);
 	mNextFrame = Frame(nextImage[0], imD, referenceKF);
@@ -204,6 +196,9 @@ void Tracking::initIcp() {
 }
 
 void Tracking::swapFrame() {
+
+	std::swap(state, lastState);
+	mLastFrame = Frame(mNextFrame);
 	for (int i = 0; i < NUM_PYRS; ++i) {
 		nextImage[i].swap(lastImage[i]);
 		nextDepth[i].swap(lastDepth[i]);
@@ -214,7 +209,7 @@ void Tracking::swapFrame() {
 
 bool Tracking::needNewKF() {
 
-	Eigen::Matrix4d delta = mNextFrame.mPoseInv * referenceKF->pose;
+	Eigen::Matrix4d delta = mNextFrame.pose.inverse() * referenceKF->pose;
 	Eigen::Matrix3d rotation = delta.topLeftCorner(3, 3);
 	Eigen::Vector3d angles = rotation.eulerAngles(0, 1, 2).array().sin();
 	if(angles.norm() >= 0.1)
@@ -239,13 +234,16 @@ void Tracking::createNewKF() {
 bool Tracking::computeSE3() {
 
 	float residual[2];
-	nextPose = mLastFrame.mPose;
-	lastPose = mLastFrame.mPose;
-	lastUpdatePose = nextPose;
-	Eigen::Matrix<double, 6, 1> vecb;
+	nextPose = mNextFrame.pose;
+	lastPose = mLastFrame.pose;
+	lastUpdatePose = lastPose;
 	Eigen::Matrix<double, 6, 6, Eigen::RowMajor> matA;
+	Eigen::Matrix<double, 6, 1> vecb;
+	Eigen::Matrix<double, 6, 1> result;
 	lastIcpError = std::numeric_limits<float>::max();
+
 	for(int i = NUM_PYRS - 1; i >= 0; --i) {
+
 		for(int j = 0; j < iteration[i]; ++j) {
 
 			icpStep(nextVMap[i],
@@ -267,7 +265,12 @@ bool Tracking::computeSE3() {
 			float icpError = sqrt(residual[0]) / residual[1];
 			float icpCount = residual[1];
 
-			Eigen::Matrix<double, 6, 1> result = matA.ldlt().solve(vecb);
+			if (std::isnan(icpError) || icpCount == 0) {
+				mNextFrame.SetPose(lastUpdatePose);
+				return false;
+			}
+
+			result = matA.ldlt().solve(vecb);
 			auto e = Sophus::SE3d::exp(result);
 			auto dT = e.matrix();
 			nextPose = lastPose * (dT.inverse() * nextPose.inverse() * lastPose).inverse();
@@ -276,7 +279,6 @@ bool Tracking::computeSE3() {
 	}
 
 	mNextFrame.SetPose(nextPose);
-
 	return true;
 }
 

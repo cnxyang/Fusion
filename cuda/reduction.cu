@@ -93,18 +93,16 @@ struct ICPReduction {
 	PtrStep<float3> nextNMap;
 	PtrStep<float3> lastNMap;
 
-	Matrix3f nextR;
-	Matrix3f lastR;
-	Matrix3f lastRinv;
-	float3 nextt;
-	float3 lastt;
+	Matrix3f Rcurr;
+	Matrix3f Rlast;
+	Matrix3f RlastInv;
+	float3 tcurr;
+	float3 tlast;
 
+	MatK K;
 	float angleThresh;
 	float distThresh;
-	int cols;
-	int rows;
-	int N;
-	MatK K;
+	int cols, rows, N;
 
 	JtJJtrSE3 * out;
 
@@ -117,24 +115,23 @@ struct ICPReduction {
 		if (isnan(vcurr_c.x) || vcurr_c.z < 1e-3)
 			return false;
 
-		vcurr_g = nextR * vcurr_c + nextt;
-		float3 vcurr_p = lastRinv * (vcurr_g - lastt);
+		vcurr_g = Rcurr * vcurr_c + tcurr;
+		float3 vcurr_p = RlastInv * (vcurr_g - tlast);
 
 		float invz = 1.0 / vcurr_p.z;
 		int u = (int) (vcurr_p.x * invz * K.fx + K.cx + 0.5);
 		int v = (int) (vcurr_p.y * invz * K.fy + K.cy + 0.5);
-
 		if (u < 0 || v < 0 || u >= cols || v >= rows)
 			return false;
 
 		float3 vlast_c = make_float3(lastVMap.ptr(v)[u]);
-		vlast_g = lastR * vlast_c + lastt;
+		vlast_g = Rlast * vlast_c + tlast;
 
 		float3 ncurr_c = nextNMap.ptr(y)[x];
-		float3 ncurr_g = nextR * ncurr_c;
+		float3 ncurr_g = Rcurr * ncurr_c;
 
 		float3 nlast_c = lastNMap.ptr(v)[u];
-		nlast_g = lastR * nlast_c;
+		nlast_g = Rlast * nlast_c;
 
 		float dist = norm(vlast_g - vcurr_g);
 		float sine = norm(cross(ncurr_g, nlast_g));
@@ -146,6 +143,7 @@ struct ICPReduction {
 	}
 
 	__device__ __inline__ JtJJtrSE3 getProduct(int & k) const {
+
 		int y = k / cols;
 		int x = k - (y * cols);
 		float3 vcurr, vlast, nlast;
@@ -153,9 +151,9 @@ struct ICPReduction {
 
 		float row[7] = { 0, 0, 0, 0, 0, 0, 0 };
 		if (found_coresp) {
-			nlast = lastRinv * nlast;
-			vcurr = lastRinv * (vcurr - lastt);
-			vlast = lastRinv * (vlast - lastt);
+			nlast = RlastInv * nlast;
+			vcurr = RlastInv * (vcurr - tlast);
+			vlast = RlastInv * (vlast - tlast);
 			*(float3*) &row[0] = -nlast;
 			*(float3*) &row[3] = cross(nlast, vlast);
 			row[6] = -nlast * (vlast - vcurr);
@@ -245,22 +243,25 @@ void icpStep(const DeviceArray2D<float4> & nextVMap,
 	ICPReduction icp;
 
 	icp.K = K;
-	icp.out = sum;
 	icp.cols = cols;
 	icp.rows = rows;
 	icp.N = cols * rows;
+
+	icp.Rcurr = Rcurr;
+	icp.tcurr = tcurr;
+	icp.Rlast = Rlast;
+	icp.RlastInv = RlastInv;
+	icp.tlast = tlast;
 
 	icp.nextVMap = nextVMap;
 	icp.lastVMap = lastVMap;
 	icp.nextNMap = nextNMap;
 	icp.lastNMap = lastNMap;
-	icp.nextR = Rcurr;
-	icp.nextt = tcurr;
-	icp.lastR = Rlast;
-	icp.lastRinv = RlastInv;
-	icp.lastt = tlast;
+
 	icp.angleThresh = sin(20.f * 3.14159254f / 180.f);
 	icp.distThresh = 0.1;
+
+	icp.out = sum;
 
 	icpStepKernel<<<96, 224>>>(icp);
 

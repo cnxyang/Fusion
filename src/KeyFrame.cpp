@@ -1,9 +1,9 @@
 #include "KeyFrame.hpp"
 
 KeyFrame::KeyFrame(const Frame * src) :
-		valid(true), N(src->mNkp),frameId(src->frameId) {
+		valid(true), N(src->N),frameId(src->frameId) {
 
-	pose = src->mPose;
+	pose = src->pose;
 	frameKeys = src->mPoints;
-	frameDescriptors = src->mDescriptors;
+	frameDescriptors = src->descriptors;
 }

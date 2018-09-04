@@ -1,3 +1,4 @@
+/*
 #include "Frame.hpp"
 #include "device_math.hpp"
 #include "device_array.hpp"
@@ -471,3 +472,4 @@ __global__ void RGBDense_device(const RGB rgb) {
 void RGBDense(Frame& NextFrame, Frame& LastFrame) {
 
 }
+*/

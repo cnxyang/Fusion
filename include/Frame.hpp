@@ -10,6 +10,8 @@
 #include <features2d.hpp>
 #include <cudaarithm.hpp>
 
+#include <Eigen/Dense>
+
 struct ORBKey;
 struct KeyFrame;
 
@@ -44,8 +46,6 @@ public:
 	static int pixels(int pyr);
 	static void SetK(cv::Mat& K);
 
-	operator Rendering();
-
 public:
 
 	static bool mbFirstCall;
@@ -53,15 +53,8 @@ public:
 	static float mDepthCutoff;
 	static cv::Ptr<cv::cuda::ORB> mORB;
 
-	std::vector<bool> mOutliers;
 	std::vector<cv::Vec3f> mNormals;
 	std::vector<Eigen::Vector3d> mPoints;
-	std::vector<cv::KeyPoint> mKeyPoints;
-	cv::cuda::GpuMat mDescriptors;
-
-	Eigen::Matrix4d mPose;
-	Eigen::Matrix4d mPoseInv;
-	int mNkp;
 
 	cv::Mat rawDepth;
 	cv::Mat rawColor;
@@ -69,6 +62,13 @@ public:
 	KeyFrame * referenceKF;
 	unsigned long frameId;
 	static unsigned long nextId;
+
+	int N;
+	std::vector<bool> outliers;
+	std::vector<cv::KeyPoint> keys;
+	cv::cuda::GpuMat descriptors;
+
+	Eigen::Matrix4d pose;
 };
 
 #endif

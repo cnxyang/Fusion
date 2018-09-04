@@ -1,23 +1,10 @@
 #ifndef DEVICE_STRUCT_HPP__
 #define DEVICE_STRUCT_HPP__
 
-#include <Eigen/Dense>
 #include "device_array.hpp"
 #include "device_math.hpp"
 
 #define MaxThread 1024
-
-struct Rendering {
-
-	int cols, rows;
-	float fx, fy, cx, cy;
-	float maxD, minD;
-	Matrix3f Rview, invRview;
-	float3 tview;
-	DeviceArray2D<float4> VMap;
-	DeviceArray2D<float3> NMap;
-	DeviceArray2D<uchar4> Render;
-};
 
 struct RenderingBlock {
 
@@ -104,6 +91,8 @@ struct DeviceMap {
 	static constexpr float VoxelSize = 0.008f;
 	static constexpr float TruncateDist = 0.04f;
 	static constexpr int MaxRenderingBlocks = 260000;
+	static constexpr float voxelSizeInv = 1.0 / VoxelSize;
+	static constexpr float blockWidth = VoxelSize * BlockSize;
 	static constexpr uint NumEntries = NumBuckets + NumExcess;
 
 	PtrSz<int> heapMem;

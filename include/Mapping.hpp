@@ -25,7 +25,7 @@ public:
 	void ReleaseDeviceMemory();
 	uint MeshScene();
 	int FuseFrame(const Frame& frame);
-	void RenderMap(Rendering& render, int num_occupied_blocks);
+//	void RenderMap(Rendering& render, int num_occupied_blocks);
 	uint IdentifyVisibleBlocks(const Frame& F);
 	void FuseDepthAndColor(const DeviceArray2D<float> & depth,
 			const DeviceArray2D<uchar3> & color, Matrix3f viewRot,
@@ -41,6 +41,10 @@ public:
 
 	std::vector<Eigen::Vector3d> GetCamTrace() { return mCamTrace; }
 	std::mutex mMutexMesh;
+
+	void RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
+			float3 tview, DeviceArray2D<float4> & vmap,
+			DeviceArray2D<float3> & nmap);
 
 	operator DeviceMap();
 	operator const DeviceMap() const;

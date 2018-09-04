@@ -137,8 +137,8 @@ void Viewer::DrawColor() {
 }
 
 void Viewer::FollowCam() {
-	Eigen::Matrix3d R = mpTracker->currentPose.topLeftCorner(3, 3);
-	Eigen::Vector3d t = mpTracker->currentPose.topRightCorner(3, 1);
+	Eigen::Matrix3d R = mpTracker->mLastFrame.pose.topLeftCorner(3, 3);
+	Eigen::Vector3d t = mpTracker->mLastFrame.pose.topRightCorner(3, 1);
 	Eigen::Vector3d up = { 0, -1, 0 };
 	Eigen::Vector3d eye = { 0, 0, 0 };
 	Eigen::Vector3d look = { 0, 0, 1 };
