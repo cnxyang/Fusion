@@ -27,6 +27,7 @@ void Mapping::AllocateDeviceMemory() {
 	mKeyMutex.create(KeyMap::MaxKeys);
 	mORBKeys.create(KeyMap::MaxKeys * KeyMap::nBuckets);
 
+	zRange.create(640 / 8, 480 / 8);
 	mMesh.create(DeviceMap::MaxTriangles * 3);
 	mMeshNormal.create(DeviceMap::MaxTriangles * 3);
 	mColorMap.create(DeviceMap::MaxTriangles * 3);
@@ -129,17 +130,18 @@ void Mapping::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float3> & nmap) {
 
 	DeviceArray<uint> noRenderingBlocks(1);
-	DeviceArray2D<float> zRangeX(640, 480);
-	DeviceArray2D<float> zRangeY(640, 480);
-	if (createRenderingBlock(mVisibleEntries, zRangeX, zRangeY, 3.0, 0.1,
+	Timer::Start("test", "test");
+	if (createRenderingBlock(mVisibleEntries, mDepthMapMin, mDepthMapMax, 5.0, 0.1,
 			mRenderingBlockList, noRenderingBlocks, RviewInv, tview,
 			noVisibleBlocks, Frame::fx(0), Frame::fy(0), Frame::cx(0),
 			Frame::cy(0))) {
 
-		RayCast(*this, vmap, nmap, zRangeX, zRangeY, Rview, RviewInv, tview,
+		RayCast(*this, vmap, nmap, mDepthMapMin, mDepthMapMax, Rview, RviewInv, tview,
 				1.0 / Frame::fx(0), 1.0 / Frame::fy(0), Frame::cx(0),
 				Frame::cy(0));
 	}
+	Timer::Stop("test", "test");
+
 }
 
 Mapping::operator const DeviceMap() const {

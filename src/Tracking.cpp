@@ -265,10 +265,10 @@ bool Tracking::computeSE3() {
 			float icpError = sqrt(residual[0]) / residual[1];
 			float icpCount = residual[1];
 
-			if (std::isnan(icpError) || icpCount == 0) {
-				mNextFrame.SetPose(lastUpdatePose);
-				return false;
-			}
+//			if (std::isnan(icpError) || icpCount == 0) {
+//				mNextFrame.SetPose(lastUpdatePose);
+//				return false;
+//			}
 
 			result = matA.ldlt().solve(vecb);
 			auto e = Sophus::SE3d::exp(result);

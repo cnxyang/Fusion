@@ -63,14 +63,14 @@ void Viewer::Spin() {
 			exit(0);
 		}
 
+		glClearColor(0, 0, 0, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		d_cam.Activate(s_cam);
+
 		if (Pushed(BtnReset)) {
 			cout << "requesting system reboot.." << endl;
 			mpSystem->Reboot();
 		}
-
-		glClearColor(0, 0, 0, 0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		d_cam.Activate(s_cam);
 
 		if (BtnShowTrajectory)
 			DrawTrajectory();
@@ -79,13 +79,13 @@ void Viewer::Spin() {
 			DrawKeys();
 
 		if (BtnShowMesh) {
-			if(BtnShowNormal)
+			if (BtnShowNormal)
 				BtnShowNormal = false;
 			DrawMesh(false);
 		}
 
 		if (BtnShowNormal) {
-			if(BtnShowMesh)
+			if (BtnShowMesh)
 				BtnShowMesh = false;
 			DrawMesh(true);
 		}
@@ -200,14 +200,14 @@ void Viewer::Insert(std::vector<GLfloat>& vPt, Eigen::Vector3d& pt) {
 
 void Viewer::DrawTrajectory() {
 
-	vector<GLfloat> vPos;
-	vector<Eigen::Vector3d> trace = mpMap->GetCamTrace();
-	for (int i = 0; i < trace.size(); ++i) {
-		Insert(vPos, trace[i]);
-	}
-
-	glColor3f(0.0, 0.0, 1.0);
-	glDrawVertices(vPos.size() / 3, (GLfloat*) &vPos[0], GL_LINE_STRIP, 3);
+//	vector<GLfloat> vPos;
+//	vector<Eigen::Vector3d> trace = mpMap->GetCamTrace();
+//	for (int i = 0; i < trace.size(); ++i) {
+//		Insert(vPos, trace[i]);
+//	}
+//
+//	glColor3f(0.0, 0.0, 1.0);
+//	glDrawVertices(vPos.size() / 3, (GLfloat*) &vPos[0], GL_LINE_STRIP, 3);
 }
 
 void Viewer::DrawCamera() {
@@ -261,20 +261,20 @@ void Viewer::DrawCamera() {
 
 void Viewer::DrawKeys() {
 
-	vector<GLfloat> vGLKeys;
-	vector<ORBKey> vKeys;
-	mpMap->GetKeysHost(vKeys);
-	for (int i = 0; i < vKeys.size(); ++i) {
-		ORBKey& key = vKeys[i];
-		vGLKeys.push_back(key.pos.x);
-		vGLKeys.push_back(key.pos.y);
-		vGLKeys.push_back(key.pos.z);
-	}
-
-	glColor3f(1.0, 0.0, 0.0);
-	glPointSize(3.0);
-	glDrawVertices(vGLKeys.size() / 3, (GLfloat*) &vGLKeys[0], GL_POINTS, 3);
-	glPointSize(1.0);
+//	vector<GLfloat> vGLKeys;
+//	vector<ORBKey> vKeys;
+//	mpMap->GetKeysHost(vKeys);
+//	for (int i = 0; i < vKeys.size(); ++i) {
+//		ORBKey& key = vKeys[i];
+//		vGLKeys.push_back(key.pos.x);
+//		vGLKeys.push_back(key.pos.y);
+//		vGLKeys.push_back(key.pos.z);
+//	}
+//
+//	glColor3f(1.0, 0.0, 0.0);
+//	glPointSize(3.0);
+//	glDrawVertices(vGLKeys.size() / 3, (GLfloat*) &vGLKeys[0], GL_POINTS, 3);
+//	glPointSize(1.0);
 }
 
 void Viewer::SetMap(Mapping* pMap) {

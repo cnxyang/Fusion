@@ -65,16 +65,14 @@ nFrames(0){
 
 	Frame::mDepthScale = mpParam->DepthScale;
 	Frame::mDepthCutoff = mpParam->DepthCutoff;
-	Timer::Enable();
+//	Timer::Enable();
 }
 
 void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 
-	Timer::Start("Total", "Total");
 	bool bOK = mpTracker->grabFrame(imRGB, imD);
 
 	if (bOK) {
-		Timer::Start("Total", "Integration");
 		uint no;
 		mpMap->FuseDepthAndColor(mpTracker->lastDepth[0], mpTracker->color,
 				mpTracker->mLastFrame.Rot_gpu(),
@@ -83,28 +81,18 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 				Frame::fx(0), Frame::fy(0),
 				Frame::cx(0), Frame::cy(0),
 				0.1f, 3.0f, no);
-		Timer::Stop("Total", "Integration");
-
-		Timer::Start("Total", "Render");
-//		mpMap->RenderMap(mpTracker->lastVMap[0], mpTracker->lastNMap[0],
-//				mpTracker->mLastFrame.Rot_gpu(),
-//				mpTracker->mLastFrame.RotInv_gpu(),
-//				mpTracker->mLastFrame.Trans_gpu(), no);
 
 		mpMap->RayTrace(no, mpTracker->mLastFrame.Rot_gpu(),
 				mpTracker->mLastFrame.RotInv_gpu(),
 				mpTracker->mLastFrame.Trans_gpu(), mpTracker->lastVMap[0],
 				mpTracker->lastNMap[0]);
-		Timer::Stop("Total", "Render");
 
 		if(nFrames > 30) {
 			nFrames = 0;
 			mpMap->MeshScene();
 		}
 		nFrames++;
-//		Timer::Print();
 	}
-	Timer::Stop("Total", "Total");
 
 	if(mbStop)
 		exit(0);

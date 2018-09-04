@@ -14,8 +14,8 @@ void RayCast(DeviceMap map,
 			 float cy);
 
 bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
-						  const DeviceArray2D<float> & zRangeX,
-						  const DeviceArray2D<float> & zRangeY,
+						  DeviceArray2D<float> & zRangeX,
+						  DeviceArray2D<float> & zRangeY,
 						  const float & depthMax,
 						  const float & depthMin,
 						  DeviceArray<RenderingBlock> & renderingBlockList,

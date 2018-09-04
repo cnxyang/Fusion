@@ -1,7 +1,8 @@
 #include "rendering.h"
 #include "prefixsum.h"
+#include "Timer.hpp"
 
-#define minMaxSubSampling 8
+#define minMaxSubSample 8
 #define renderingBlockSizeX 16
 #define renderingBlockSizeY 16
 
@@ -30,55 +31,37 @@ struct Projection {
 		return pt2d;
 	}
 
-	__device__ inline void checkProjection(float2 & upperLeft,
-			float2 & lowerRight, float2 & zRange, float2 & pt2d,
-			float & z) const {
-
-		if (z < 1e-1)
-			return;
-		if (upperLeft.x > pt2d.x)
-			upperLeft.x = pt2d.x;
-		if (lowerRight.x < pt2d.x)
-			lowerRight.x = pt2d.x;
-		if (upperLeft.y > pt2d.y)
-			upperLeft.y = pt2d.y;
-		if (lowerRight.y < pt2d.y)
-			lowerRight.y = pt2d.y;
-		if (zRange.x > z)
-			zRange.x = z;
-		if (zRange.y < z)
-			zRange.y = z;
-	}
-
 	__device__ inline bool projectBlock(const int3 & pos,
-			RenderingBlock & block) const {
+										RenderingBlock & block) const {
 
-		float2 upperLeft = make_float2(cols, rows) / minMaxSubSampling;
-		float2 lowerRight = make_float2(-1, -1);
-		float2 zRange = make_float2(depthMax, depthMin);
-		float3 blockPos = pos * DeviceMap::blockWidth;
-
-	#pragma unroll
+		block.upperLeft = make_int2(cols, rows) / minMaxSubSample;
+		block.lowerRight = make_int2(-1, -1);
+		block.zRange = make_float2(DeviceMap::DepthMax, DeviceMap::DepthMin);
 		for (int corner = 0; corner < 8; ++corner) {
-			float3 pt3d = blockPos;
-			pt3d.x += (corner & 1) ? DeviceMap::blockWidth : 0;
-			pt3d.y += (corner & 2) ? DeviceMap::blockWidth : 0;
-			pt3d.z += (corner & 4) ? DeviceMap::blockWidth : 0;
+			int3 tmp = pos;
+			tmp.x += (corner & 1) ? 1 : 0;
+			tmp.y += (corner & 2) ? 1 : 0;
+			tmp.z += (corner & 4) ? 1 : 0;
+			float3 pt3d = tmp * DeviceMap::BlockSize * DeviceMap::VoxelSize;
 			pt3d = RcurrInv * (pt3d - tcurr);
-			float2 pt2d = project(pt3d) / minMaxSubSampling;
-			checkProjection(upperLeft, lowerRight, zRange, pt2d, pt3d.z);
+			if (pt3d.z < 2e-1)
+				continue;
+
+			float2 pt2d = project(pt3d) / minMaxSubSample;
+
+			if (block.upperLeft.x > floor(pt2d.x))
+				block.upperLeft.x = (int) floor(pt2d.x);
+			if (block.lowerRight.x < ceil(pt2d.x))
+				block.lowerRight.x = (int) ceil(pt2d.x);
+			if (block.upperLeft.y > floor(pt2d.y))
+				block.upperLeft.y = (int) floor(pt2d.y);
+			if (block.lowerRight.y < ceil(pt2d.y))
+				block.lowerRight.y = (int) ceil(pt2d.y);
+			if (block.zRange.x > pt3d.z)
+				block.zRange.x = pt3d.z;
+			if (block.zRange.y < pt3d.z)
+				block.zRange.y = pt3d.z;
 		}
-
-		if (zRange.x < DeviceMap::DepthMin)
-			zRange.x = DeviceMap::DepthMin;
-		if (zRange.y < DeviceMap::DepthMin)
-			return false;
-
-		block.lowerRight.x = (int) lowerRight.x;
-		block.lowerRight.y = (int) lowerRight.y;
-		block.upperLeft.x = (int) upperLeft.x;
-		block.upperLeft.y = (int) upperLeft.y;
-		block.zRange = zRange;
 
 		if (block.upperLeft.x < 0)
 			block.upperLeft.x = 0;
@@ -92,6 +75,10 @@ struct Projection {
 			return false;
 		if (block.upperLeft.y > block.lowerRight.y)
 			return false;
+		if (block.zRange.x < DeviceMap::DepthMin)
+			block.zRange.x = DeviceMap::DepthMin;
+		if (block.zRange.y < DeviceMap::DepthMin)
+			return false;
 
 		return true;
 	}
@@ -99,35 +86,33 @@ struct Projection {
 	__device__ inline void createRenderingBlockList(int & offset,
 			const RenderingBlock & block, int & nx, int & ny) const {
 
-		for (int x = 0; x < nx; ++x)
-			for (int y = 0; y < ny; ++y) {
-				if (offset >= DeviceMap::MaxRenderingBlocks)
-					return;
-
-				RenderingBlock & b(renderingBlockList[offset++]);
-				b.upperLeft.x = block.upperLeft.x + x * renderingBlockSizeX;
-				b.upperLeft.y = block.upperLeft.y + y * renderingBlockSizeY;
-				b.lowerRight.x = b.upperLeft.x + renderingBlockSizeX;
-				b.lowerRight.y = b.upperLeft.y + renderingBlockSizeY;
-				if (b.lowerRight.x > block.lowerRight.x)
-					b.lowerRight.x = block.lowerRight.x;
-				if (b.lowerRight.y > block.lowerRight.y)
-					b.lowerRight.y = block.lowerRight.y;
-				b.zRange = block.zRange;
+		for (int y = 0; y < ny; ++y)
+			for (int x = 0; x < ny; ++x) {
+				if (offset < renderingBlockList.size) {
+					RenderingBlock & b(renderingBlockList[offset++]);
+					b.upperLeft.x = block.upperLeft.x + x * renderingBlockSizeX;
+					b.upperLeft.y = block.upperLeft.y + y * renderingBlockSizeY;
+					b.lowerRight.x = block.upperLeft.x + renderingBlockSizeX;
+					b.lowerRight.y = block.upperLeft.y + renderingBlockSizeY;
+					if (b.lowerRight.x > block.lowerRight.x)
+						b.lowerRight.x = block.lowerRight.x;
+					if (b.lowerRight.y > block.lowerRight.y)
+						b.lowerRight.y = block.lowerRight.y;
+					b.zRange = block.zRange;
+				}
 			}
 	}
 
 	__device__ inline void operator()() const {
 
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
-		const HashEntry & e = visibleBlocks[x];
 		bool valid = false;
 		uint requiredNoBlocks = 0;
 		RenderingBlock block;
 		int nx, ny;
 
-		if (e.ptr != EntryAvailable && x < noVisibleBlocks) {
-			valid = projectBlock(e.pos, block);
+		if (x < noVisibleBlocks && visibleBlocks[x].ptr != EntryAvailable) {
+			valid = projectBlock(visibleBlocks[x].pos, block);
 			float dx = (float) block.lowerRight.x - block.upperLeft.x + 1;
 			float dy = (float) block.lowerRight.y - block.upperLeft.y + 1;
 			nx = __float2int_ru(dx / renderingBlockSizeX);
@@ -135,7 +120,7 @@ struct Projection {
 			if (valid) {
 				requiredNoBlocks = nx * ny;
 				uint totalNoBlocks = *noRenderingBlocks + requiredNoBlocks;
-				if (totalNoBlocks > DeviceMap::MaxRenderingBlocks) {
+				if (totalNoBlocks >= renderingBlockList.size) {
 					requiredNoBlocks = 0;
 					valid = false;
 				}
@@ -168,7 +153,7 @@ struct Projection {
 
 		float * minPtr = & zRangeX.ptr(ypos)[xpos];
 		float * maxPtr = & zRangeY.ptr(ypos)[xpos];
-		printf("%f\n", b.zRange.x);
+
 		atomicMin(minPtr, b.zRange.x);
 		atomicMax(maxPtr, b.zRange.y);
 
@@ -186,7 +171,7 @@ __global__ void fillBlocksKernel(const Projection proj) {
 	proj.fillBlocks();
 }
 
-__global__ void fillDepthRangeKernel(PtrStepSz<float> zX, PtrStepSz<float> zY) {
+__global__ void fillDepthRangeKernel(PtrStepSz<float> zX) {
 
 	int x = blockDim.x * blockIdx.x + threadIdx.x;
 	int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -194,12 +179,11 @@ __global__ void fillDepthRangeKernel(PtrStepSz<float> zX, PtrStepSz<float> zY) {
 		return;
 
 	zX.ptr(y)[x] = 3.5;
-	zY.ptr(y)[x] = 0.1;
 }
 
 bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
-						  const DeviceArray2D<float> & zRangeX,
-						  const DeviceArray2D<float> & zRangeY,
+						  DeviceArray2D<float> & zRangeX,
+						  DeviceArray2D<float> & zRangeY,
 						  const float & depthMax,
 						  const float & depthMin,
 						  DeviceArray<RenderingBlock> & renderingBlockList,
@@ -216,9 +200,13 @@ bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
 	int rows = zRangeX.rows();
 	noRenderingBlocks.zero();
 	Projection proj;
+	proj.fx = fx;
+	proj.fy = fy;
+	proj.cx = cx;
+	proj.cy = cy;
 	proj.visibleBlocks = visibleBlocks;
-	proj.cols = cols;
-	proj.rows = rows;
+	proj.cols = 640;
+	proj.rows = 480;
 	proj.RcurrInv = RviewInv;
 	proj.tcurr = tview;
 	proj.zRangeX = zRangeX;
@@ -230,20 +218,25 @@ bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
 	proj.renderingBlockList = renderingBlockList;
 
 	dim3 block, thread;
-	thread.x = 32; block.y = 8;
+	thread = dim3(16, 4);
 	block.x = cv::divUp(cols, thread.x);
 	block.y = cv::divUp(rows, thread.y);
 
-	fillDepthRangeKernel<<<block, thread>>>(zRangeX, zRangeY);
+	Timer::Start("test", "fillDepthRangeKernel");
+	zRangeY.zero();
+	fillDepthRangeKernel<<<block, thread>>>(zRangeX);
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
+	Timer::Stop("test", "fillDepthRangeKernel");
 
 	thread = dim3(1024);
 	block = dim3(cv::divUp((int) noVisibleBlocks, block.x));
 
+	Timer::Start("test", "projectBlockKernel");
 	projectBlockKernel<<<block, thread>>>(proj);
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
+	Timer::Stop("test", "projectBlockKernel");
 
 	uint totalBlocks;
 	noRenderingBlocks.download((void*) &totalBlocks);
@@ -252,13 +245,15 @@ bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
 		return false;
 	}
 
-	thread.x = thread.y = 16;
+	thread = dim3(16, 16);
 	block.x = (uint)ceil((float)totalBlocks / 4);
 	block.y = 4;
 
+	Timer::Start("test", "fillBlocksKernel");
 	fillBlocksKernel<<<block, thread>>>(proj);
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
+	Timer::Stop("test", "fillBlocksKernel");
 
 	return true;
 }
@@ -275,36 +270,101 @@ struct Rendering {
 	Matrix3f Rview, RviewInv;
 	float3 tview;
 
-	__device__ inline float readSdf(float3 & pt3d) {
+	__device__ inline float readSdf(const float3 & pt3d) {
 		Voxel voxel = map.FindVoxel(pt3d);
 		if (voxel.sdfW == 0)
 			return 1.f;
 		return voxel.GetSdf();
 	}
 
-	__device__ inline float readSdfInterped(float3 & pt3d) {
-		float res1, res2, v1, v2;
-		float3 coeff;
-		coeff = pt3d - floor(pt3d);
-		int3 vpos = make_int3(pt3d + 0.5);
+	__device__ inline float readSdfInterped(const float3 & pt) {
 
-		v1 = map.FindVoxel(pt3d + make_float3(0, 0, 0)).GetSdf();
-		v2 = map.FindVoxel(pt3d + make_float3(1, 0, 0)).GetSdf();
-		res1 = (1.0f - coeff.x) * v1 + coeff.x * v2;
+		float3 xyz = pt - floor(pt);
+		float sdf[2], result[4];
+		sdf[0] = map.FindVoxel(pt).GetSdf();
+		sdf[1] = map.FindVoxel(pt + make_float3(1, 0, 0)).GetSdf();
+		result[0] = (1.0f - xyz.x) * sdf[0] + xyz.x * sdf[1];
 
-		v1 = map.FindVoxel(pt3d + make_float3(0, 1, 0)).GetSdf();
-		v2 = map.FindVoxel(pt3d + make_float3(1, 1, 0)).GetSdf();
-		res1 = (1.0f - coeff.y) * res1 + coeff.y * ((1.0f - coeff.x) * v1 + coeff.x * v2);
+		sdf[0] = map.FindVoxel(pt + make_float3(0, 1, 0)).GetSdf();
+		sdf[1] = map.FindVoxel(pt + make_float3(1, 1, 0)).GetSdf();
+		result[1] = (1.0f - xyz.x) * sdf[0] + xyz.x * sdf[1];
+		result[2] = (1.0f - xyz.y) * result[0] + xyz.y * result[1];
 
-		v1 = map.FindVoxel(pt3d + make_float3(0, 0, 1)).GetSdf();
-		v2 = map.FindVoxel(pt3d + make_float3(1, 0, 1)).GetSdf();
-		res2 = (1.0f - coeff.x) * v1 + coeff.x * v2;
+		sdf[0] = map.FindVoxel(pt + make_float3(0, 0, 1)).GetSdf();
+		sdf[1] = map.FindVoxel(pt + make_float3(1, 0, 1)).GetSdf();
+		result[0] = (1.0f - xyz.x) * sdf[0] + xyz.x * sdf[1];
 
-		v1 = map.FindVoxel(pt3d + make_float3(0, 1, 1)).GetSdf();
-		v2 = map.FindVoxel(pt3d + make_float3(1, 1, 1)).GetSdf();
-		res2 = (1.0f - coeff.y) * res2 + coeff.y * ((1.0f - coeff.x) * v1 + coeff.x * v2);
+		sdf[0] = map.FindVoxel(pt + make_float3(0, 1, 1)).GetSdf();
+		sdf[1] = map.FindVoxel(pt + make_float3(1, 1, 1)).GetSdf();
+		result[1] = (1.0f - xyz.x) * sdf[0] + xyz.x * sdf[1];
+		result[3] = (1.0f - xyz.y) * result[0] + xyz.y * result[1];
 
-		return (1.0f - coeff.z) * res1 + coeff.z * res2;
+		return (1.0f - xyz.z) * result[2] + xyz.z * result[3];
+	}
+
+	__device__ inline bool readNormal(const float3 & pt, float3 & n) {
+
+		float sdf[6];
+		sdf[0] = readSdfInterped(pt + make_float3(1, 0, 0));
+		if(isnan(sdf[0]) || sdf[0] == 1.0f)
+			return false;
+
+		sdf[1] = readSdfInterped(pt + make_float3(-1, 0, 0));
+		if(isnan(sdf[1]) || sdf[1] == 1.0f)
+			return false;
+
+		sdf[2] = readSdfInterped(pt + make_float3(0, 1, 0));
+		if(isnan(sdf[2]) || sdf[2] == 1.0f)
+			return false;
+
+		sdf[3] = readSdfInterped(pt + make_float3(0, -1, 0));
+		if(isnan(sdf[3]) || sdf[3] == 1.0f)
+			return false;
+
+		sdf[4] = readSdfInterped(pt + make_float3(0, 0, 1));
+		if(isnan(sdf[4]) || sdf[4] == 1.0f)
+			return false;
+
+		sdf[5] = readSdfInterped(pt + make_float3(0, 0, -1));
+		if(isnan(sdf[5]) || sdf[5] == 1.0f)
+			return false;
+
+		n = make_float3(sdf[0] - sdf[1], sdf[2] - sdf[3], sdf[4] - sdf[5]);
+		n = normalised(RviewInv * n);
+		return true;
+	}
+
+
+	__device__ inline bool readNormalFast(const float3 & pt, float3 & n) {
+
+		float sdf[6];
+		sdf[0] = readSdf(pt + make_float3(1, 0, 0));
+		if(isnan(sdf[0]) || sdf[0] == 1.0f)
+			return false;
+
+		sdf[1] = readSdf(pt + make_float3(-1, 0, 0));
+		if(isnan(sdf[1]) || sdf[1] == 1.0f)
+			return false;
+
+		sdf[2] = readSdf(pt + make_float3(0, 1, 0));
+		if(isnan(sdf[2]) || sdf[2] == 1.0f)
+			return false;
+
+		sdf[3] = readSdf(pt + make_float3(0, -1, 0));
+		if(isnan(sdf[3]) || sdf[3] == 1.0f)
+			return false;
+
+		sdf[4] = readSdf(pt + make_float3(0, 0, 1));
+		if(isnan(sdf[4]) || sdf[4] == 1.0f)
+			return false;
+
+		sdf[5] = readSdf(pt + make_float3(0, 0, -1));
+		if(isnan(sdf[5]) || sdf[5] == 1.0f)
+			return false;
+
+		n = make_float3(sdf[0] - sdf[1], sdf[2] - sdf[3], sdf[4] - sdf[5]);
+		n = normalised(RviewInv * n);
+		return true;
 	}
 
 	__device__ inline void operator()() {
@@ -315,8 +375,8 @@ struct Rendering {
 			return;
 
 		int2 locId;
-		locId.x = __float2int_rd((float) x / minMaxSubSampling);
-		locId.y = __float2int_rd((float) y / minMaxSubSampling);
+		locId.x = __float2int_rd((float) x / minMaxSubSample);
+		locId.y = __float2int_rd((float) y / minMaxSubSample);
 
 		float2 zRange;
 		zRange.x = zRangeX.ptr(locId.y)[locId.x];
@@ -325,7 +385,7 @@ struct Rendering {
 			return;
 
 		float sdf = 1.0f;
-		float stepScale = DeviceMap::TruncateDist * DeviceMap::voxelSizeInv;
+		float stepScale = 2 * DeviceMap::TruncateDist * DeviceMap::voxelSizeInv;
 
 		float3 pt3d;
 		pt3d.z = zRange.x;
@@ -352,9 +412,9 @@ struct Rendering {
 			HashEntry b = map.FindEntry(blockPos);
 			if(b.ptr != EntryAvailable) {
 				sdf = readSdf(result);
-				if(sdf <= 0.1f && sdf >= -0.5f) {
-					sdf = readSdfInterped(result);
-				}
+//				if(sdf <= 0.1f && sdf >= -0.5f) {
+//					sdf = readSdfInterped(result);
+//				}
 
 				if(sdf <= 0.0f)
 					break;
@@ -380,11 +440,20 @@ struct Rendering {
 		}
 
 		if(found_pt) {
-			result = RviewInv * (result - tview);
-			vmap.ptr(y)[x] = make_float4(result, 1.0);
+			float3 normal;
+			if(readNormalFast(result, normal)) {
+				result = RviewInv * (result * DeviceMap::VoxelSize - tview);
+				vmap.ptr(y)[x] = make_float4(result, 1.0);
+				nmap.ptr(y)[x] = normal;
+			}
+			else {
+				vmap.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
+				nmap.ptr(y)[x] = make_float3(__int_as_float(0x7fffffff));
+			}
 		}
 		else {
 			vmap.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
+			nmap.ptr(y)[x] = make_float3(__int_as_float(0x7fffffff));
 		}
 	}
 };
@@ -432,8 +501,10 @@ void RayCast(DeviceMap map,
 	block.x = cv::divUp(cols, thread.x);
 	block.y = cv::divUp(rows, thread.y);
 
+	Timer::Start("test", "RayCastKernel");
 	RayCastKernel<<<block, thread>>>(cast);
-
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
+	Timer::Stop("test", "RayCastKernel");
+
 }

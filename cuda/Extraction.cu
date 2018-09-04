@@ -75,17 +75,8 @@ struct HashMarchingCube {
 		if (x < DeviceMap::NumEntries) {
 			if (map.hashEntries[x].ptr >= 0) {
 				int3 pos = map.hashEntries[x].pos * DeviceMap::BlockSize;
-//				if(map.FindVoxel(pos).GetSdf() < 0 ||
-//				   map.FindVoxel(pos + make_int3(7, 0, 0)).GetSdf() < 0 ||
-//			       map.FindVoxel(pos + make_int3(0, 7, 0)).GetSdf() < 0 ||
-//				   map.FindVoxel(pos + make_int3(7, 0, 7)).GetSdf() < 0 ||
-//				   map.FindVoxel(pos + make_int3(7, 7, 0)).GetSdf() < 0 ||
-//				   map.FindVoxel(pos + make_int3(7, 0, 7)).GetSdf() < 0 ||
-//				   map.FindVoxel(pos + make_int3(0, 7, 7)).GetSdf() < 0 ||
-//				   map.FindVoxel(pos + make_int3(7, 7, 7)).GetSdf() < 0) {
 					scan = true;
 					val = 1;
-//				}
 			}
 		}
 		__syncthreads();

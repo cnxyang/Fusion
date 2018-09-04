@@ -78,6 +78,7 @@ public:
 	DeviceArray<RenderingBlock> mRenderingBlockList;
 	DeviceArray2D<float> mDepthMapMin;
 	DeviceArray2D<float> mDepthMapMax;
+
 	bool bUpdated;
 	uint nTriangle;
 
@@ -88,6 +89,8 @@ public:
 	bool mapPointsUpdated;
 	bool mapUpdated;
 
+	DeviceArray2D<float2> zRange;
+
 	int noBlocksInFrustum;
 	int noRenderingBlocks;
 
@@ -97,7 +100,6 @@ public:
 
 	Eigen::Matrix3f currentPose;
 	std::set<KeyFrame *> keyFrames;
-	std::set<KeyFrame *, std::vector<Eigen::Matrix4d>> camTrace;
 };
 
 #endif

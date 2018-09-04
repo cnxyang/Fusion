@@ -265,7 +265,7 @@ void icpStep(const DeviceArray2D<float4> & nextVMap,
 
 	icpStepKernel<<<96, 224>>>(icp);
 
-	ReduceSum<<<1, 1024>>>(sum, out, 96);
+	ReduceSum<<<1, 512>>>(sum, out, 96);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
