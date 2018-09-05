@@ -2,7 +2,7 @@
 #define TRACKING_HPP__
 
 #include "reduction.h"
-#include "device_map.hpp"
+#include "cuarray.h"
 #include "Mapping.hpp"
 #include "Viewer.hpp"
 #include "Frame.hpp"

@@ -1,4 +1,4 @@
-#include "device_function.hpp"
+#include "cufunc.h"
 
 template<class T, class U, int size> __global__
 void BilateralFiltering_device(const PtrStepSz<T> src, PtrStep<U> dst, float s,
@@ -207,8 +207,8 @@ void ResizeMap(const DeviceArray2D<float4>& vsrc,
 		const DeviceArray2D<float3>& nsrc, DeviceArray2D<float4>& vdst,
 		DeviceArray2D<float3>& ndst) {
 
-	vdst.create(vsrc.cols() / 2, vsrc.rows() / 2);
-	ndst.create(nsrc.cols() / 2, nsrc.rows() / 2);
+//	vdst.create(vsrc.cols() / 2, vsrc.rows() / 2);
+//	ndst.create(nsrc.cols() / 2, nsrc.rows() / 2);
 
 	dim3 block(8, 8);
 	dim3 grid(cv::divUp(vdst.cols(), block.x), cv::divUp(vdst.rows(), block.y));

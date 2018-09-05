@@ -2,8 +2,8 @@
 #define FRAME_HPP__
 
 #include "KeyFrame.hpp"
-#include "device_array.hpp"
-#include "device_map.hpp"
+#include "cuarray.h"
+#include "devmap.h"
 
 #include <vector>
 #include <opencv.hpp>

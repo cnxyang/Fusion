@@ -74,14 +74,6 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 
 	if (bOK) {
 		uint no;
-//		mpMap->FuseDepthAndColor(mpTracker->lastDepth[0], mpTracker->color,
-//				mpTracker->mLastFrame.Rot_gpu(),
-//				mpTracker->mLastFrame.RotInv_gpu(),
-//				mpTracker->mLastFrame.Trans_gpu(),
-//				Frame::fx(0), Frame::fy(0),
-//				Frame::cx(0), Frame::cy(0),
-//				0.1f, 3.0f, no);
-
 		mpMap->fuseColor(mpTracker->lastDepth[0], mpTracker->color,
 				mpTracker->mLastFrame.Rot_gpu(),
 				mpTracker->mLastFrame.RotInv_gpu(),
@@ -92,7 +84,7 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 				mpTracker->mLastFrame.Trans_gpu(), mpTracker->lastVMap[0],
 				mpTracker->lastNMap[0]);
 
-		if(nFrames > 30) {
+		if(nFrames > 1) {
 			nFrames = 0;
 			mpMap->createMesh();
 		}

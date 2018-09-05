@@ -95,15 +95,13 @@ bool Tracking::track() {
 bool Tracking::trackKF() {
 
 	bool valid = false;
-	valid = trackKeys();
-	if(!valid) {
-		return false;
-	}
+//	valid = trackKeys();
+//	if(!valid) {
+//		return false;
+//	}
 
-	if(valid && useIcp) {
-		initIcp();
-		valid = computeSE3();
-	}
+	initIcp();
+	valid = computeSE3();
 
 	return valid;
 }
@@ -170,6 +168,7 @@ void Tracking::initIcp() {
 	for(int i = 1; i < NUM_PYRS; ++i) {
 		PyrDownGaussian(nextDepth[i - 1], nextDepth[i]);
 		PyrDownGaussian(nextImage[i - 1], nextImage[i]);
+		ResizeMap(lastVMap[i - 1], lastNMap[i - 1], lastVMap[i], lastNMap[i]);
 	}
 
 	for(int i = 0; i < NUM_PYRS; ++i) {
@@ -247,11 +246,11 @@ bool Tracking::computeSE3() {
 
 			float icpError = sqrt(residual[0]) / residual[1];
 			float icpCount = residual[1];
-
-			if (std::isnan(icpError) || icpCount == 0) {
-				mNextFrame.SetPose(lastPose);
-				return false;
-			}
+			std::cout << icpCount << " " << icpError << std::endl;
+//			if (std::isnan(icpError) || icpCount == 0) {
+//				mNextFrame.SetPose(lastPose);
+//				return true;
+//			}
 
 			result = matA.ldlt().solve(vecb);
 			auto e = Sophus::SE3d::exp(result);
@@ -262,6 +261,28 @@ bool Tracking::computeSE3() {
 	}
 
 	mNextFrame.SetPose(nextPose);
+	std::cout << nextPose << std::endl;
+
+	cv::Mat img(480, 640, CV_32FC4);
+	lastVMap[0].download((void*) img.data, img.step);
+	cv::imshow("img", img);
+	cv::waitKey(10);
+
+	cv::Mat img2(480, 640, CV_32FC4);
+	nextVMap[0].download((void*) img2.data, img2.step);
+	cv::imshow("img2", img2);
+	cv::waitKey(10);
+
+	cv::Mat img3(480, 640, CV_32FC3);
+	lastNMap[0].download((void*) img3.data, img3.step);
+	cv::imshow("im3g", img3);
+	cv::waitKey(10);
+
+	cv::Mat img23(480, 640, CV_32FC3);
+	nextNMap[0].download((void*) img23.data, img23.step);
+	cv::imshow("img23", img23);
+	cv::waitKey(0);
+
 	return true;
 }
 

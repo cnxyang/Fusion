@@ -1,4 +1,4 @@
-#include "device_map.hpp"
+#include "devmap.h"
 
 void rayCast(DeviceMap map,
 			 DeviceArray2D<float4> & vmap,
@@ -73,6 +73,7 @@ void ProjectVisibleKeys(KeyMap map,
 					    float cx,
 					    float cy);
 
+#include <opencv.hpp>
 void BuildAdjecencyMatrix(cv::cuda::GpuMat& AM,
 						  DeviceArray<ORBKey>& TrainKeys,
 						  DeviceArray<ORBKey>& QueryKeys,

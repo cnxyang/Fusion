@@ -2,9 +2,9 @@
 #define MAPPING_HPP__
 
 #include "KeyFrame.hpp"
-#include "device_function.hpp"
-#include "device_array.hpp"
-#include "device_map.hpp"
+#include "cufunc.h"
+#include "cuarray.h"
+#include "devmap.h"
 
 #include <vector>
 #include <opencv.hpp>

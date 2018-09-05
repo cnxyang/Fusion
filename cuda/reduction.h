@@ -1,8 +1,9 @@
 #ifndef GPU_REDUCTION_H__
 #define GPU_REDUCTION_H__
 
-#include "device_math.hpp"
-#include "device_array.hpp"
+#include "mathlib.h"
+#include "cuarray.h"
+
 
 struct MatK {
 	float fx, fy, cx, cy;

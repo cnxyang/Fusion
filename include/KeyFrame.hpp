@@ -4,7 +4,7 @@
 #include "Frame.hpp"
 #include <Eigen/Dense>
 #include <opencv.hpp>
-#include "device_array.hpp"
+#include "cuarray.h"
 
 class Frame;
 struct KeyFrame;

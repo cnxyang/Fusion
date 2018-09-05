@@ -4,7 +4,7 @@
 
 #include "Timer.hpp"
 #include "Solver.hpp"
-#include "device_map.hpp"
+#include "devmap.h"
 #include "sophus/se3.hpp"
 
 using namespace std;

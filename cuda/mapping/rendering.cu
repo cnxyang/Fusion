@@ -31,10 +31,30 @@ struct Projection {
 		return pt2d;
 	}
 
+	__device__ inline void atomicMax(float* add, float val) const {
+		int* address_as_i = (int*) add;
+		int old = *address_as_i, assumed;
+		do {
+			assumed = old;
+			old = atomicCAS(address_as_i, assumed,
+					__float_as_int(fmaxf(val, __int_as_float(assumed))));
+		} while (assumed != old);
+	}
+
+	__device__ inline void atomicMin(float* add, float val) const {
+		int* address_as_i = (int*) add;
+		int old = *address_as_i, assumed;
+		do {
+			assumed = old;
+			old = atomicCAS(address_as_i, assumed,
+					__float_as_int(fminf(val, __int_as_float(assumed))));
+		} while (assumed != old);
+	}
+
 	__device__ inline bool projectBlock(const int3 & pos,
 										RenderingBlock & block) const {
 
-		block.upperLeft = make_int2(cols, rows) / minMaxSubSample;
+		block.upperLeft = make_int2(zRangeX.cols, zRangeX.rows);
 		block.lowerRight = make_int2(-1, -1);
 		block.zRange = make_float2(DeviceMap::DepthMax, DeviceMap::DepthMin);
 		for (int corner = 0; corner < 8; ++corner) {
@@ -67,10 +87,10 @@ struct Projection {
 			block.upperLeft.x = 0;
 		if (block.upperLeft.y < 0)
 			block.upperLeft.y = 0;
-		if (block.lowerRight.x >= cols)
-			block.lowerRight.x = cols - 1;
-		if (block.lowerRight.y >= rows)
-			block.lowerRight.y = rows - 1;
+		if (block.lowerRight.x >= zRangeX.cols)
+			block.lowerRight.x = zRangeX.cols - 1;
+		if (block.lowerRight.y >= zRangeX.rows)
+			block.lowerRight.y = zRangeX.rows - 1;
 		if (block.upperLeft.x > block.lowerRight.x)
 			return false;
 		if (block.upperLeft.y > block.lowerRight.y)
@@ -145,18 +165,15 @@ struct Projection {
 		RenderingBlock & b(renderingBlockList[block]);
 
 		int xpos = b.upperLeft.x + x;
-		if (xpos > b.lowerRight.x || xpos >= zRangeX.cols)
+		if (xpos > b.lowerRight.x)
 			return;
 
 		int ypos = b.upperLeft.y + y;
-		if (ypos > b.lowerRight.y || ypos >= zRangeX.rows)
+		if (ypos > b.lowerRight.y)
 			return;
 
-		float * minPtr = & zRangeX.ptr(ypos)[xpos];
-		float * maxPtr = & zRangeY.ptr(ypos)[xpos];
-
-		atomicMin(minPtr, b.zRange.x);
-		atomicMax(maxPtr, b.zRange.y);
+		atomicMin(& zRangeX.ptr(ypos)[xpos], b.zRange.x);
+		atomicMax(& zRangeY.ptr(ypos)[xpos], b.zRange.y);
 
 		return;
 	}
@@ -179,7 +196,7 @@ __global__ void fillDepthRangeKernel(PtrStepSz<float> zX) {
 	if(x >= zX.cols || y >= zX.rows)
 		return;
 
-	zX.ptr(y)[x] = 3.5;
+	zX.ptr(y)[x] = 5;
 }
 
 bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
@@ -200,6 +217,7 @@ bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
 	int cols = zRangeX.cols();
 	int rows = zRangeX.rows();
 	noRenderingBlocks.zero();
+
 	Projection proj;
 	proj.fx = fx;
 	proj.fy = fy;
@@ -223,21 +241,17 @@ bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
 	block.x = cv::divUp(cols, thread.x);
 	block.y = cv::divUp(rows, thread.y);
 
-	Timer::Start("test", "fillDepthRangeKernel");
 	zRangeY.zero();
 	fillDepthRangeKernel<<<block, thread>>>(zRangeX);
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
-	Timer::Stop("test", "fillDepthRangeKernel");
 
 	thread = dim3(1024);
 	block = dim3(cv::divUp((int) noVisibleBlocks, block.x));
 
-	Timer::Start("test", "projectBlockKernel");
 	projectBlockKernel<<<block, thread>>>(proj);
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
-	Timer::Stop("test", "projectBlockKernel");
 
 	uint totalBlocks;
 	noRenderingBlocks.download((void*) &totalBlocks);
@@ -250,11 +264,9 @@ bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
 	block.x = (uint)ceil((float)totalBlocks / 4);
 	block.y = 4;
 
-	Timer::Start("test", "fillBlocksKernel");
 	fillBlocksKernel<<<block, thread>>>(proj);
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
-	Timer::Stop("test", "fillBlocksKernel");
 
 	return true;
 }
@@ -299,7 +311,6 @@ struct Rendering {
 		sdf[1] = map.FindVoxel(pt + make_float3(1, 1, 1)).GetSdf();
 		result[1] = (1.0f - xyz.x) * sdf[0] + xyz.x * sdf[1];
 		result[3] = (1.0f - xyz.y) * result[0] + xyz.y * result[1];
-
 		return (1.0f - xyz.z) * result[2] + xyz.z * result[3];
 	}
 
@@ -375,6 +386,9 @@ struct Rendering {
 		if (x >= cols || y >= rows)
 			return;
 
+		vmap.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
+		nmap.ptr(y)[x] = make_float3(__int_as_float(0x7fffffff));
+
 		int2 locId;
 		locId.x = __float2int_rd((float) x / minMaxSubSample);
 		locId.y = __float2int_rd((float) y / minMaxSubSample);
@@ -382,26 +396,24 @@ struct Rendering {
 		float2 zRange;
 		zRange.x = zRangeX.ptr(locId.y)[locId.x];
 		zRange.y = zRangeY.ptr(locId.y)[locId.x];
-		if(zRange.y < 1e-3 || zRange.x < 1e-3 || isnan(zRange.x))
+		if(zRange.y < 1e-3 || zRange.x < 1e-3 || isnan(zRange.x) || isnan(zRange.y))
 			return;
 
 		float sdf = 1.0f;
-		float stepScale = 2 * DeviceMap::TruncateDist * DeviceMap::voxelSizeInv;
+		float stepScale = DeviceMap::TruncateDist * DeviceMap::voxelSizeInv;
 
 		float3 pt3d;
 		pt3d.z = zRange.x;
-		pt3d.x = pt3d.z * (x - cx) * invfx;
-		pt3d.y = pt3d.z * (y - cy) * invfy;
+		pt3d.x = pt3d.z * ((float) x - cx) * invfx;
+		pt3d.y = pt3d.z * ((float) y - cy) * invfy;
 		float dist_s = norm(pt3d) * DeviceMap::voxelSizeInv;
-		float3 block_s = Rview * pt3d + tview;
-		block_s = block_s * DeviceMap::voxelSizeInv;
+		float3 block_s = (Rview * pt3d + tview) * DeviceMap::voxelSizeInv;
 
 		pt3d.z = zRange.y;
-		pt3d.x = pt3d.z * (x - cx) * invfx;
-		pt3d.y = pt3d.z * (y - cy) * invfy;
+		pt3d.x = pt3d.z * ((float) x - cx) * invfx;
+		pt3d.y = pt3d.z * ((float) y - cy) * invfy;
 		float dist_e = norm(pt3d) * DeviceMap::voxelSizeInv;
-		float3 block_e = Rview * pt3d + tview;
-		block_e = block_e * DeviceMap::voxelSizeInv;
+		float3 block_e = (Rview * pt3d + tview) * DeviceMap::voxelSizeInv;
 
 		float3 dir = normalised(block_e - block_s);
 		float3 result = block_s;
@@ -413,7 +425,7 @@ struct Rendering {
 			HashEntry b = map.FindEntry(blockPos);
 			if(b.ptr != EntryAvailable) {
 				sdf = readSdf(result);
-				if(sdf <= 0.1f && sdf >= -0.1f) {
+				if(sdf <= 0.1f && sdf >= -0.5f) {
 					sdf = readSdfInterped(result);
 				}
 
@@ -442,19 +454,11 @@ struct Rendering {
 
 		if(found_pt) {
 			float3 normal;
-			if(readNormalFast(result, normal)) {
+			if(readNormal(result, normal)) {
 				result = RviewInv * (result * DeviceMap::VoxelSize - tview);
 				vmap.ptr(y)[x] = make_float4(result, 1.0);
 				nmap.ptr(y)[x] = normal;
 			}
-			else {
-				vmap.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
-				nmap.ptr(y)[x] = make_float3(__int_as_float(0x7fffffff));
-			}
-		}
-		else {
-			vmap.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
-			nmap.ptr(y)[x] = make_float3(__int_as_float(0x7fffffff));
 		}
 	}
 };
@@ -496,16 +500,12 @@ void rayCast(DeviceMap map,
 	cast.RviewInv = RviewInv;
 	cast.tview = tview;
 
-	dim3 block, thread;
-	thread.x = 32;
-	thread.y = 8;
+	dim3 block;
+	dim3 thread(32, 8);
 	block.x = cv::divUp(cols, thread.x);
 	block.y = cv::divUp(rows, thread.y);
 
-	Timer::Start("test", "RayCastKernel");
 	RayCastKernel<<<block, thread>>>(cast);
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
-	Timer::Stop("test", "RayCastKernel");
-
 }

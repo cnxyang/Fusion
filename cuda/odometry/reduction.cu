@@ -119,8 +119,8 @@ struct ICPReduction {
 		float3 vcurr_p = RlastInv * (vcurr_g - tlast);
 
 		float invz = 1.0 / vcurr_p.z;
-		int u = (int) (vcurr_p.x * invz * K.fx + K.cx + 0.5);
-		int v = (int) (vcurr_p.y * invz * K.fy + K.cy + 0.5);
+		int u = (int) (vcurr_p.x * invz * K.fx + K.cx);
+		int v = (int) (vcurr_p.y * invz * K.fy + K.cy);
 		if (u < 0 || v < 0 || u >= cols || v >= rows)
 			return false;
 

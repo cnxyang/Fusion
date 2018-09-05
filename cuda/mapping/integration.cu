@@ -136,7 +136,7 @@ struct Fusion {
 	}
 
 	__device__ inline void integrateColor() {
-		
+
 		if(blockIdx.x >= map.visibleEntries.size ||
 		   blockIdx.x >= *noVisibleBlocks)
 			return;
@@ -144,7 +144,7 @@ struct Fusion {
 		HashEntry& entry = map.visibleEntries[blockIdx.x];
 		if (entry.ptr == EntryAvailable)
 			return;
-		
+
 		int locId = threadIdx.x;
 		int3 block_pos = map.blockPosToVoxelPos(entry.pos);
 		int3 voxel_pos = block_pos + map.localIdxToLocalPos(locId);
@@ -235,15 +235,15 @@ void integrateColor(const DeviceArray2D<float> & depth,
 	if (host_data[0] == 0)
 		return;
 
-	thread.x = 512;
-	block.x = host_data[0];
+	thread = dim3(512);
+	block = dim3(host_data[0]);
 	fuseColorKernal<<<block, thread>>>(fuse);
 }
 
 __global__ void resetHashKernel(DeviceMap map) {
 
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	if(x < DeviceMap::NumEntries) {
+	if(x < map.hashEntries.size) {
 		map.hashEntries[x].release();
 		map.visibleEntries[x].release();
 	}

@@ -1,5 +1,5 @@
 #include "Frame.hpp"
-#include "device_function.hpp"
+#include "cufunc.h"
 #include "Timer.hpp"
 #include <Eigen/Dense>
 

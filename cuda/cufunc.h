@@ -1,9 +1,8 @@
 #ifndef DEVICE_FUNCTION_HPP__
 #define DEVICE_FUNCTION_HPP__
 
-//#include "Frame.hpp"
-#include "device_array.hpp"
-#include "device_map.hpp"
+#include "cuarray.h"
+#include "devmap.h"
 
 #include <opencv.hpp>
 #include <cuda_runtime.h>
