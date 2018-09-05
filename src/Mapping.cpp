@@ -1,8 +1,8 @@
 #include "Timer.hpp"
 #include "Mapping.hpp"
-#include "device_mapping.cuh"
 #include "Table.hpp"
 #include "rendering.h"
+#include "reduction.h"
 
 bool Mapping::mbFirstCall = true;
 
@@ -10,10 +10,10 @@ Mapping::Mapping():
 nTriangle(0), bUpdated(false), extractColor(false) {}
 
 Mapping::~Mapping() {
-	ReleaseDeviceMemory();
+	release();
 }
 
-void Mapping::AllocateDeviceMemory() {
+void Mapping::allocate() {
 
 	Timer::Start("Initialisation", "Memory Allocation");
 	mMemory.create(DeviceMap::NumSdfBlocks);
@@ -45,14 +45,10 @@ void Mapping::AllocateDeviceMemory() {
 	mDepthMapMin.create(80, 60);
 	mDepthMapMax.create(80, 60);
 
-	Timer::Stop("Initialisation", "Memory Allocation");
-
-	Timer::Start("Initialisation", "ResetMap");
-	ResetDeviceMemory();
-	Timer::Stop("Initialisation", "ResetMap");
+	reset();
 }
 
-void Mapping::ReleaseDeviceMemory() {
+void Mapping::release() {
 	mUsedMem.release();
 	mNumVisibleEntries.release();
 	mBucketMutex.release();
@@ -64,13 +60,11 @@ void Mapping::ReleaseDeviceMemory() {
 	mEntryPtr.release();
 }
 
-void Mapping::CreateMesh() {
+void Mapping::createMesh() {
 
-	Timer::Start("test", "mesh");
 	nTriangle = meshScene(nBlocks, nTriangles, *this, mEdgeTable,
 			mNoVertex, mTriTable, mMeshNormal, mMesh, mColorMap,
 			extractedPoses);
-	Timer::Stop("test", "mesh");
 
 	if(nTriangle > 0) {
 		mMutexMesh.lock();
@@ -86,7 +80,6 @@ void Mapping::IntegrateKeys(Frame& F) {
 	F.descriptors.download(desc);
 	std::cout << F.N << std::endl;
 	for (int i = 0; i < F.N; ++i) {
-//		if (!F.mOutliers[i]) {
 			ORBKey key;
 			key.obs = 1;
 			key.valid = true;
@@ -97,7 +90,6 @@ void Mapping::IntegrateKeys(Frame& F) {
 			for (int j = 0; j < 32; ++j)
 				key.descriptor[j] = desc.at<char>(i, j);
 			keys.push_back(key);
-//		}
 	}
 
 	DeviceArray<ORBKey> dKeys(keys.size());
@@ -106,30 +98,17 @@ void Mapping::IntegrateKeys(Frame& F) {
 	InsertKeys(*this, dKeys);
 }
 
-void Mapping::CheckKeys(Frame& F) {
-	ProjectVisibleKeys(*this, F);
-}
+void Mapping::fuseColor(const DeviceArray2D<float> & depth,
+					    const DeviceArray2D<uchar3> & color,
+					    Matrix3f Rview,
+					    Matrix3f RviewInv,
+					    float3 tview,
+					    uint & no) {
 
-void Mapping::GetORBKeys(DeviceArray<ORBKey>& keys, uint& mnMapPoints) {
-	CollectKeys(*this, keys, mnMapPoints);
-}
+	integrateColor(depth, color, mNumVisibleEntries, Rview, RviewInv, tview, *this,
+			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0),
+			DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
 
-void Mapping::GetKeysHost(std::vector<ORBKey>& vkeys) {
-
-	uint n;
-	DeviceArray<ORBKey> keys;
-	CollectKeys(*this, keys, n);
-
-	if (n == 0)
-		return;
-
-	ORBKey* MapKeys = (ORBKey*) malloc(sizeof(ORBKey) * n);
-	keys.download((void*) MapKeys, n);
-	for (int i = 0; i < n; ++i) {
-		ORBKey& key = MapKeys[i];
-		vkeys.push_back(key);
-	}
-	delete [] MapKeys;
 }
 
 Mapping::operator DeviceMap() {
@@ -144,8 +123,6 @@ Mapping::operator DeviceMap() {
 	map.entryPtr = mEntryPtr;
 	return map;
 }
-
-#include "rendering.h"
 
 void Mapping::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float3> & nmap) {
@@ -176,6 +153,10 @@ Mapping::operator const DeviceMap() const {
 	map.voxelBlocks = mVoxelBlocks;
 	map.entryPtr = mEntryPtr;
 	return map;
+}
+
+void Mapping::reset() {
+	resetDeviceMap(*this);
 }
 
 Mapping::operator KeyMap() {

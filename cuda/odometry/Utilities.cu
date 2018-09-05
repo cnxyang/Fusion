@@ -95,8 +95,8 @@ __global__ void WarpGrayScaleImageDevice(PtrStepSz<float4> src,
 		diff.ptr(y)[x] = gray.ptr(v)[u];
 }
 
-void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2,
-		DeviceArray2D<uchar>& diff) {
+//void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2,
+//		DeviceArray2D<uchar>& diff) {
 
 //	dim3 block(8, 8);
 //	dim3 grid(cv::divUp(diff.cols(), block.x), cv::divUp(diff.rows(), block.y));
@@ -109,7 +109,7 @@ void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2,
 //
 //	SafeCall(cudaDeviceSynchronize());
 //	SafeCall(cudaGetLastError());
-}
+//}
 
 __global__ void ComputeResidualImageDevice(PtrStepSz<uchar> src,
 		PtrStep<uchar> dst, PtrStep<uchar> residual) {
@@ -122,8 +122,8 @@ __global__ void ComputeResidualImageDevice(PtrStepSz<uchar> src,
 	residual.ptr(y)[x] = abs(src.ptr(y)[x] - dst.ptr(y)[x]);
 }
 
-void ComputeResidualImage(const DeviceArray2D<uchar>& src,
-		DeviceArray2D<uchar>& residual, const Frame& frame) {
+//void ComputeResidualImage(const DeviceArray2D<uchar>& src,
+//		DeviceArray2D<uchar>& residual, const Frame& frame) {
 //	dim3 block(8, 8);
 //	dim3 grid(cv::divUp(residual.cols(), block.x),
 //			cv::divUp(residual.rows(), block.y));
@@ -135,7 +135,7 @@ void ComputeResidualImage(const DeviceArray2D<uchar>& src,
 //
 //	SafeCall(cudaDeviceSynchronize());
 //	SafeCall(cudaGetLastError());
-}
+//}
 
 __global__ void RenderImageDevice(const PtrStep<float4> vmap,
 		const PtrStep<float3> nmap, const float3 light_pose,

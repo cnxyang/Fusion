@@ -38,3 +38,46 @@ uint meshScene(DeviceArray<uint> & noOccupiedBlocks,
 			   DeviceArray<float3> & vertex,
 			   DeviceArray<uchar3> & color,
 			   DeviceArray<int3> & extractedBlocks);
+
+void resetDeviceMap(DeviceMap map);
+
+void integrateColor(const DeviceArray2D<float> & depth,
+					const DeviceArray2D<uchar3> & color,
+					DeviceArray<uint> & noVisibleBlocks,
+					Matrix3f Rview,
+					Matrix3f RviewInv,
+					float3 tview,
+					DeviceMap map,
+					float fx,
+					float fy,
+					float cx,
+					float cy,
+					float depthMax,
+					float depthMin,
+					uint * host_data);
+
+
+void ResetKeys(KeyMap map);
+
+void CollectKeys(KeyMap, DeviceArray<ORBKey>&, uint& n);
+
+void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys);
+
+void ProjectVisibleKeys(KeyMap map,
+					    Matrix3f RviewInv,
+					    float3 tview,
+					    int cols,
+					    int rows,
+					    float fx,
+					    float fy,
+					    float cx,
+					    float cy);
+
+void BuildAdjecencyMatrix(cv::cuda::GpuMat& AM,
+						  DeviceArray<ORBKey>& TrainKeys,
+						  DeviceArray<ORBKey>& QueryKeys,
+						  DeviceArray<float>& MatchDist,
+						  DeviceArray<ORBKey>& train_select,
+						  DeviceArray<ORBKey>& query_select,
+						  DeviceArray<int>& QueryIdx,
+						  DeviceArray<int>& SelectedIdx);

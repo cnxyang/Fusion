@@ -6,52 +6,14 @@
 #include "Mapping.hpp"
 #include "Viewer.hpp"
 #include "Frame.hpp"
-#include <vector>
 
 class Viewer;
 class Mapping;
-
-using namespace cv;
 
 class Tracking {
 public:
 	Tracking();
 	Tracking(int w, int h, float fx, float fy, float cx, float cy);
-	void SetMap(Mapping* pMap);
-	void SetViewer(Viewer* pViewer);
-	bool Track(Mat& imRGB, Mat& imD);
-	void ResetTracking();
-
-	enum State {
-		NOT_INITIALISED,
-		OK,
-		LOST
-	};
-
-	bool TrackMap(bool bUseGraph = true);
-	bool TrackFrame();
-	bool InitTracking();
-	void SetState(State s);
-
-	Frame mLastFrame;
-	Frame mNextFrame;
-	State mNextState;
-	State mLastState;
-	Mapping* mpMap;
-	Viewer* mpViewer;
-
-	cv::Mat desc;
-	uint mnMapPoints;
-	bool mbGraphMatching;
-	int mnNoAttempts;
-	const float mRotThresh = 0.2;
-	const float mTransThresh = 0.05;
-	DeviceArray<ORBKey> mDeviceKeys;
-	std::vector<ORBKey> mHostKeys;
-	std::vector<Eigen::Vector3d> mMapPoints;
-	Ptr<cuda::DescriptorMatcher> mORBMatcher;
-
-public:
 
 	void reset();
 	void initIcp();
@@ -69,10 +31,13 @@ public:
 	bool grabFrame(cv::Mat & rgb, cv::Mat & depth);
 	bool relocalise();
 
+	void setMap(Mapping* pMap);
+	void setTracker(Tracking * tracker);
+	void setViewer(Viewer* pViewer);
+
 	MatK K;
 	bool useIcp;
 	bool useSo3;
-	bool graphMatching;
 	static const int NUM_PYRS = 3;
 	DeviceArray2D<unsigned short> depth;
 	DeviceArray2D<uchar3> color;
@@ -116,6 +81,17 @@ public:
 
 	int state;
 	int lastState;
+
+	bool graphMatching;
+	int noAttempsBeforeReloc;
+	cv::cuda::GpuMat keyDescriptors;
+	std::vector<Eigen::Vector3d> mapPoints;
+	cv::Ptr<cv::cuda::DescriptorMatcher> orbMatcher;
+
+	Frame mLastFrame;
+	Frame mNextFrame;
+	Mapping* mpMap;
+	Viewer* mpViewer;
 };
 
 #endif

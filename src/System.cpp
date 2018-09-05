@@ -45,7 +45,7 @@ nFrames(0){
 	Frame::SetK(mK);
 
 	mpMap = new Mapping();
-	mpMap->AllocateDeviceMemory();
+	mpMap->allocate();
 
 	mpViewer = new Viewer();
 	mpTracker = new Tracking(mpParam->cols,
@@ -59,7 +59,7 @@ nFrames(0){
 	mpViewer->SetSystem(this);
 	mpViewer->SetTracker(mpTracker);
 
-	mpTracker->SetMap(mpMap);
+	mpTracker->setMap(mpMap);
 
 	mptViewer = new thread(&Viewer::Spin, mpViewer);
 
@@ -74,13 +74,18 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 
 	if (bOK) {
 		uint no;
-		mpMap->FuseDepthAndColor(mpTracker->lastDepth[0], mpTracker->color,
+//		mpMap->FuseDepthAndColor(mpTracker->lastDepth[0], mpTracker->color,
+//				mpTracker->mLastFrame.Rot_gpu(),
+//				mpTracker->mLastFrame.RotInv_gpu(),
+//				mpTracker->mLastFrame.Trans_gpu(),
+//				Frame::fx(0), Frame::fy(0),
+//				Frame::cx(0), Frame::cy(0),
+//				0.1f, 3.0f, no);
+
+		mpMap->fuseColor(mpTracker->lastDepth[0], mpTracker->color,
 				mpTracker->mLastFrame.Rot_gpu(),
 				mpTracker->mLastFrame.RotInv_gpu(),
-				mpTracker->mLastFrame.Trans_gpu(),
-				Frame::fx(0), Frame::fy(0),
-				Frame::cx(0), Frame::cy(0),
-				0.1f, 3.0f, no);
+				mpTracker->mLastFrame.Trans_gpu(), no);
 
 		mpMap->RayTrace(no, mpTracker->mLastFrame.Rot_gpu(),
 				mpTracker->mLastFrame.RotInv_gpu(),
@@ -89,7 +94,7 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 
 		if(nFrames > 30) {
 			nFrames = 0;
-			mpMap->CreateMesh();
+			mpMap->createMesh();
 		}
 		nFrames++;
 	}
@@ -131,8 +136,8 @@ void System::SaveMesh() {
 }
 
 void System::Reboot() {
-	mpMap->ResetDeviceMemory();
-	mpTracker->ResetTracking();
+	mpMap->reset();
+	mpTracker->reset();
 }
 
 void System::PrintTimings() {

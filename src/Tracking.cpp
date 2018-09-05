@@ -1,7 +1,3 @@
-#include <iostream>
-#include <vector>
-
-#include "device_mapping.cuh"
 #include "Tracking.hpp"
 #include "Solver.hpp"
 #include "Timer.hpp"
@@ -48,7 +44,7 @@ Tracking::Tracking(int w, int h, float fx, float fy, float cx, float cy)
 
 	state = lastState = 1;
 	K = MatK(fx, fy, cx, cy);
-	mORBMatcher = cuda::DescriptorMatcher::createBFMatcher(NORM_HAMMING);
+	orbMatcher = cuda::DescriptorMatcher::createBFMatcher(NORM_HAMMING);
 }
 
 void Tracking::reset() {
@@ -69,10 +65,8 @@ bool Tracking::track() {
 
 	switch(lastState) {
 	case 1:
-		std::cout << "init" << std::endl;
 		initTracking();
 		swapFrame();
-		std::cout << state << " " << lastState << std::endl;
 		return true;
 
 	case 0:
@@ -88,7 +82,6 @@ bool Tracking::track() {
 		break;
 
 	case -1:
-		std::cout << "reloc" << std::endl;
 		valid = relocalise();
 		if(valid) {
 			state = 0;
@@ -96,11 +89,6 @@ bool Tracking::track() {
 		}
 
 		break;
-	}
-
-	if (!valid) {
-		state = -1;
-		return false;
 	}
 }
 
@@ -124,7 +112,7 @@ bool Tracking::trackKeys() {
 
 	std::vector<cv::DMatch> refined;
 	std::vector<std::vector<cv::DMatch>> rawMatches;
-	mORBMatcher->knnMatch(mNextFrame.descriptors, mLastFrame.descriptors, rawMatches, 2);
+	orbMatcher->knnMatch(mNextFrame.descriptors, mLastFrame.descriptors, rawMatches, 2);
 
 	for (int i = 0; i < rawMatches.size(); ++i) {
 		if (rawMatches[i][0].distance < 0.8 * rawMatches[i][1].distance) {
@@ -133,8 +121,6 @@ bool Tracking::trackKeys() {
 	}
 
 	int N = refined.size();
-
-	// not enough points for ao (minimum 3)
 	if (N < 3)
 		return false;
 
@@ -167,7 +153,6 @@ void Tracking::initTracking() {
 
 bool Tracking::grabFrame(cv::Mat & imRgb, cv::Mat & imD) {
 
-//	swapFrame();
 	color.upload((void*) imRgb.data, imRgb.step, imRgb.cols, imRgb.rows);
 	ColourImageToIntensity(color, nextImage[0]);
 	mNextFrame = Frame(nextImage[0], imD, referenceKF);
@@ -191,7 +176,6 @@ void Tracking::initIcp() {
 		BackProjectPoints(nextDepth[i], nextVMap[i], Frame::mDepthCutoff,
 				Frame::fx(i), Frame::fy(i), Frame::cx(i), Frame::cy(i));
 		ComputeNormalMap(nextVMap[i], nextNMap[i]);
-//		ComputeDerivativeImage(nextImage[i], nextIdx[i], nextIdy[i]);
 	}
 }
 
@@ -236,7 +220,6 @@ bool Tracking::computeSE3() {
 	float residual[2];
 	nextPose = mNextFrame.pose;
 	lastPose = mLastFrame.pose;
-	lastUpdatePose = lastPose;
 	Eigen::Matrix<double, 6, 6, Eigen::RowMajor> matA;
 	Eigen::Matrix<double, 6, 1> vecb;
 	Eigen::Matrix<double, 6, 1> result;
@@ -265,10 +248,10 @@ bool Tracking::computeSE3() {
 			float icpError = sqrt(residual[0]) / residual[1];
 			float icpCount = residual[1];
 
-//			if (std::isnan(icpError) || icpCount == 0) {
-//				mNextFrame.SetPose(lastUpdatePose);
-//				return false;
-//			}
+			if (std::isnan(icpError) || icpCount == 0) {
+				mNextFrame.SetPose(lastPose);
+				return false;
+			}
 
 			result = matA.ldlt().solve(vecb);
 			auto e = Sophus::SE3d::exp(result);
@@ -552,14 +535,10 @@ bool Tracking::relocalise() {
 //	return bOK;
 //}
 
-void Tracking::SetMap(Mapping* pMap) {
+void Tracking::setMap(Mapping* pMap) {
 	mpMap = pMap;
 }
 
-void Tracking::SetViewer(Viewer* pViewer) {
+void Tracking::setViewer(Viewer* pViewer) {
 	mpViewer = pViewer;
-}
-
-void Tracking::ResetTracking() {
-	mNextState = NOT_INITIALISED;
 }

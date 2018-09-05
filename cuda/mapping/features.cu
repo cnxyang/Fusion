@@ -1,57 +1,7 @@
-#include "Timer.hpp"
-#include "device_mapping.cuh"
+#include "rendering.h"
+#include "prefixsum.h"
 
-#define CUDA_KERNEL __global__
-
-template<int threadBlock>
-DEV_FUNC int ComputeOffset(uint element, uint *sum) {
-
-	__shared__ uint buffer[threadBlock];
-	__shared__ uint blockOffset;
-
-	if (threadIdx.x == 0)
-		memset(buffer, 0, sizeof(uint) * 16 * 16);
-	__syncthreads();
-
-	buffer[threadIdx.x] = element;
-	__syncthreads();
-
-	int s1, s2;
-
-	for (s1 = 1, s2 = 1; s1 < threadBlock; s1 <<= 1) {
-		s2 |= s1;
-		if ((threadIdx.x & s2) == s2)
-			buffer[threadIdx.x] += buffer[threadIdx.x - s1];
-		__syncthreads();
-	}
-
-	for (s1 >>= 2, s2 >>= 1; s1 >= 1; s1 >>= 1, s2 >>= 1) {
-		if (threadIdx.x != threadBlock - 1 && (threadIdx.x & s2) == s2)
-			buffer[threadIdx.x + s1] += buffer[threadIdx.x];
-		__syncthreads();
-	}
-
-	if (threadIdx.x == 0 && buffer[threadBlock - 1] > 0)
-		blockOffset = atomicAdd(sum, buffer[threadBlock - 1]);
-	__syncthreads();
-
-	int offset;
-	if (threadIdx.x == 0) {
-		if (buffer[threadIdx.x] == 0)
-			offset = -1;
-		else
-			offset = blockOffset;
-	} else {
-		if (buffer[threadIdx.x] == buffer[threadIdx.x - 1])
-			offset = -1;
-		else
-			offset = blockOffset + buffer[threadIdx.x - 1];
-	}
-
-	return offset;
-}
-
-CUDA_KERNEL void CollectORBKeys(KeyMap Km,
+__global__ void CollectORBKeys(KeyMap Km,
 		PtrSz<ORBKey> index, uint* totalKeys) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	__shared__ bool scan;
@@ -93,7 +43,7 @@ void CollectKeys(KeyMap Km, DeviceArray<ORBKey>& keys, uint& n) {
 	SafeCall(cudaGetLastError());
 }
 
-CUDA_KERNEL void InsertKeysKernel(KeyMap map, PtrSz<ORBKey> key) {
+__global__ void InsertKeysKernel(KeyMap map, PtrSz<ORBKey> key) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	if (idx < key.size) {
 		map.InsertKey(&key[idx]);
@@ -113,7 +63,7 @@ void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys) {
 	SafeCall(cudaGetLastError());
 }
 
-CUDA_KERNEL void ResetKeysKernel(KeyMap map) {
+__global__ void ResetKeysKernel(KeyMap map) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	map.ResetKeys(idx);
 }
@@ -128,7 +78,7 @@ void ResetKeys(KeyMap map) {
 	SafeCall(cudaGetLastError());
 }
 
-CUDA_KERNEL void BuildAdjecencyMatrixKernel(cv::cuda::PtrStepSz<float> AM,
+__global__ void BuildAdjecencyMatrixKernel(cv::cuda::PtrStepSz<float> AM,
 		PtrSz<ORBKey> TrainKeys, PtrSz<ORBKey> QueryKeys,
 		PtrSz<float> MatchDist) {
 
@@ -163,7 +113,7 @@ CUDA_KERNEL void BuildAdjecencyMatrixKernel(cv::cuda::PtrStepSz<float> AM,
 	}
 }
 
-CUDA_KERNEL void SelectMatches(PtrSz<ORBKey> TrainKeys, PtrSz<ORBKey> QueryKeys,
+__global__ void SelectMatches(PtrSz<ORBKey> TrainKeys, PtrSz<ORBKey> QueryKeys,
 		PtrSz<ORBKey> TrainKeys_selected, PtrSz<ORBKey> QueryKeys_selected,
 		PtrSz<int> SelectedMatches, PtrSz<int> QueryIdx, PtrSz<int> SelectedIdx) {
 	int x = blockDim.x * blockIdx.x + threadIdx.x;
@@ -214,7 +164,7 @@ void BuildAdjecencyMatrix(cv::cuda::GpuMat& AM,	DeviceArray<ORBKey>& TrainKeys,
 	SafeCall(cudaGetLastError());
 }
 
-CUDA_KERNEL void ProjectVisibleKeysKernel(KeyMap map, Matrix3f invRot, float3 trans,
+__global__ void ProjectVisibleKeysKernel(KeyMap map, Matrix3f invRot, float3 trans,
 		int cols, int rows, float maxd, float mind, float fx, float fy,
 		float cx, float cy) {
 
@@ -236,15 +186,14 @@ CUDA_KERNEL void ProjectVisibleKeysKernel(KeyMap map, Matrix3f invRot, float3 tr
 	}
 }
 
-void ProjectVisibleKeys(KeyMap map, Frame& F) {
+void ProjectVisibleKeys(KeyMap map, Matrix3f RviewInv, float3 tview, int cols,
+		int rows, float fx, float fy, float cx, float cy) {
 
 	dim3 block(MaxThread);
 	dim3 grid(cv::divUp(map.Keys.size, block.x));
 
-	ProjectVisibleKeysKernel<<<grid, block>>>(map, F.RotInv_gpu(),
-			F.Trans_gpu(), Frame::cols(0), Frame::rows(0), DeviceMap::DepthMax,
-			DeviceMap::DepthMin, Frame::fx(0), Frame::fy(0), Frame::cx(0),
-			Frame::cy(0));
+	ProjectVisibleKeysKernel<<<grid, block>>>(map, RviewInv, tview, cols, rows,
+			DeviceMap::DepthMax, DeviceMap::DepthMin, fx, fy, cx, cy);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());

@@ -249,7 +249,7 @@ void Viewer::DrawCamera() {
 	Insert(cam, p[2]);
 	Insert(cam, p[3]);
 	Insert(cam, p[4]);
-	bool lost = (mpTracker->mNextState == mpTracker->LOST);
+	bool lost = (mpTracker->state == -1);
 	if(lost)
 		glColor3f(1.0, 0.0, 0.0);
 	else
