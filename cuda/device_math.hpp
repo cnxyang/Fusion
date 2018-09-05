@@ -62,6 +62,7 @@ HOST_FUNC DEV_FUNC double4 make_double4(double a);
  *------------------ */
 HOST_FUNC DEV_FUNC int3 operator+(int3 a, int3 b);
 HOST_FUNC DEV_FUNC int2 operator+(int2 a, int2 b);
+HOST_FUNC DEV_FUNC float3 operator+(int3 a, float3 b);
 HOST_FUNC DEV_FUNC float2 operator+(float2 a, float2 b);
 HOST_FUNC DEV_FUNC uchar3 operator+(uchar3 a, uchar3 b);
 HOST_FUNC DEV_FUNC float3 operator+(float3 a, float b);

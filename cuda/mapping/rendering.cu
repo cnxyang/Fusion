@@ -19,7 +19,7 @@ struct Projection {
 	uint noVisibleBlocks;
 
 	PtrSz<HashEntry> visibleBlocks;
-	mutable PtrStep<float> zRangeX;
+	mutable PtrStepSz<float> zRangeX;
 	mutable PtrStep<float> zRangeY;
 	mutable PtrSz<RenderingBlock> renderingBlockList;
 
@@ -106,24 +106,25 @@ struct Projection {
 	__device__ inline void operator()() const {
 
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
+		if(x >= noVisibleBlocks || visibleBlocks[x].ptr == EntryAvailable)
+			return;
+
 		bool valid = false;
 		uint requiredNoBlocks = 0;
 		RenderingBlock block;
 		int nx, ny;
 
-		if (x < noVisibleBlocks && visibleBlocks[x].ptr != EntryAvailable) {
-			valid = projectBlock(visibleBlocks[x].pos, block);
-			float dx = (float) block.lowerRight.x - block.upperLeft.x + 1;
-			float dy = (float) block.lowerRight.y - block.upperLeft.y + 1;
-			nx = __float2int_ru(dx / renderingBlockSizeX);
-			ny = __float2int_ru(dy / renderingBlockSizeY);
-			if (valid) {
-				requiredNoBlocks = nx * ny;
-				uint totalNoBlocks = *noRenderingBlocks + requiredNoBlocks;
-				if (totalNoBlocks >= renderingBlockList.size) {
-					requiredNoBlocks = 0;
-					valid = false;
-				}
+		valid = projectBlock(visibleBlocks[x].pos, block);
+		float dx = (float) block.lowerRight.x - block.upperLeft.x + 1;
+		float dy = (float) block.lowerRight.y - block.upperLeft.y + 1;
+		nx = __float2int_ru(dx / renderingBlockSizeX);
+		ny = __float2int_ru(dy / renderingBlockSizeY);
+		if (valid) {
+			requiredNoBlocks = nx * ny;
+			uint totalNoBlocks = *noRenderingBlocks + requiredNoBlocks;
+			if (totalNoBlocks >= renderingBlockList.size) {
+				requiredNoBlocks = 0;
+				valid = false;
 			}
 		}
 
@@ -144,11 +145,11 @@ struct Projection {
 		RenderingBlock & b(renderingBlockList[block]);
 
 		int xpos = b.upperLeft.x + x;
-		if (xpos > b.lowerRight.x || xpos >= cols)
+		if (xpos > b.lowerRight.x || xpos >= zRangeX.cols)
 			return;
 
 		int ypos = b.upperLeft.y + y;
-		if (ypos > b.lowerRight.y || ypos >= rows)
+		if (ypos > b.lowerRight.y || ypos >= zRangeX.rows)
 			return;
 
 		float * minPtr = & zRangeX.ptr(ypos)[xpos];
@@ -412,9 +413,9 @@ struct Rendering {
 			HashEntry b = map.FindEntry(blockPos);
 			if(b.ptr != EntryAvailable) {
 				sdf = readSdf(result);
-//				if(sdf <= 0.1f && sdf >= -0.5f) {
-//					sdf = readSdfInterped(result);
-//				}
+				if(sdf <= 0.1f && sdf >= -0.1f) {
+					sdf = readSdfInterped(result);
+				}
 
 				if(sdf <= 0.0f)
 					break;
@@ -462,7 +463,7 @@ __global__ void RayCastKernel(Rendering cast) {
 	cast();
 }
 
-void RayCast(DeviceMap map,
+void rayCast(DeviceMap map,
 			 DeviceArray2D<float4> & vmap,
 			 DeviceArray2D<float3> & nmap,
 			 DeviceArray2D<float> & zRangeX,

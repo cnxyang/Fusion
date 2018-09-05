@@ -98,6 +98,10 @@ HOST_FUNC DEV_FUNC float2 operator+(float2 a, float2 b) {
 	return make_float2(a.x + b.x, a.y + b.y);
 }
 
+HOST_FUNC DEV_FUNC float3 operator+(int3 a, float3 b) {
+	return make_float3(a.x + b.x, a.y + b.y, a.z + b.z);
+}
+
 HOST_FUNC DEV_FUNC uchar3 operator+(uchar3 a, uchar3 b) {
 	return make_uchar3(a.x + b.x, a.y + b.y, a.z + b.z);
 }

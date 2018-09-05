@@ -53,6 +53,11 @@ DEV_FUNC float Voxel::GetSdf() const {
 	return __int2float_rn(sdf) / MaxShort;
 }
 
+DEV_FUNC void Voxel::GetSdfAndColor(float & sdf, uchar3 & color) const {
+	sdf = GetSdf();
+	color = rgb;
+}
+
 DEV_FUNC void Voxel::SetSdf(float val) {
 	sdf = fmaxf(-MaxShort, fminf(MaxShort, __float2int_rz(val * MaxShort)));
 }

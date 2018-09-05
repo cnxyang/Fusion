@@ -1,6 +1,6 @@
 #include "device_map.hpp"
 
-void RayCast(DeviceMap map,
+void rayCast(DeviceMap map,
 			 DeviceArray2D<float4> & vmap,
 			 DeviceArray2D<float3> & nmap,
 			 DeviceArray2D<float> & zRangeX,
@@ -27,3 +27,14 @@ bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
 						  float fy,
 						  float cx,
 						  float cy);
+
+uint meshScene(DeviceArray<uint> & noOccupiedBlocks,
+			   DeviceArray<uint> & noTotalTriangles,
+			   DeviceMap map,
+			   const DeviceArray<int> & edgeTable,
+			   const DeviceArray<int> & noVertexTable,
+			   const DeviceArray2D<int> & triangleTable,
+			   DeviceArray<float3> & normal,
+			   DeviceArray<float3> & vertex,
+			   DeviceArray<uchar3> & color,
+			   DeviceArray<int3> & extractedBlocks);

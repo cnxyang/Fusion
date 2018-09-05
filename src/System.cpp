@@ -65,7 +65,7 @@ nFrames(0){
 
 	Frame::mDepthScale = mpParam->DepthScale;
 	Frame::mDepthCutoff = mpParam->DepthCutoff;
-//	Timer::Enable();
+	Timer::Enable();
 }
 
 void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
@@ -89,10 +89,11 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 
 		if(nFrames > 30) {
 			nFrames = 0;
-			mpMap->MeshScene();
+			mpMap->CreateMesh();
 		}
 		nFrames++;
 	}
+	Timer::Print();
 
 	if(mbStop)
 		exit(0);
@@ -100,7 +101,7 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 
 void System::SaveMesh() {
 
-	uint n = mpMap->MeshScene();
+//	uint n = mpMap->MeshScene();
 //	float3 * host_tri = mpMap->mHostMesh;
 //	FILE *f = fopen("scene.stl", "wb+");
 //	if (f != NULL) {

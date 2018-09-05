@@ -2,11 +2,12 @@
 #include "Mapping.hpp"
 #include "device_mapping.cuh"
 #include "Table.hpp"
+#include "rendering.h"
 
 bool Mapping::mbFirstCall = true;
 
 Mapping::Mapping():
-nTriangle(0), bUpdated(false) {}
+nTriangle(0), bUpdated(false), extractColor(false) {}
 
 Mapping::~Mapping() {
 	ReleaseDeviceMemory();
@@ -33,8 +34,13 @@ void Mapping::AllocateDeviceMemory() {
 	mColorMap.create(DeviceMap::MaxTriangles * 3);
 	mTriTable.create(16, 256);
 	mEdgeTable.create(256);
+	mNoVertex.create(256);
 	mTriTable.upload(triTable, sizeof(int) * 16, 16, 256);
 	mEdgeTable.upload(edgeTable, 256);
+	mNoVertex.upload(numVertsTable, 256);
+	extractedPoses.create(DeviceMap::NumEntries);
+	nBlocks.create(1);
+	nTriangles.create(1);
 	mRenderingBlockList.create(DeviceMap::MaxRenderingBlocks);
 	mDepthMapMin.create(80, 60);
 	mDepthMapMax.create(80, 60);
@@ -56,6 +62,21 @@ void Mapping::ReleaseDeviceMemory() {
 	mVoxelBlocks.release();
 	mORBKeys.release();
 	mEntryPtr.release();
+}
+
+void Mapping::CreateMesh() {
+
+	Timer::Start("test", "mesh");
+	nTriangle = meshScene(nBlocks, nTriangles, *this, mEdgeTable,
+			mNoVertex, mTriTable, mMeshNormal, mMesh, mColorMap,
+			extractedPoses);
+	Timer::Stop("test", "mesh");
+
+	if(nTriangle > 0) {
+		mMutexMesh.lock();
+		bUpdated = true;
+		mMutexMesh.unlock();
+	}
 }
 
 void Mapping::IntegrateKeys(Frame& F) {
@@ -136,7 +157,7 @@ void Mapping::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 			noVisibleBlocks, Frame::fx(0), Frame::fy(0), Frame::cx(0),
 			Frame::cy(0))) {
 
-		RayCast(*this, vmap, nmap, mDepthMapMin, mDepthMapMax, Rview, RviewInv, tview,
+		rayCast(*this, vmap, nmap, mDepthMapMin, mDepthMapMax, Rview, RviewInv, tview,
 				1.0 / Frame::fx(0), 1.0 / Frame::fy(0), Frame::cx(0),
 				Frame::cy(0));
 	}

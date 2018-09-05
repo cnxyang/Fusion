@@ -302,7 +302,7 @@ int triTable[256][16] =
 };
 
 // number of vertices for each case above
-const int numVertsTable[256] =
+int numVertsTable[256] =
 {
     0,
     3,

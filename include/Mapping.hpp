@@ -23,7 +23,8 @@ public:
 	void AllocateDeviceMemory();
 	void ResetDeviceMemory();
 	void ReleaseDeviceMemory();
-	uint MeshScene();
+//	uint MeshScene();
+	void CreateMesh();
 	int FuseFrame(const Frame& frame);
 //	void RenderMap(Rendering& render, int num_occupied_blocks);
 	uint IdentifyVisibleBlocks(const Frame& F);
@@ -73,11 +74,14 @@ public:
 	DeviceArray<float3> mMesh;
 	DeviceArray2D<int> mTriTable;
 	DeviceArray<int> mEdgeTable;
+	DeviceArray<int> mNoVertex;
 	DeviceArray<float3> mMeshNormal;
 	DeviceArray<uchar3> mColorMap;
 	DeviceArray<RenderingBlock> mRenderingBlockList;
 	DeviceArray2D<float> mDepthMapMin;
 	DeviceArray2D<float> mDepthMapMax;
+	DeviceArray<uint> nBlocks;
+	DeviceArray<uint> nTriangles;
 
 	bool bUpdated;
 	uint nTriangle;
@@ -100,6 +104,11 @@ public:
 
 	Eigen::Matrix3f currentPose;
 	std::set<KeyFrame *> keyFrames;
+
+	bool extractColor;
+	std::mutex extractionType;
+
+	DeviceArray<int3> extractedPoses;
 };
 
 #endif

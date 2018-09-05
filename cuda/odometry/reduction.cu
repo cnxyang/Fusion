@@ -1,4 +1,4 @@
-#include "Tracking.hpp"
+#include "reduction.h"
 
 __device__ __inline__ JtJJtrSE3 WarpReduceSum(JtJJtrSE3 val) {
 #pragma unroll

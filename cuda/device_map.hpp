@@ -44,6 +44,7 @@ struct Voxel {
 	DEV_FUNC void release();
 	DEV_FUNC float GetSdf() const;
 	DEV_FUNC void SetSdf(float);
+	DEV_FUNC void GetSdfAndColor(float & sdf, uchar3 & color) const;
 	DEV_FUNC void operator+=(const Voxel& other);
 	DEV_FUNC void operator-=(const Voxel& other);
 	DEV_FUNC void operator=(const Voxel& other);
