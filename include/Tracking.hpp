@@ -1,8 +1,8 @@
 #ifndef TRACKING_HPP__
 #define TRACKING_HPP__
 
-#include "reduction.h"
 #include "cuarray.h"
+#include "reduction.h"
 #include "Mapping.hpp"
 #include "Viewer.hpp"
 #include "Frame.hpp"

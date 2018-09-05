@@ -72,28 +72,28 @@ void ComputeNormalMap(const DeviceArray2D<float4>& src,
 	SafeCall(cudaGetLastError());
 }
 
-__global__ void WarpGrayScaleImageDevice(PtrStepSz<float4> src,
-		PtrStep<uchar> gray, Matrix3f R1, Matrix3f invR2, float3 t1, float3 t2,
-		float fx, float fy, float cx, float cy, PtrStep<uchar> diff) {
-
-	const int x = blockDim.x * blockIdx.x + threadIdx.x;
-	const int y = blockDim.y * blockIdx.y + threadIdx.y;
-	if (x >= src.cols || y >= src.rows)
-		return;
-
-	diff.ptr(y)[x] = 0;
-
-	float3 srcp = make_float3(src.ptr(y)[x]);
-	if (isnan(srcp.x) || srcp.z < 1e-6)
-		return;
-	float3 dst = R1 * srcp + t1;
-	dst = invR2 * (dst - t2);
-
-	int u = __float2int_rd(fx * dst.x / dst.z + cx + 0.5);
-	int v = __float2int_rd(fy * dst.y / dst.z + cy + 0.5);
-	if (u >= 0 && v >= 0 && u < src.cols && v < src.rows)
-		diff.ptr(y)[x] = gray.ptr(v)[u];
-}
+//__global__ void WarpGrayScaleImageDevice(PtrStepSz<float4> src,
+//		PtrStep<uchar> gray, Matrix3f R1, Matrix3f invR2, float3 t1, float3 t2,
+//		float fx, float fy, float cx, float cy, PtrStep<uchar> diff) {
+//
+//	const int x = blockDim.x * blockIdx.x + threadIdx.x;
+//	const int y = blockDim.y * blockIdx.y + threadIdx.y;
+//	if (x >= src.cols || y >= src.rows)
+//		return;
+//
+//	diff.ptr(y)[x] = 0;
+//
+//	float3 srcp = make_float3(src.ptr(y)[x]);
+//	if (isnan(srcp.x) || srcp.z < 1e-6)
+//		return;
+//	float3 dst = R1 * srcp + t1;
+//	dst = invR2 * (dst - t2);
+//
+//	int u = __float2int_rd(fx * dst.x / dst.z + cx + 0.5);
+//	int v = __float2int_rd(fy * dst.y / dst.z + cy + 0.5);
+//	if (u >= 0 && v >= 0 && u < src.cols && v < src.rows)
+//		diff.ptr(y)[x] = gray.ptr(v)[u];
+//}
 
 //void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2,
 //		DeviceArray2D<uchar>& diff) {
@@ -121,7 +121,7 @@ __global__ void WarpGrayScaleImageDevice(PtrStepSz<float4> src,
 //
 //	residual.ptr(y)[x] = abs(src.ptr(y)[x] - dst.ptr(y)[x]);
 //}
-
+//
 //void ComputeResidualImage(const DeviceArray2D<uchar>& src,
 //		DeviceArray2D<uchar>& residual, const Frame& frame) {
 //	dim3 block(8, 8);
@@ -217,4 +217,30 @@ __global__ void WarpGrayScaleImageDevice(PtrStepSz<float4> src,
 //
 //	ProjectToDepth_device<<<grid, block>>>(src, dst);
 //	SafeCall(cudaGetLastError());
+//}
+
+//__global__ void ComputeVertexMapDiff(PtrStepSz<float4> src, PtrStepSz<float4> dst, PtrStepSz<float> result,
+//		Matrix3f Rcurr, float3 tcurr, Matrix3f Rlast, float3 tlast) {
+//	int x = blockDim.x * blockIdx.x + threadIdx.x;
+//	int y = blockDim.y * blockIdx.y + threadIdx.y;
+//	if(x >= src.cols || y >= src.rows)
+//		return;
+//
+//
+//}
+//
+//void ComputeVertexMapDiff(DeviceArray2D<float4> & vsrc, DeviceArray2D<float4> & vdst,
+//		Matrix3f Rcurr, float3 tcurr, Matrix3f RlastInv, float3 tlast) {
+//
+//	DeviceArray2D<float> result(vsrc.cols() , vsrc.rows());
+//
+//	dim3 block(32, 8);
+//	dim3 grid(cv::divUp(vsrc.cols(), block.x), cv::divUp(vsrc.rows(), block.y));
+//
+//	ComputeVertexMapDiffKernel<<<grid, block>>>(vsrc, vdst, result, Rcurr, tcurr, RlastInv, tlast);
+//
+//	cv::Mat img(480, 640, CV_32FC1);
+//	result.download((void*) img.data, img.step);
+//	cv::imshow("result", img);
+//	cv::waitKey(0);
 //}

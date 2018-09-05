@@ -221,7 +221,7 @@ void Viewer::DrawCamera() {
 	p[3] << -0.1, -0.08, 0;
 	p[4] << 0, 0, -0.08;
 
-	Eigen::Matrix3d R = mpTracker->mLastFrame.Rotation();
+	const Eigen::Matrix3d R = mpTracker->mLastFrame.Rotation();
 	Eigen::Vector3d t = mpTracker->mLastFrame.Translation();
 
 	for(int i = 0; i < 5; ++i) {

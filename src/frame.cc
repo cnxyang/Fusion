@@ -227,7 +227,7 @@ Matrix3f Frame::Rot_gpu() const {
 
 Matrix3f Frame::RotInv_gpu() const {
 	Matrix3f Rot;
-	Eigen::Matrix4d mPoseInv = pose.inverse();
+	const Eigen::Matrix3d mPoseInv = Rotation().transpose();
 	Rot.rowx = make_float3(mPoseInv(0, 0), mPoseInv(0, 1), mPoseInv(0, 2));
 	Rot.rowy = make_float3(mPoseInv(1, 0), mPoseInv(1, 1), mPoseInv(1, 2));
 	Rot.rowz = make_float3(mPoseInv(2, 0), mPoseInv(2, 1), mPoseInv(2, 2));
@@ -242,7 +242,7 @@ void Frame::SetPose(const Eigen::Matrix4d T) {
 	pose = T;
 }
 
-Eigen::Matrix3d Frame::Rotation() {
+Eigen::Matrix3d Frame::Rotation() const {
 	return pose.topLeftCorner(3, 3);
 }
 

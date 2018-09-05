@@ -22,5 +22,6 @@ void ComputeNormalMap(const DeviceArray2D<float4>& src, DeviceArray2D<float3>& d
 //void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2, DeviceArray2D<uchar>& diff);
 //void ComputeResidualImage(const DeviceArray2D<uchar>& src, DeviceArray2D<uchar>& residual, const Frame& frame);
 void RenderImage(const DeviceArray2D<float4>& points, const DeviceArray2D<float3>& normals, const float3 & light_pose, DeviceArray2D<uchar4>& image);
-
+void ComputeVertexMapDiff(DeviceArray2D<float4> & vsrc, DeviceArray2D<float4> & vdst,
+		Matrix3f Rcurr, float3 tcurr, Matrix3f RlastInv, float3 tlast);
 #endif

@@ -106,4 +106,11 @@ void icpStep(const DeviceArray2D<float4> & nextVMap,
 			 float3 tlast,
 			 MatK K);
 
+#include "Frame.hpp"
+double ICPReduceSum(DeviceArray2D<float4> & nextVMap, DeviceArray2D<float4> & lastVMap,
+		DeviceArray2D<float3> & nextNMap, DeviceArray2D<float3> & lastNMap,
+		Frame& NextFrame, Frame& LastFrame, int pyr, double* host_a,
+		double* host_b);
+#define WarpSize 32
+#define MaxThread 1024
 #endif

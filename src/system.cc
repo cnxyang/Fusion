@@ -84,7 +84,7 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 				mpTracker->mLastFrame.Trans_gpu(), mpTracker->lastVMap[0],
 				mpTracker->lastNMap[0]);
 
-		if(nFrames > 1) {
+		if(nFrames > 15) {
 			nFrames = 0;
 			mpMap->createMesh();
 		}

@@ -73,8 +73,8 @@ bool Tracking::track() {
 		valid = trackKF();
 		if(valid) {
 			state = 0;
-			if(needNewKF())
-				createNewKF();
+//			if(needNewKF())
+//				createNewKF();
 			swapFrame();
 			return true;
 		}
@@ -95,10 +95,10 @@ bool Tracking::track() {
 bool Tracking::trackKF() {
 
 	bool valid = false;
-//	valid = trackKeys();
-//	if(!valid) {
-//		return false;
-//	}
+	valid = trackKeys();
+	if(!valid) {
+		return false;
+	}
 
 	initIcp();
 	valid = computeSE3();
@@ -217,8 +217,8 @@ void Tracking::createNewKF() {
 bool Tracking::computeSE3() {
 
 	float residual[2];
-	nextPose = mNextFrame.pose;
-	lastPose = mLastFrame.pose;
+//	mNextFrame.pose = mLastFrame.pose;
+
 	Eigen::Matrix<double, 6, 6, Eigen::RowMajor> matA;
 	Eigen::Matrix<double, 6, 1> vecb;
 	Eigen::Matrix<double, 6, 1> result;
@@ -227,26 +227,34 @@ bool Tracking::computeSE3() {
 	for(int i = NUM_PYRS - 1; i >= 0; --i) {
 
 		for(int j = 0; j < iteration[i]; ++j) {
+			nextPose = mNextFrame.pose;
+			lastPose = mLastFrame.pose;
+//			icpStep(nextVMap[i],
+//					lastVMap[i],
+//					nextNMap[i],
+//					lastNMap[i],
+//					sumSE3,
+//					outSE3,
+//					residual,
+//					matA.data(),
+//					vecb.data(),
+//					mNextFrame.Rot_gpu(),
+//					mNextFrame.Trans_gpu(),
+//					mLastFrame.Rot_gpu(),
+//					mLastFrame.RotInv_gpu(),
+//					mLastFrame.Trans_gpu(),
+//					K(i));
 
-			icpStep(nextVMap[i],
+//			float icpError = sqrt(residual[0]) / residual[1];
+//			float icpCount = residual[1];
+
+			ICPReduceSum(nextVMap[i],
 					lastVMap[i],
 					nextNMap[i],
 					lastNMap[i],
-					sumSE3,
-					outSE3,
-					residual,
-					matA.data(),
-					vecb.data(),
-					eigen_to_mat3f(nextPose.topLeftCorner(3, 3)),
-					eigen_to_float3(nextPose.topRightCorner(3, 1)),
-					eigen_to_mat3f(lastPose.topLeftCorner(3, 3)),
-					eigen_to_mat3f(lastPose.topLeftCorner(3, 3).transpose()),
-					eigen_to_float3(lastPose.topRightCorner(3, 1)),
-					K(i));
+					mNextFrame, mLastFrame, i, matA.data(),
+					vecb.data());
 
-			float icpError = sqrt(residual[0]) / residual[1];
-			float icpCount = residual[1];
-			std::cout << icpCount << " " << icpError << std::endl;
 //			if (std::isnan(icpError) || icpCount == 0) {
 //				mNextFrame.SetPose(lastPose);
 //				return true;
@@ -256,32 +264,10 @@ bool Tracking::computeSE3() {
 			auto e = Sophus::SE3d::exp(result);
 			auto dT = e.matrix();
 			nextPose = lastPose * (dT.inverse() * nextPose.inverse() * lastPose).inverse();
-			lastIcpError = icpError;
+			mNextFrame.pose = nextPose;
+//			lastIcpError = icpError;
 		}
 	}
-
-	mNextFrame.SetPose(nextPose);
-	std::cout << nextPose << std::endl;
-
-	cv::Mat img(480, 640, CV_32FC4);
-	lastVMap[0].download((void*) img.data, img.step);
-	cv::imshow("img", img);
-	cv::waitKey(10);
-
-	cv::Mat img2(480, 640, CV_32FC4);
-	nextVMap[0].download((void*) img2.data, img2.step);
-	cv::imshow("img2", img2);
-	cv::waitKey(10);
-
-	cv::Mat img3(480, 640, CV_32FC3);
-	lastNMap[0].download((void*) img3.data, img3.step);
-	cv::imshow("im3g", img3);
-	cv::waitKey(10);
-
-	cv::Mat img23(480, 640, CV_32FC3);
-	nextNMap[0].download((void*) img23.data, img23.step);
-	cv::imshow("img23", img23);
-	cv::waitKey(0);
 
 	return true;
 }

@@ -129,7 +129,7 @@ void Mapping::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 
 	DeviceArray<uint> noRenderingBlocks(1);
 	Timer::Start("test", "test");
-	if (createRenderingBlock(mVisibleEntries, mDepthMapMin, mDepthMapMax, 3.5, 0.1,
+	if (createRenderingBlock(mVisibleEntries, mDepthMapMin, mDepthMapMax, 3.0, 0.1,
 			mRenderingBlockList, noRenderingBlocks, RviewInv, tview,
 			noVisibleBlocks, Frame::fx(0), Frame::fy(0), Frame::cx(0),
 			Frame::cy(0))) {

@@ -25,7 +25,7 @@ public:
 	void SetPose(const Frame& frame);
 	void SetPose(const Eigen::Matrix4d T);
 
-	Eigen::Matrix3d Rotation();
+	Eigen::Matrix3d Rotation() const;
 	Eigen::Vector3d Translation();
 
 	float3 Trans_gpu() const;
