@@ -310,12 +310,12 @@ uint meshScene(DeviceArray<uint> & noOccupiedBlocks,
 			   DeviceArray<uint> & noTotalTriangles,
 			   DeviceMap map,
 			   const DeviceArray<int> & edgeTable,
-			   const DeviceArray<int> & noVertexTable,
+			   const DeviceArray<int> & vertexTable,
 			   const DeviceArray2D<int> & triangleTable,
 			   DeviceArray<float3> & normal,
 			   DeviceArray<float3> & vertex,
 			   DeviceArray<uchar3> & color,
-			   DeviceArray<int3> & extractedBlocks) {
+			   DeviceArray<int3> & blockPoses) {
 
 	noOccupiedBlocks.zero();
 	noTotalTriangles.zero();
@@ -329,12 +329,11 @@ uint meshScene(DeviceArray<uint> & noOccupiedBlocks,
 	engine.noTriangles = noTotalTriangles;
 	engine.normals = normal;
 	engine.color = color;
-	engine.blockPos = extractedBlocks;
-	engine.noVertexTable = noVertexTable;
+	engine.blockPos = blockPoses;
+	engine.noVertexTable = vertexTable;
 
 	dim3 thread(1024);
-	dim3 block;
-	block.x = cv::divUp((int) DeviceMap::NumEntries, thread.x);
+	dim3 block = dim3(cv::divUp((int) DeviceMap::NumEntries, thread.x));
 
 	CheckBlockKernel<<<block, thread>>>(engine);
 	SafeCall(cudaGetLastError());
@@ -344,6 +343,7 @@ uint meshScene(DeviceArray<uint> & noOccupiedBlocks,
 	noOccupiedBlocks.download((void*) &host_data);
 	if (host_data <= 0)
 		return 0;
+	std::cout << host_data << std::endl;
 
 	thread = dim3(512);
 	block = dim3(cv::divUp((int) host_data, 16), 16);
@@ -354,5 +354,7 @@ uint meshScene(DeviceArray<uint> & noOccupiedBlocks,
 
 	noTotalTriangles.download((void*) &host_data);
 	host_data = min(host_data, DeviceMap::MaxTriangles);
+
+	std::cout << host_data << std::endl;
 	return host_data;
 }

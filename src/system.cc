@@ -1,6 +1,8 @@
 #include "System.hpp"
 #include "Timer.hpp"
 
+#include <fstream>
+
 using namespace cv;
 using namespace std;
 
@@ -13,12 +15,9 @@ nFrames(0) {
 		System(static_cast<SysDesc*>(nullptr));
 }
 
-System::System(SysDesc* pParam):
-mpMap(nullptr),
-mpViewer(nullptr),
-mpTracker(nullptr),
-mbStop(false),
-nFrames(0){
+System::System(SysDesc* pParam) :
+		mpMap(nullptr), mpViewer(nullptr), mpTracker(nullptr), mbStop(false),
+		nFrames(0), requestSaveMesh(false) {
 
 	if(pParam) {
 		mpParam = new SysDesc();
@@ -45,23 +44,23 @@ nFrames(0){
 	Frame::SetK(mK);
 
 	mpMap = new Mapping();
-	mpMap->allocate();
+	mpMap->create();
 
 	mpViewer = new Viewer();
-	mpTracker = new Tracking(mpParam->cols,
+	mpTracker = new tracker(mpParam->cols,
 							 mpParam->rows,
 							 mpParam->fx,
 							 mpParam->fy,
 							 mpParam->cx,
 							 mpParam->cy);
 
-	mpViewer->SetMap(mpMap);
-	mpViewer->SetSystem(this);
-	mpViewer->SetTracker(mpTracker);
+	mpViewer->setMap(mpMap);
+	mpViewer->setSystem(this);
+	mpViewer->setTracker(mpTracker);
 
 	mpTracker->setMap(mpMap);
 
-	mptViewer = new thread(&Viewer::Spin, mpViewer);
+	mptViewer = new thread(&Viewer::spin, mpViewer);
 
 	Frame::mDepthScale = mpParam->DepthScale;
 	Frame::mDepthCutoff = mpParam->DepthCutoff;
@@ -69,6 +68,13 @@ nFrames(0){
 }
 
 void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
+
+	if(requestSaveMesh) {
+		saveMesh();
+		mutexReq.lock();
+		requestSaveMesh = false;
+		mutexReq.unlock();
+	}
 
 	bool bOK = mpTracker->grabFrame(imRGB, imD);
 
@@ -79,52 +85,76 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 				mpTracker->mLastFrame.RotInv_gpu(),
 				mpTracker->mLastFrame.Trans_gpu(), no);
 
-		mpMap->RayTrace(no, mpTracker->mLastFrame.Rot_gpu(),
+		mpMap->rayTrace(no, mpTracker->mLastFrame.Rot_gpu(),
 				mpTracker->mLastFrame.RotInv_gpu(),
 				mpTracker->mLastFrame.Trans_gpu(), mpTracker->lastVMap[0],
 				mpTracker->lastNMap[0]);
 
 		if(nFrames > 15) {
 			nFrames = 0;
-			mpMap->createMesh();
+			mpMap->createModel();
 		}
 		nFrames++;
 	}
-	Timer::Print();
+//	Timer::Print();
 
 	if(mbStop)
 		exit(0);
 }
 
-void System::SaveMesh() {
+void System::saveMesh() {
 
-//	uint n = mpMap->MeshScene();
-//	float3 * host_tri = mpMap->mHostMesh;
-//	FILE *f = fopen("scene.stl", "wb+");
-//	if (f != NULL) {
-//		for (int i = 0; i < 80; i++)
-//			fwrite(" ", sizeof(char), 1, f);
-//		fwrite(&n, sizeof(int), 1, f);
-//		float zero = 0.0f;
-//		short attribute = 0;
-//		for (uint i = 0; i < n; i++) {
-//			fwrite(&zero, sizeof(float), 1, f);
-//			fwrite(&zero, sizeof(float), 1, f);
-//			fwrite(&zero, sizeof(float), 1, f);
-//			fwrite(&host_tri[i * 3 + 0].x, sizeof(float), 1, f);
-//			fwrite(&host_tri[i * 3 + 0].y, sizeof(float), 1, f);
-//			fwrite(&host_tri[i * 3 + 0].z, sizeof(float), 1, f);
-//			fwrite(&host_tri[i * 3 + 1].x, sizeof(float), 1, f);
-//			fwrite(&host_tri[i * 3 + 1].y, sizeof(float), 1, f);
-//			fwrite(&host_tri[i * 3 + 1].z, sizeof(float), 1, f);
-//			fwrite(&host_tri[i * 3 + 2].x, sizeof(float), 1, f);
-//			fwrite(&host_tri[i * 3 + 2].y, sizeof(float), 1, f);
-//			fwrite(&host_tri[i * 3 + 2].z, sizeof(float), 1, f);
-//			fwrite(&attribute, sizeof(short), 1, f);
-//		}
-//		fclose(f);
-//	}
-//	delete host_tri;
+	mpMap->createModel();
+
+	float3 * host_vertex = (float3*) malloc(sizeof(float3) * mpMap->noTrianglesHost * 3);
+	float3 * host_normal = (float3*) malloc(sizeof(float3) * mpMap->noTrianglesHost * 3);
+	uchar3 * host_color = (uchar3*) malloc(sizeof(uchar3) * mpMap->noTrianglesHost * 3);
+	mpMap->modelVertex.download(host_vertex, mpMap->noTrianglesHost * 3);
+	mpMap->modelNormal.download(host_normal, mpMap->noTrianglesHost * 3);
+	mpMap->modelColor.download(host_color, mpMap->noTrianglesHost * 3);
+
+	std::ofstream file;
+	file.open("scene.ply");
+		file << "ply\n";
+		file << "format ascii 1.0\n";
+		file << "element vertex " << mpMap->noTrianglesHost * 3 << "\n";
+		file << "property float x\n";
+		file << "property float y\n";
+		file << "property float z\n";
+		file << "property float nx\n";
+		file << "property float ny\n";
+		file << "property float nz\n";
+		file << "property uchar red\n";
+		file << "property uchar green\n";
+		file << "property uchar blue\n";
+		file << "element face " << mpMap->noTrianglesHost << "\n";
+		file << "property list uchar uint vertex_indices\n";
+		file << "end_header" << std::endl;
+
+	for (uint i = 0; i <  mpMap->noTrianglesHost * 3; ++i) {
+		file << host_vertex[i].x << " "
+			 << host_vertex[i].y << " "
+			 << host_vertex[i].z << " "
+		     << host_normal[i].x << " "
+			 << host_normal[i].y << " "
+			 << host_normal[i].z << " "
+		     << (int) host_color[i].x << " "
+			 << (int) host_color[i].y << " "
+			 << (int) host_color[i].z << std::endl;
+	}
+
+	uchar numFaces = 3;
+	for (uint i = 0; i <  mpMap->noTrianglesHost; ++i) {
+		file << (static_cast<int>(numFaces) & 0xFF) << " "
+			 << (int) i * 3 + 0 << " "
+			 << (int) i * 3 + 1 << " "
+			 << (int) i * 3 + 2 << std::endl;
+	}
+
+	file.close();
+	delete host_vertex;
+	delete host_normal;
+	delete host_color;
 }
 
 void System::Reboot() {
@@ -139,10 +169,10 @@ void System::PrintTimings() {
 void System::Stop() {
 	mbStop = true;
 }
-
+#include <unistd.h>
 void System::JoinViewer() {
 
 	while(!mbStop) {
-
+		usleep(3000);
 	}
 }

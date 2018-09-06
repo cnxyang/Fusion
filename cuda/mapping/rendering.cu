@@ -499,7 +499,7 @@ void rayCast(DeviceMap map,
 	cast.Rview = Rview;
 	cast.RviewInv = RviewInv;
 	cast.tview = tview;
-	std::cout << cx << " " << 1.0 / invfx << std::endl;
+
 	dim3 block;
 	dim3 thread(32, 8);
 	block.x = cv::divUp(cols, thread.x);

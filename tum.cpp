@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
 		cv::Mat imRGB = cv::imread(vsRGBList[i], cv::IMREAD_UNCHANGED);
 		slam.GrabImageRGBD(imRGB, imD);
 	}
-
+	slam.saveMesh();
 	slam.JoinViewer();
 }
 

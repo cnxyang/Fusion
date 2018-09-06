@@ -4,11 +4,13 @@
 #include "Mapping.hpp"
 #include "Viewer.hpp"
 #include "Tracking.hpp"
+
+#include <mutex>
 #include <thread>
 
 class Viewer;
 class Mapping;
-class Tracking;
+class tracker;
 
 struct SysDesc {
 	int cols, rows;
@@ -31,22 +33,23 @@ public:
 	void SetParameters(SysDesc& desc);
 	void PrintTimings();
 	void JoinViewer();
-	void SaveMesh();
+	void saveMesh();
 	void Reboot();
 	void Stop();
 
-	static std::mutex meshMutex;
-
-private:
+public:
 	Mapping* mpMap;
 	Viewer* mpViewer;
 	SysDesc* mpParam;
-	Tracking* mpTracker;
+	tracker* mpTracker;
 
 	cv::Mat mK;
 	bool mbStop;
 	int nFrames;
 	std::thread* mptViewer;
+
+	std::mutex mutexReq;
+	bool requestSaveMesh;
 };
 
 #endif

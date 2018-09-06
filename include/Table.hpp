@@ -3,7 +3,7 @@
 
 // edge table maps 8-bit flag representing which cube vertices are inside
 // the isosurface to 12-bit number indicating which edges are intersected
-int edgeTable[256] =
+int edgeTable_host[256] =
 {
 	0x0  , 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
 	0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
@@ -41,7 +41,7 @@ int edgeTable[256] =
 
 // triangle table maps same cube vertex index to a list of up to 5 triangles
 // which are built from the interpolated edge vertices
-int triTable[256][16] =
+int triTable_host[256][16] =
 {
     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 	{0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},

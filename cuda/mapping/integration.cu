@@ -6,7 +6,7 @@ struct Fusion {
 	DeviceMap map;
 	float invfx, invfy;
 	float fx, fy, cx, cy;
-	float DEPTH_MIN, DEPTH_MAX;
+	float minDepth, maxDepth;
 	int cols, rows;
 	Matrix3f Rview;
 	Matrix3f RviewInv;
@@ -39,7 +39,7 @@ struct Fusion {
 
 		return pt2d.x >= 0 && pt2d.y >= 0 &&
 			   pt2d.x < cols && pt2d.y < rows &&
-			   pt3d.z >= DEPTH_MIN && pt3d.z <= DEPTH_MAX;
+			   pt3d.z >= minDepth && pt3d.z <= maxDepth;
 	}
 
 	__device__ inline bool CheckBlockVisibility(const int3& pos) {
@@ -150,22 +150,20 @@ struct Fusion {
 		int3 voxel_pos = block_pos + map.localIdxToLocalPos(locId);
 		float3 pos = map.voxelPosToWorldPos(voxel_pos);
 		pos = RviewInv * (pos - tview);
-		float2 pt = project(pos);
-		if (pt.x < 1 || pt.y < 1 ||
-			pt.x >= cols - 1 ||
-			pt.y >= rows - 1)
+		int2 uv = make_int2(project(pos));
+		if (uv.x < 0 || uv.y < 0 || uv.x >= cols || uv.y >= rows)
 			return;
 
-		int2 uv = make_int2(pt + make_float2(0.5, 0.5));
 		float dp = depth.ptr(uv.y)[uv.x];
-		if (isnan(dp) || dp > DEPTH_MAX || dp < DEPTH_MIN)
+		if (isnan(dp) || dp > maxDepth || dp < minDepth)
 			return;
+
 		float thresh = DeviceMap::TruncateDist;
 		float sdf = dp - pos.z;
 		if (sdf >= -thresh) {
 			sdf = fmin(1.0f, sdf / thresh);
 			uchar3 color = rgb.ptr(uv.y)[uv.x];
-			Voxel curr(sdf, 1, color, 1);
+			Voxel curr(sdf, 1, color);
 			Voxel & prev = map.voxelBlocks[entry.ptr + locId];
 			prev += curr;
 		}
@@ -219,8 +217,8 @@ void integrateColor(const DeviceArray2D<float> & depth,
 	fuse.rows = rows;
 	fuse.cols = cols;
 	fuse.noVisibleBlocks = noVisibleBlocks;
-	fuse.DEPTH_MAX = depthMax;
-	fuse.DEPTH_MIN = depthMin;
+	fuse.maxDepth = DeviceMap::DepthMax;
+	fuse.minDepth = DeviceMap::DepthMin;
 
 	dim3 thread(32, 8);
 	dim3 block(cv::divUp(cols, thread.x), cv::divUp(rows, thread.y));

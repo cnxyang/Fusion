@@ -4,72 +4,61 @@
 #include "rendering.h"
 #include "reduction.h"
 
-bool Mapping::mbFirstCall = true;
-
-Mapping::Mapping():
-nTriangle(0), bUpdated(false), extractColor(false) {}
-
-Mapping::~Mapping() {
-	release();
+Mapping::Mapping() :
+		meshUpdated(false) {
+	create();
 }
 
-void Mapping::allocate() {
+void Mapping::create() {
 
-	Timer::Start("Initialisation", "Memory Allocation");
-	mMemory.create(DeviceMap::NumSdfBlocks);
-	mUsedMem.create(1);
-	mNumVisibleEntries.create(1);
-	mBucketMutex.create(DeviceMap::NumBuckets);
-	mHashEntries.create(DeviceMap::NumEntries);
-	mVisibleEntries.create(DeviceMap::NumEntries);
-	mVoxelBlocks.create(DeviceMap::NumSdfBlocks * DeviceMap::BlockSize3);
-	mEntryPtr.create(1);
+	// reconstruction
+	heapCounter.create(1);
+	hashCounter.create(1);
+	noVisibleEntries.create(1);
+	heap.create(DeviceMap::NumSdfBlocks);
+	sdfBlock.create(DeviceMap::NumVoxels);
+	bucketMutex.create(DeviceMap::NumBuckets);
+	hashEntries.create(DeviceMap::NumEntries);
+	visibleEntries.create(DeviceMap::NumEntries);
 
-	mKeyMutex.create(KeyMap::MaxKeys);
-	mORBKeys.create(KeyMap::MaxKeys * KeyMap::nBuckets);
-
-	zRange.create(640 / 8, 480 / 8);
-	mMesh.create(DeviceMap::MaxTriangles * 3);
-	mMeshNormal.create(DeviceMap::MaxTriangles * 3);
-	mColorMap.create(DeviceMap::MaxTriangles * 3);
-	mTriTable.create(16, 256);
-	mEdgeTable.create(256);
-	mNoVertex.create(256);
-	mTriTable.upload(triTable, sizeof(int) * 16, 16, 256);
-	mEdgeTable.upload(edgeTable, 256);
-	mNoVertex.upload(numVertsTable, 256);
-	extractedPoses.create(DeviceMap::NumEntries);
+	// extraction
 	nBlocks.create(1);
-	nTriangles.create(1);
-	mRenderingBlockList.create(DeviceMap::MaxRenderingBlocks);
-	mDepthMapMin.create(80, 60);
-	mDepthMapMax.create(80, 60);
+	noTriangles.create(1, true);
+	modelVertex.create(DeviceMap::MaxVertices);
+	modelNormal.create(DeviceMap::MaxVertices);
+	modelColor.create(DeviceMap::MaxVertices);
+	blockPoses.create(DeviceMap::NumEntries);
+	edgeTable.create(256);
+	vertexTable.create(256);
+	triangleTable.create(16, 256);
+	edgeTable.upload(edgeTable_host, 256);
+	vertexTable.upload(numVertsTable, 256);
+	triangleTable.upload(triTable_host, sizeof(int) * 16, 16, 256);
+
+	// rendering
+	zRangeMin.create(80, 60);
+	zRangeMax.create(80, 60);
+	noRenderingBlocks.create(1, true);
+	renderingBlockList.create(DeviceMap::MaxRenderingBlocks);
+
+	// key point
+	mKeyMutex.create(KeyMap::MaxKeys);
+//	mapPoints.create(KeyMap::MaxKeys);
+	mORBKeys.create(KeyMap::MaxKeys * KeyMap::nBuckets);
 
 	reset();
 }
 
-void Mapping::release() {
-	mUsedMem.release();
-	mNumVisibleEntries.release();
-	mBucketMutex.release();
-	mMemory.release();
-	mHashEntries.release();
-	mVisibleEntries.release();
-	mVoxelBlocks.release();
-	mORBKeys.release();
-	mEntryPtr.release();
-}
+void Mapping::createModel() {
 
-void Mapping::createMesh() {
+	meshScene(nBlocks, noTriangles, *this, edgeTable, vertexTable,
+			triangleTable, modelNormal, modelVertex, modelColor, blockPoses);
 
-	nTriangle = meshScene(nBlocks, nTriangles, *this, mEdgeTable,
-			mNoVertex, mTriTable, mMeshNormal, mMesh, mColorMap,
-			extractedPoses);
-
-	if(nTriangle > 0) {
-		mMutexMesh.lock();
-		bUpdated = true;
-		mMutexMesh.unlock();
+	noTrianglesHost = noTriangles[0];
+	if (noTrianglesHost > 0) {
+		mutexMesh.lock();
+		meshUpdated = true;
+		mutexMesh.unlock();
 	}
 }
 
@@ -105,7 +94,7 @@ void Mapping::fuseColor(const DeviceArray2D<float> & depth,
 					    float3 tview,
 					    uint & no) {
 
-	integrateColor(depth, color, mNumVisibleEntries, Rview, RviewInv, tview, *this,
+	integrateColor(depth, color, noVisibleEntries, Rview, RviewInv, tview, *this,
 			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0),
 			DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
 
@@ -113,45 +102,41 @@ void Mapping::fuseColor(const DeviceArray2D<float> & depth,
 
 Mapping::operator DeviceMap() {
 	DeviceMap map;
-	map.heapMem = mMemory;
-	map.heapCounter = mUsedMem;
-	map.noVisibleBlocks = mNumVisibleEntries;
-	map.bucketMutex = mBucketMutex;
-	map.hashEntries = mHashEntries;
-	map.visibleEntries = mVisibleEntries;
-	map.voxelBlocks = mVoxelBlocks;
-	map.entryPtr = mEntryPtr;
+	map.heapMem = heap;
+	map.heapCounter = heapCounter;
+	map.noVisibleBlocks = noVisibleEntries;
+	map.bucketMutex = bucketMutex;
+	map.hashEntries = hashEntries;
+	map.visibleEntries = visibleEntries;
+	map.voxelBlocks = sdfBlock;
+	map.entryPtr = hashCounter;
 	return map;
 }
 
-void Mapping::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
+void Mapping::rayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float3> & nmap) {
 
-	DeviceArray<uint> noRenderingBlocks(1);
-	Timer::Start("test", "test");
-	if (createRenderingBlock(mVisibleEntries, mDepthMapMin, mDepthMapMax, 3.0, 0.1,
-			mRenderingBlockList, noRenderingBlocks, RviewInv, tview,
+	if (createRenderingBlock(visibleEntries, zRangeMin, zRangeMax, 3.0, 0.1,
+			renderingBlockList, noRenderingBlocks, RviewInv, tview,
 			noVisibleBlocks, Frame::fx(0), Frame::fy(0), Frame::cx(0),
 			Frame::cy(0))) {
 
-		rayCast(*this, vmap, nmap, mDepthMapMin, mDepthMapMax, Rview, RviewInv, tview,
+		rayCast(*this, vmap, nmap, zRangeMin, zRangeMax, Rview, RviewInv, tview,
 				1.0 / Frame::fx(0), 1.0 / Frame::fy(0), Frame::cx(0),
 				Frame::cy(0));
 	}
-	Timer::Stop("test", "test");
-
 }
 
-Mapping::operator const DeviceMap() const {
+Mapping::operator DeviceMap() const {
 	DeviceMap map;
-	map.heapMem = mMemory;
-	map.heapCounter = mUsedMem;
-	map.noVisibleBlocks = mNumVisibleEntries;
-	map.bucketMutex = mBucketMutex;
-	map.hashEntries = mHashEntries;
-	map.visibleEntries = mVisibleEntries;
-	map.voxelBlocks = mVoxelBlocks;
-	map.entryPtr = mEntryPtr;
+	map.heapMem = heap;
+	map.heapCounter = heapCounter;
+	map.noVisibleBlocks = noVisibleEntries;
+	map.bucketMutex = bucketMutex;
+	map.hashEntries = hashEntries;
+	map.visibleEntries = visibleEntries;
+	map.voxelBlocks = sdfBlock;
+	map.entryPtr = hashCounter;
 	return map;
 }
 
@@ -166,7 +151,7 @@ Mapping::operator KeyMap() {
 	return map;
 }
 
-Mapping::operator const KeyMap() const {
+Mapping::operator KeyMap() const {
 	KeyMap map;
 	map.Keys = mORBKeys;
 	map.Mutex = mKeyMutex;

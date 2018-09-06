@@ -35,12 +35,11 @@ struct Voxel {
 	short sdf;
 	short sdfW;
 	uchar3 rgb;
-	short rgbW;
 	static const int MaxWeight = 100;
 	static const int MaxShort = 32767;
 
 	__device__ Voxel();
-	__device__ Voxel(float, short, uchar3, short);
+	__device__ Voxel(float, short, uchar3);
 	__device__ void release();
 	__device__ float GetSdf() const;
 	__device__ void SetSdf(float);
@@ -85,7 +84,9 @@ struct DeviceMap {
 	static constexpr uint NumExcess = 500000;
 	static constexpr uint NumBuckets = 1000000;
 	static constexpr uint NumSdfBlocks = 400000;
-	static constexpr uint MaxTriangles = 2000 * 2000;
+	static constexpr uint NumVoxels = NumSdfBlocks * BlockSize3;
+	static constexpr uint MaxTriangles = 20000000; // roughly 700MB memory
+	static constexpr uint MaxVertices = MaxTriangles * 3;
 	static constexpr float VoxelSize = 0.005f;
 	static constexpr float TruncateDist = 0.03f;
 	static constexpr int MaxRenderingBlocks = 260000;

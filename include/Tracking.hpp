@@ -10,10 +10,10 @@
 class Viewer;
 class Mapping;
 
-class Tracking {
+class tracker {
 public:
-	Tracking();
-	Tracking(int w, int h, float fx, float fy, float cx, float cy);
+	tracker();
+	tracker(int w, int h, float fx, float fy, float cx, float cy);
 
 	void reset();
 	void initIcp();
@@ -22,8 +22,7 @@ public:
 	void createNewKF();
 
 	bool track();
-	bool trackFrame();
-	bool trackKF();
+	bool trackFrame(bool useKF = false);
 	bool needNewKF();
 	bool computeSO3();
 	bool computeSE3();
@@ -31,9 +30,14 @@ public:
 	bool grabFrame(cv::Mat & rgb, cv::Mat & depth);
 	bool relocalise();
 
+	float rotationChanged();
+	float translationChanged();
+
 	void setMap(Mapping* pMap);
-	void setTracker(Tracking * tracker);
+	void setTracker(tracker * tracker);
 	void setViewer(Viewer* pViewer);
+
+	Eigen::Matrix4f getCurrentPose() const;
 
 	MatK K;
 	bool useIcp;

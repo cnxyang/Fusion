@@ -38,9 +38,9 @@ public:
 
 	DeviceArray();
 	~DeviceArray();
-	DeviceArray(size_t size);
+	DeviceArray(size_t size, bool managed = false);
 
-	void create(size_t size);
+	void create(size_t size, bool managed = false);
 	void upload(void* host_ptr, size_t size);
 	void download(void* host_ptr);
 	void download(void* host_ptr, size_t size);
@@ -50,6 +50,7 @@ public:
 	void copyTo(DeviceArray<T>& other) const;
 	bool empty() const;
 	size_t size() const;
+	T operator[](int idx) const ;
 	DeviceArray<T>& operator=(const DeviceArray<T>& other);
 	operator T*();
 	operator const T*() const;
@@ -94,8 +95,8 @@ public:
 	void upload(void* host_ptr, size_t host_step, int cols, int rows);
 	void download(void* host_ptr, size_t host_step) const;
 	void zero();
-	void swap(DeviceArray2D<T> & other);
 	void release();
+	void swap(DeviceArray2D<T> & other);
 	void copyTo(DeviceArray2D<T>& other) const;
 	DeviceArray2D<T>& operator=(const DeviceArray2D<T>& other);
 	bool empty() const;
@@ -145,20 +146,26 @@ template<class T> inline DeviceArray<T>::DeviceArray() :
 		mpData(nullptr), mpRef(nullptr), mSize(0) {
 }
 
-template<class T> inline DeviceArray<T>::DeviceArray(size_t size) :
+template<class T> inline DeviceArray<T>::DeviceArray(size_t size, bool managed) :
 		mpData(nullptr), mpRef(nullptr), mSize(size) {
-	create(size);
+	if(managed)
+		create(size, true);
+	else
+		create(size);
 }
 
 template<class T> inline DeviceArray<T>::~DeviceArray() {
 	release();
 }
 
-template<class T> inline void DeviceArray<T>::create(size_t size) {
+template<class T> inline void DeviceArray<T>::create(size_t size, bool managed) {
 	if (!empty())
 		release();
 	mSize = size;
-	SafeCall(cudaMalloc(&mpData, sizeof(T) * mSize));
+	if(managed)
+		SafeCall(cudaMallocManaged((void**) &mpData, sizeof(T) * mSize));
+	else
+		SafeCall(cudaMalloc(&mpData, sizeof(T) * mSize));
 	mpRef = new std::atomic<int>(1);
 }
 
@@ -211,6 +218,10 @@ template<class T> inline bool DeviceArray<T>::empty() const {
 
 template<class T> inline size_t DeviceArray<T>::size() const {
 	return mSize;
+}
+
+template<class T> inline T DeviceArray<T>::operator[](int idx) const {
+	return ((T*)mpData)[idx];
 }
 
 template<class T> inline DeviceArray<T>& DeviceArray<T>::operator=(const DeviceArray<T>& other) {
