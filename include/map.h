@@ -3,10 +3,10 @@
 
 #include "cufunc.h"
 #include "devmap.h"
+#include "system.h"
 #include "cuarray.h"
-#include "KeyFrame.hpp"
-#include "Tracking.hpp"
-#include "System.hpp"
+#include "tracker.h"
+#include "keyFrame.h"
 
 #include <mutex>
 #include <vector>

@@ -1,4 +1,4 @@
-#include "Timer.hpp"
+#include "timer.h"
 
 using namespace std;
 

@@ -1,4 +1,4 @@
-#include "Viewer.hpp"
+#include "viewer.h"
 #include <algorithm>
 #include <pangolin/gl/glcuda.h>
 #include <pangolin/gl/glvbo.h>

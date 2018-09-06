@@ -1,11 +1,11 @@
 #ifndef TRACKING_HPP__
 #define TRACKING_HPP__
 
+#include "map.h"
+#include "frame.h"
+#include "viewer.h"
 #include "cuarray.h"
 #include "reduction.h"
-#include "Mapping.hpp"
-#include "Viewer.hpp"
-#include "Frame.hpp"
 
 class Viewer;
 class Mapping;

@@ -1,4 +1,4 @@
-#include "KeyFrame.hpp"
+#include "keyFrame.h"
 
 KeyFrame::KeyFrame(const Frame * src) :
 		valid(true), N(src->N),frameId(src->frameId) {

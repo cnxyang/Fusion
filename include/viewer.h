@@ -1,10 +1,11 @@
 #ifndef VIEWER_HPP__
 #define VIEWER_HPP__
 
+#include "map.h"
+#include "system.h"
+#include "tracker.h"
+
 #include <vector>
-#include "Mapping.hpp"
-#include "System.hpp"
-#include "Tracking.hpp"
 #include <pangolin/pangolin.h>
 #include <pangolin/gl/glcuda.h>
 #include <pangolin/gl/glvbo.h>

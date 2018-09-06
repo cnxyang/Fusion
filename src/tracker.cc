@@ -1,8 +1,7 @@
-#include "Tracking.hpp"
-#include "Solver.hpp"
-#include "Timer.hpp"
+#include "timer.h"
+#include "solver.h"
+#include "tracker.h"
 #include "sophus/se3.hpp"
-#include "converter.h"
 
 using namespace cv;
 

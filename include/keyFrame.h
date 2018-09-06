@@ -1,10 +1,11 @@
 #ifndef KEY_FRAME_HPP__
 #define KEY_FRAME_HPP__
 
-#include "Frame.hpp"
+#include "frame.h"
+#include "cuarray.h"
+
 #include <Eigen/Dense>
 #include <opencv.hpp>
-#include "cuarray.h"
 
 class Frame;
 struct KeyFrame;

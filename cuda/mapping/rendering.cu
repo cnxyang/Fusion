@@ -1,6 +1,5 @@
 #include "rendering.h"
 #include "prefixsum.h"
-#include "Timer.hpp"
 
 #define minMaxSubSample 8
 #define renderingBlockSizeX 16

@@ -1,5 +1,5 @@
-#include "System.hpp"
-#include "Timer.hpp"
+#include "timer.h"
+#include "system.h"
 
 #include <fstream>
 

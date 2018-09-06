@@ -8,8 +8,8 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
 
-#include "Frame.hpp"
-#include "Tracking.hpp"
+#include "frame.h"
+#include "tracker.h"
 
 enum MemRepType {
 	Byte = 1,

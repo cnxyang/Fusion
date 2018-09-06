@@ -1,9 +1,9 @@
 #ifndef SYSTEM_HPP__
 #define SYSTEM_HPP__
 
-#include "Mapping.hpp"
-#include "Viewer.hpp"
-#include "Tracking.hpp"
+#include "map.h"
+#include "viewer.h"
+#include "tracker.h"
 
 #include <mutex>
 #include <thread>

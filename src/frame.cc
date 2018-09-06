@@ -1,6 +1,7 @@
-#include "Frame.hpp"
+#include "frame.h"
+#include "timer.h"
 #include "cufunc.h"
-#include "Timer.hpp"
+
 #include <Eigen/Dense>
 
 using namespace cv;

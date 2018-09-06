@@ -1,8 +1,9 @@
 #ifndef SOLVER_HPP__
 #define SOLVER_HPP__
 
+#include "frame.h"
+
 #include <vector>
-#include "Frame.hpp"
 #include <Eigen/Dense>
 
 class Solver {

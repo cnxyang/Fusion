@@ -1,6 +1,6 @@
-#include "Timer.hpp"
-#include "Mapping.hpp"
-#include "Table.hpp"
+#include "map.h"
+#include "timer.h"
+#include "const.h"
 #include "rendering.h"
 #include "reduction.h"
 

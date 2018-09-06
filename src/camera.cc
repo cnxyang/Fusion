@@ -1,4 +1,4 @@
-#include "Camera.hpp"
+#include "camera.h"
 
 CameraNI::CameraNI() :
 		CameraNI(640, 480, 30) {

@@ -2,8 +2,8 @@
 #include <iostream>
 #include <cmath>
 
-#include "Timer.hpp"
-#include "Solver.hpp"
+#include "timer.h"
+#include "solver.h"
 #include "devmap.h"
 #include "sophus/se3.hpp"
 

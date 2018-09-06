@@ -106,7 +106,7 @@ void icpStep(const DeviceArray2D<float4> & nextVMap,
 			 float3 tlast,
 			 MatK K);
 
-#include "Frame.hpp"
+#include "frame.h"
 double ICPReduceSum(DeviceArray2D<float4> & nextVMap, DeviceArray2D<float4> & lastVMap,
 		DeviceArray2D<float3> & nextNMap, DeviceArray2D<float3> & lastNMap,
 		Frame& NextFrame, Frame& LastFrame, int pyr, double* host_a,

@@ -1,15 +1,14 @@
 #ifndef FRAME_HPP__
 #define FRAME_HPP__
 
-#include "KeyFrame.hpp"
-#include "cuarray.h"
 #include "devmap.h"
+#include "cuarray.h"
+#include "keyFrame.h"
 
 #include <vector>
 #include <opencv.hpp>
 #include <features2d.hpp>
 #include <cudaarithm.hpp>
-
 #include <Eigen/Dense>
 
 struct ORBKey;
