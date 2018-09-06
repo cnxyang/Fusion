@@ -4,18 +4,17 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <opencv.hpp>
+#include <highgui.hpp>
 
-#include <opencv2/opencv.hpp>
-#include <opencv2/highgui.hpp>
-
-#include "Camera.hpp"
-#include "Tracking.hpp"
-#include "Timer.hpp"
+#include "camera.h"
+#include "tracker.h"
+#include "timer.h"
 
 int main(int argc, char** argv) {
 
 	SysDesc desc;
-	CameraNI camera;
+	camera cam;
 	cv::Mat imD, imRGB;
 
 	desc.DepthCutoff = 3.0f;
@@ -32,8 +31,12 @@ int main(int argc, char** argv) {
 	System slam(&desc);
 
 	while (1) {
-		if (camera.FetchFrame(imD, imRGB)) {
-			slam.GrabImageRGBD(imRGB, imD);
+		if (cam.fetchFrame(imD, imRGB)) {
+			bool valid = slam.grabImage(imRGB, imD);
+			if(!valid) {
+				cam.stopStreaming();
+				return 0;
+			}
 			slam.PrintTimings();
 		}
 	}

@@ -30,8 +30,8 @@ public:
 	bool grabFrame(cv::Mat & rgb, cv::Mat & depth);
 	bool relocalise();
 
-	float rotationChanged();
-	float translationChanged();
+	float rotationChanged() const;
+	float translationChanged() const;
 
 	void setMap(Mapping* pMap);
 	void setTracker(tracker * tracker);
@@ -63,9 +63,6 @@ public:
 	DeviceArray<JtJJtrSE3> outSE3;
 	DeviceArray<JtJJtrSO3> outSO3;
 
-	Frame * nextFrame;
-	Frame * lastFrame;
-
 	KeyFrame * referenceKF;
 	KeyFrame * lastKF;
 	unsigned long lastReloc;
@@ -92,8 +89,8 @@ public:
 	std::vector<Eigen::Vector3d> mapPoints;
 	cv::Ptr<cv::cuda::DescriptorMatcher> orbMatcher;
 
-	Frame mLastFrame;
-	Frame mNextFrame;
+	Frame lastFrame;
+	Frame nextFrame;
 	Mapping* mpMap;
 	Viewer* mpViewer;
 };

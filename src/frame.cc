@@ -24,6 +24,7 @@ Frame::Frame(const Frame& other):N(0) {
 	keys = other.keys;
 	other.descriptors.copyTo(descriptors);
 
+	frameId = other.frameId;
 	pose = other.pose;
 //	mPoseInv = other.mPoseInv;
 }

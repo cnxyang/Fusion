@@ -7,6 +7,7 @@
 
 #include <mutex>
 #include <thread>
+#include <future>
 
 class Viewer;
 class Mapping;
@@ -29,13 +30,12 @@ class System {
 public:
 	System(const char* str);
 	System(SysDesc* pParam);
-	void GrabImageRGBD(cv::Mat& imRGB, cv::Mat& imD);
+	bool grabImage(cv::Mat& imRGB, cv::Mat& imD);
 	void SetParameters(SysDesc& desc);
 	void PrintTimings();
 	void JoinViewer();
 	void saveMesh();
-	void Reboot();
-	void Stop();
+	void reboot();
 
 public:
 	Mapping* mpMap;
@@ -44,12 +44,13 @@ public:
 	tracker* mpTracker;
 
 	cv::Mat mK;
-	bool mbStop;
 	int nFrames;
 	std::thread* mptViewer;
 
 	std::mutex mutexReq;
 	bool requestSaveMesh;
+	bool requestReboot;
+	bool requestStop;
 };
 
 #endif

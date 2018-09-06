@@ -87,6 +87,14 @@ void Mapping::IntegrateKeys(Frame& F) {
 	InsertKeys(*this, dKeys);
 }
 
+std::vector<ORBKey> Mapping::getAllKeys()const {
+
+}
+
+void Mapping::updateKeyIndices() {
+
+}
+
 void Mapping::fuseColor(const DeviceArray2D<float> & depth,
 					    const DeviceArray2D<uchar3> & color,
 					    Matrix3f Rview,
@@ -98,19 +106,6 @@ void Mapping::fuseColor(const DeviceArray2D<float> & depth,
 			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0),
 			DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
 
-}
-
-Mapping::operator DeviceMap() {
-	DeviceMap map;
-	map.heapMem = heap;
-	map.heapCounter = heapCounter;
-	map.noVisibleBlocks = noVisibleEntries;
-	map.bucketMutex = bucketMutex;
-	map.hashEntries = hashEntries;
-	map.visibleEntries = visibleEntries;
-	map.voxelBlocks = sdfBlock;
-	map.entryPtr = hashCounter;
-	return map;
 }
 
 void Mapping::rayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
@@ -127,7 +122,28 @@ void Mapping::rayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 	}
 }
 
-Mapping::operator DeviceMap() const {
+void Mapping::reset() {
+	resetDeviceMap(*this);
+}
+
+Mapping::operator KeyMap() {
+
+	KeyMap map;
+	map.Keys = mORBKeys;
+	map.Mutex = mKeyMutex;
+	return map;
+}
+
+Mapping::operator KeyMap() const {
+
+	KeyMap map;
+	map.Keys = mORBKeys;
+	map.Mutex = mKeyMutex;
+	return map;
+}
+
+Mapping::operator DeviceMap() {
+
 	DeviceMap map;
 	map.heapMem = heap;
 	map.heapCounter = heapCounter;
@@ -140,24 +156,19 @@ Mapping::operator DeviceMap() const {
 	return map;
 }
 
-void Mapping::reset() {
-	resetDeviceMap(*this);
-}
+Mapping::operator DeviceMap() const {
 
-Mapping::operator KeyMap() {
-	KeyMap map;
-	map.Keys = mORBKeys;
-	map.Mutex = mKeyMutex;
+	DeviceMap map;
+	map.heapMem = heap;
+	map.heapCounter = heapCounter;
+	map.noVisibleBlocks = noVisibleEntries;
+	map.bucketMutex = bucketMutex;
+	map.hashEntries = hashEntries;
+	map.visibleEntries = visibleEntries;
+	map.voxelBlocks = sdfBlock;
+	map.entryPtr = hashCounter;
 	return map;
 }
-
-Mapping::operator KeyMap() const {
-	KeyMap map;
-	map.Keys = mORBKeys;
-	map.Mutex = mKeyMutex;
-	return map;
-}
-
 void Mapping::push_back(const KeyFrame * kf) {
 
 }

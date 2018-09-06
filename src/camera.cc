@@ -1,24 +1,24 @@
 #include "camera.h"
 
-CameraNI::CameraNI() :
-		CameraNI(640, 480, 30) {
+camera::camera() :
+		camera(640, 480, 30) {
 }
 
-CameraNI::CameraNI(int cols, int rows, int fps) :
+camera::camera(int cols, int rows, int fps) :
 		mCols(cols), mRows(rows), mFPS(fps), mpDevice(nullptr), mpColorStream(
 				nullptr), mpColorFrame(nullptr), mpDepthStream(nullptr), mpDepthFrame(
 				nullptr) {
 
-	InitCamera();
-	StartStreaming();
+	initCamera();
+	startStreaming();
 }
 
-CameraNI::~CameraNI() {
+camera::~camera() {
 
-	StopStreaming();
+	stopStreaming();
 }
 
-void CameraNI::InitCamera() {
+void camera::initCamera() {
 	if (openni::OpenNI::initialize() != openni::STATUS_OK) {
 		printf("OpenNI Initialisation Failed with Error Message : %s\n",
 				openni::OpenNI::getExtendedError());
@@ -74,7 +74,7 @@ void CameraNI::InitCamera() {
 	printf("OpenNI Camera Initialisation Complete!\n");
 }
 
-void CameraNI::StartStreaming() {
+void camera::startStreaming() {
 	mpDepthStream->setMirroringEnabled(false);
 	mpColorStream->setMirroringEnabled(false);
 
@@ -96,7 +96,7 @@ void CameraNI::StartStreaming() {
 	printf("OpenNI Camera Streaming Started!\n");
 }
 
-void CameraNI::StopStreaming() {
+void camera::stopStreaming() {
 	mpDepthStream->stop();
 	mpColorStream->stop();
 	mpColorStream->destroy();
@@ -105,7 +105,7 @@ void CameraNI::StopStreaming() {
 	openni::OpenNI::shutdown();
 }
 
-bool CameraNI::FetchFrame(cv::Mat& depth, cv::Mat& rgb) {
+bool camera::fetchFrame(cv::Mat& depth, cv::Mat& rgb) {
 
 	openni::VideoStream * streams[] = { mpDepthStream, mpColorStream };
 	int streamReady = -1;
@@ -116,10 +116,10 @@ bool CameraNI::FetchFrame(cv::Mat& depth, cv::Mat& rgb) {
 		if (state == openni::STATUS_OK) {
 			switch (streamReady) {
 			case 0:
-				FetchDepthFrame(depth);
+				fetchDepthFrame(depth);
 				break;
 			case 1:
-				FetchColorFrame(rgb);
+				fetchColorFrame(rgb);
 				break;
 			default:
 				printf("Unexpected stream number!\n");
@@ -135,7 +135,7 @@ bool CameraNI::FetchFrame(cv::Mat& depth, cv::Mat& rgb) {
 	return true;
 }
 
-void CameraNI::FetchColorFrame(cv::Mat& rgb) {
+void camera::fetchColorFrame(cv::Mat& rgb) {
 	if (mpColorStream->readFrame(mpColorFrame) != openni::STATUS_OK) {
 		printf("Read failed!\n%s\n", openni::OpenNI::getExtendedError());
 	}
@@ -143,7 +143,7 @@ void CameraNI::FetchColorFrame(cv::Mat& rgb) {
 			const_cast<void*>(mpColorFrame->getData()));
 }
 
-void CameraNI::FetchDepthFrame(cv::Mat& depth) {
+void camera::fetchDepthFrame(cv::Mat& depth) {
 	if (mpDepthStream->readFrame(mpDepthFrame) != openni::STATUS_OK) {
 		printf("Read failed!\n%s\n", openni::OpenNI::getExtendedError());
 	}
@@ -151,14 +151,14 @@ void CameraNI::FetchDepthFrame(cv::Mat& depth) {
 			const_cast<void*>(mpDepthFrame->getData()));
 }
 
-int CameraNI::rows() const {
+int camera::rows() const {
 	return mRows;
 }
 
-int CameraNI::fps() const {
+int camera::fps() const {
 	return mFPS;
 }
 
-int CameraNI::cols() const {
+int camera::cols() const {
 	return mCols;
 }

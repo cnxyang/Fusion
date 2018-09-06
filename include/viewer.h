@@ -23,6 +23,7 @@ public:
 	void setMap(Mapping* pMap);
 	void setSystem(System* pSystem);
 	void setTracker(tracker* pTracker);
+	void signalQuit();
 
 private:
 
@@ -40,7 +41,9 @@ private:
 	GLuint vao;
 	System* psystem;
 	tracker* ptracker;
+	bool quitSignaled;
 	pangolin::OpenGlRenderState sCam;
+	pangolin::OpenGlRenderState sCam2;
 	pangolin::GlSlProgram phongShader;
 	pangolin::GlSlProgram normalShader;
 	pangolin::GlSlProgram colorShader;

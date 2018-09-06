@@ -6,8 +6,7 @@
 using namespace cv;
 
 tracker::tracker(int w, int h, float fx, float fy, float cx, float cy)
-	:nextFrame(nullptr), lastFrame(nullptr),
-	 referenceKF(nullptr), lastKF(nullptr),
+	:referenceKF(nullptr), lastKF(nullptr),
 	 useIcp(true), useSo3(true), state(1),
 	 lastState(1), lastReloc(0) {
 
@@ -49,8 +48,6 @@ void tracker::reset() {
 
 	state = 1;
 	lastState = 1;
-	nextFrame = nullptr;
-	lastFrame = nullptr;
 	referenceKF = nullptr;
 	lastKF = nullptr;
 	nextPose = Eigen::Matrix4d::Identity();
@@ -71,11 +68,14 @@ bool tracker::track() {
 		valid = trackFrame(false);
 		if(valid) {
 			state = 0;
-//			if(needNewKF())
-//				createNewKF();
+			if(needNewKF())
+				createNewKF();
 			swapFrame();
 			return true;
 		}
+
+		std::swap(state, lastState);
+		state = -1;
 
 		break;
 
@@ -86,6 +86,8 @@ bool tracker::track() {
 			return false;
 		}
 
+		std::swap(state, lastState);
+		state = -1;
 		break;
 	}
 }
@@ -108,7 +110,7 @@ bool tracker::trackKeys() {
 
 	std::vector<cv::DMatch> refined;
 	std::vector<std::vector<cv::DMatch>> rawMatches;
-	orbMatcher->knnMatch(mNextFrame.descriptors, mLastFrame.descriptors, rawMatches, 2);
+	orbMatcher->knnMatch(nextFrame.descriptors, lastFrame.descriptors, rawMatches, 2);
 
 	for (int i = 0; i < rawMatches.size(); ++i) {
 		if (rawMatches[i][0].distance < 0.8 * rawMatches[i][1].distance) {
@@ -122,16 +124,16 @@ bool tracker::trackKeys() {
 
 	std::vector<Eigen::Vector3d> src, ref;
 	for (int i = 0; i < N; ++i) {
-		src.push_back(mNextFrame.mPoints[refined[i].queryIdx]);
-		ref.push_back(mLastFrame.mPoints[refined[i].trainIdx]);
+		src.push_back(nextFrame.mPoints[refined[i].queryIdx]);
+		ref.push_back(lastFrame.mPoints[refined[i].trainIdx]);
 	}
 
 	Eigen::Matrix4d dT = Eigen::Matrix4d::Identity();
-	bool result = Solver::SolveAbsoluteOrientation(src, ref, mNextFrame.outliers, dT, 100);
+	bool result = Solver::SolveAbsoluteOrientation(src, ref, nextFrame.outliers, dT, 100);
 	result = true;
 	if (result) {
-		lastUpdatePose = dT.inverse() * mLastFrame.pose;
-		mNextFrame.SetPose(lastUpdatePose);
+		lastUpdatePose = dT.inverse() * lastFrame.pose;
+		nextFrame.SetPose(lastUpdatePose);
 	}
 
 	return result;
@@ -151,16 +153,16 @@ bool tracker::grabFrame(cv::Mat & imRgb, cv::Mat & imD) {
 
 	color.upload((void*) imRgb.data, imRgb.step, imRgb.cols, imRgb.rows);
 	ColourImageToIntensity(color, nextImage[0]);
-	mNextFrame = Frame(nextImage[0], imD, referenceKF);
+	nextFrame = Frame(nextImage[0], imD, referenceKF);
 	return track();
 }
 
 void tracker::initIcp() {
 
-	depth.upload((void*)mNextFrame.rawDepth.data,
-			mNextFrame.rawDepth.step,
-			mNextFrame.rawDepth.cols,
-			mNextFrame.rawDepth.rows);
+	depth.upload((void*)nextFrame.rawDepth.data,
+			nextFrame.rawDepth.step,
+			nextFrame.rawDepth.cols,
+			nextFrame.rawDepth.rows);
 	BilateralFiltering(depth, nextDepth[0], Frame::mDepthScale);
 
 	for(int i = 1; i < NUM_PYRS; ++i) {
@@ -179,7 +181,7 @@ void tracker::initIcp() {
 void tracker::swapFrame() {
 
 	std::swap(state, lastState);
-	mLastFrame = Frame(mNextFrame);
+	lastFrame = Frame(nextFrame);
 	for (int i = 0; i < NUM_PYRS; ++i) {
 		nextImage[i].swap(lastImage[i]);
 		nextDepth[i].swap(lastDepth[i]);
@@ -188,22 +190,24 @@ void tracker::swapFrame() {
 	}
 }
 
-float tracker::rotationChanged() {
-	Eigen::Matrix4d delta = mNextFrame.pose.inverse() * mLastFrame.pose;
+float tracker::rotationChanged() const {
+	Eigen::Matrix4d delta = nextFrame.pose.inverse() * lastFrame.pose;
 	Eigen::Matrix3d rotation = delta.topLeftCorner(3, 3);
 	Eigen::Vector3d angles = rotation.eulerAngles(0, 1, 2).array().sin();
 	return angles.norm();
 }
 
+float tracker::translationChanged() const {
+	Eigen::Matrix4d delta = nextFrame.pose.inverse() * lastFrame.pose;
+	Eigen::Vector3d translation = delta.topRightCorner(3, 1);
+	return translation.norm();
+}
+
 bool tracker::needNewKF() {
 
-	float delta = rotationChanged();
-	if(delta >= 0.1)
+	if(rotationChanged() >= 0.1 ||
+	   translationChanged() >= 0.2)
 		return true;
-
-//	Eigen::Vector3d translation = delta.topRightCorner(3, 1);
-//	if(translation.norm() >= 0.1)
-//		return true;
 
 	return false;
 }
@@ -213,60 +217,36 @@ void tracker::createNewKF() {
 	std::swap(lastKF, referenceKF);
 	if(lastKF)
 		lastKF->frameDescriptors.release();
-	referenceKF = new KeyFrame(&mNextFrame);
+	referenceKF = new KeyFrame(&nextFrame);
 	mpMap->push_back(referenceKF);
 }
 
 bool tracker::computeSE3() {
 
-	float residual[2];
 	Eigen::Matrix<double, 6, 6, Eigen::RowMajor> matA;
 	Eigen::Matrix<double, 6, 1> vecb;
 	Eigen::Matrix<double, 6, 1> result;
 	lastIcpError = std::numeric_limits<float>::max();
+	lastPose = lastFrame.pose;
+	nextPose = nextFrame.pose;
 
 	for(int i = NUM_PYRS - 1; i >= 0; --i) {
-
 		for(int j = 0; j < iteration[i]; ++j) {
-			nextPose = mNextFrame.pose;
-			lastPose = mLastFrame.pose;
-//			icpStep(nextVMap[i],
-//					lastVMap[i],
-//					nextNMap[i],
-//					lastNMap[i],
-//					sumSE3,
-//					outSE3,
-//					residual,
-//					matA.data(),
-//					vecb.data(),
-//					mNextFrame.Rot_gpu(),
-//					mNextFrame.Trans_gpu(),
-//					mLastFrame.Rot_gpu(),
-//					mLastFrame.RotInv_gpu(),
-//					mLastFrame.Trans_gpu(),
-//					K(i));
 
-//			float icpError = sqrt(residual[0]) / residual[1];
-//			float icpCount = residual[1];
-
-			ICPReduceSum(nextVMap[i],
-					lastVMap[i],
-					nextNMap[i],
-					lastNMap[i],
-					mNextFrame, mLastFrame, i, matA.data(),
+			float icpError = ICPReduceSum(nextVMap[i], lastVMap[i], nextNMap[i],
+					lastNMap[i], nextFrame, lastFrame, i, matA.data(),
 					vecb.data());
 
-//			if (std::isnan(icpError) || icpCount == 0) {
-//				mNextFrame.SetPose(lastPose);
-//				return true;
-//			}
+			if (std::isnan(icpError) || icpError >= 1e-3) {
+				nextFrame.SetPose(lastPose);
+				return true;
+			}
 
 			result = matA.ldlt().solve(vecb);
 			auto e = Sophus::SE3d::exp(result);
 			auto dT = e.matrix();
 			nextPose = lastPose * (dT.inverse() * nextPose.inverse() * lastPose).inverse();
-			mNextFrame.pose = nextPose;
-//			lastIcpError = icpError;
+			nextFrame.pose = nextPose;
 		}
 	}
 
@@ -274,11 +254,22 @@ bool tracker::computeSE3() {
 }
 
 bool tracker::relocalise() {
-	return false;
+
+	if(lastState != -1) {
+		mpMap->updateKeyIndices();
+	}
+
+	const std::vector<ORBKey> & host_key = mpMap->getAllKeys();
+	if(host_key.size() == 0)
+		return false;
+
+	return true;
 }
 
 Eigen::Matrix4f tracker::getCurrentPose() const {
-	return mLastFrame.pose.cast<float>();
+//	if(lastFrame.frameId == 0)
+//		return Eigen::Matrix4f::Identity();
+	return lastFrame.pose.cast<float>();
 }
 
 //bool Tracking::TrackMap(bool bUseGraphMatching) {
@@ -307,7 +298,7 @@ Eigen::Matrix4f tracker::getCurrentPose() const {
 //	cv::cuda::GpuMat mMapDesc(desc);
 //	std::vector<cv::DMatch> matches;
 //	std::vector<std::vector<cv::DMatch>> rawMatches;
-//	mORBMatcher->knnMatch(mNextFrame.mDescriptors, mMapDesc, rawMatches, 2);
+//	mORBMatcher->knnMatch(nextFrame.mDescriptors, mMapDesc, rawMatches, 2);
 //
 //	for (int i = 0; i < rawMatches.size(); ++i) {
 //		cv::DMatch& firstMatch = rawMatches[i][0];
@@ -333,7 +324,7 @@ Eigen::Matrix4f tracker::getCurrentPose() const {
 //		std::vector<float> vDistance;
 //		std::vector<int> vQueryIdx;
 //		cv::Mat cpuFrameDesc;
-//		mNextFrame.mDescriptors.download(cpuFrameDesc);
+//		nextFrame.mDescriptors.download(cpuFrameDesc);
 //		cv::Mat cpuMatching(2, matches.size(), CV_32SC1);
 //		for(int i = 0; i < matches.size(); ++i) {
 //			int trainIdx = matches[i].trainIdx;
@@ -341,8 +332,8 @@ Eigen::Matrix4f tracker::getCurrentPose() const {
 //			ORBKey trainKey = mHostKeys[trainIdx];
 //			ORBKey queryKey;
 //			if(trainKey.valid && queryKey.valid) {
-//				cv::Vec3f normal = mNextFrame.mNormals[queryIdx];
-//				Eigen::Vector3d& p = mNextFrame.mPoints[queryIdx];
+//				cv::Vec3f normal = nextFrame.mNormals[queryIdx];
+//				Eigen::Vector3d& p = nextFrame.mPoints[queryIdx];
 //				queryKey.pos = make_float3(p(0), p(1), p(2));
 //				queryKey.normal = make_float3(normal(0), normal(1), normal(2));
 //				vFrameKey.push_back(queryKey);
@@ -400,13 +391,13 @@ Eigen::Matrix4f tracker::getCurrentPose() const {
 //	}
 //	else {
 //		for (int i = 0; i < matches.size(); ++i) {
-//			plist.push_back(mNextFrame.mPoints[matches[i].queryIdx]);
+//			plist.push_back(nextFrame.mPoints[matches[i].queryIdx]);
 //			qlist.push_back(mMapPoints[matches[i].trainIdx]);
 //		}
 //	}
 //
 //	Eigen::Matrix4d Td = Eigen::Matrix4d::Identity();
-//	bool bOK = Solver::SolveAbsoluteOrientation(plist, qlist, mNextFrame.mOutliers, Td, 200);
+//	bool bOK = Solver::SolveAbsoluteOrientation(plist, qlist, nextFrame.mOutliers, Td, 200);
 //	mnNoAttempts++;
 //
 //	if(!bOK) {
@@ -414,7 +405,7 @@ Eigen::Matrix4f tracker::getCurrentPose() const {
 //		return false;
 //	}
 //
-//	mNextFrame.SetPose(Td.inverse());
+//	nextFrame.SetPose(Td.inverse());
 //	return true;
 //}
 

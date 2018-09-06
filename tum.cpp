@@ -73,9 +73,11 @@ int main(int argc, char** argv) {
 	for (int i = 0; i < nImages; ++i) {
 		cv::Mat imD = cv::imread(vsDList[i], cv::IMREAD_UNCHANGED);
 		cv::Mat imRGB = cv::imread(vsRGBList[i], cv::IMREAD_UNCHANGED);
-		slam.GrabImageRGBD(imRGB, imD);
+		bool nonstop = slam.grabImage(imRGB, imD);
+		if(!nonstop)
+			return 0;
 	}
-	slam.saveMesh();
+
 	slam.JoinViewer();
 }
 

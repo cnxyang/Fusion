@@ -64,7 +64,10 @@ public:
 	void setTracker(tracker * ptracker);
 	void setSystem(System * psystem);
 
+	void updateKeyIndices();
 	void fuseKeys(std::vector<ORBKey> & newKeys);
+	std::vector<uint> getKeyIndices() const;
+	std::vector<ORBKey> getAllKeys() const;
 
 	tracker * ptracker;
 	System * psystem;

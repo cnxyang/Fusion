@@ -8,17 +8,17 @@ using openni::Device;
 using openni::VideoStream;
 using openni::VideoFrameRef;
 
-class CameraNI
+class camera
 {
 public:
-	CameraNI();
-	CameraNI(int, int, int);
-	~CameraNI();
+	camera();
+	camera(int, int, int);
+	~camera();
 
-	void InitCamera();
-	void StartStreaming();
-	void StopStreaming();
-	bool FetchFrame(cv::Mat&, cv::Mat&);
+	void initCamera();
+	void startStreaming();
+	void stopStreaming();
+	bool fetchFrame(cv::Mat&, cv::Mat&);
 
 	int rows() const;
 	int cols() const;
@@ -26,8 +26,8 @@ public:
 
 private:
 
-	void FetchColorFrame(cv::Mat&);
-	void FetchDepthFrame(cv::Mat&);
+	void fetchColorFrame(cv::Mat&);
+	void fetchDepthFrame(cv::Mat&);
 	int mCols, mRows, mFPS;
 
 	Device* 			mpDevice;

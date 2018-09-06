@@ -9,15 +9,16 @@ using namespace std;
 System::System(const char* str):
 mpMap(nullptr), mpViewer(nullptr),
 mpTracker(nullptr), mpParam(nullptr),
-mptViewer(nullptr), mbStop(false),
-nFrames(0) {
+mptViewer(nullptr), requestStop(false),
+nFrames(0), requestReboot(false) {
 	if(!str)
 		System(static_cast<SysDesc*>(nullptr));
 }
 
 System::System(SysDesc* pParam) :
-		mpMap(nullptr), mpViewer(nullptr), mpTracker(nullptr), mbStop(false),
-		nFrames(0), requestSaveMesh(false) {
+		mpMap(nullptr), mpViewer(nullptr), mpTracker(nullptr),
+		requestStop(false),	nFrames(0), requestSaveMesh(false),
+		requestReboot(false) {
 
 	if(pParam) {
 		mpParam = new SysDesc();
@@ -67,7 +68,7 @@ System::System(SysDesc* pParam) :
 	Timer::Enable();
 }
 
-void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
+bool System::grabImage(Mat& imRGB, Mat& imD) {
 
 	if(requestSaveMesh) {
 		saveMesh();
@@ -76,18 +77,31 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 		mutexReq.unlock();
 	}
 
+	if(requestReboot) {
+		reboot();
+		mutexReq.lock();
+		requestReboot = false;
+		mutexReq.unlock();
+	}
+
+	if(requestStop) {
+		mpViewer->signalQuit();
+		return false;
+	}
+
+	Timer::Start("all", "all");
 	bool bOK = mpTracker->grabFrame(imRGB, imD);
 
 	if (bOK) {
 		uint no;
 		mpMap->fuseColor(mpTracker->lastDepth[0], mpTracker->color,
-				mpTracker->mLastFrame.Rot_gpu(),
-				mpTracker->mLastFrame.RotInv_gpu(),
-				mpTracker->mLastFrame.Trans_gpu(), no);
+				mpTracker->lastFrame.Rot_gpu(),
+				mpTracker->lastFrame.RotInv_gpu(),
+				mpTracker->lastFrame.Trans_gpu(), no);
 
-		mpMap->rayTrace(no, mpTracker->mLastFrame.Rot_gpu(),
-				mpTracker->mLastFrame.RotInv_gpu(),
-				mpTracker->mLastFrame.Trans_gpu(), mpTracker->lastVMap[0],
+		mpMap->rayTrace(no, mpTracker->lastFrame.Rot_gpu(),
+				mpTracker->lastFrame.RotInv_gpu(),
+				mpTracker->lastFrame.Trans_gpu(), mpTracker->lastVMap[0],
 				mpTracker->lastNMap[0]);
 
 		if(nFrames > 15) {
@@ -96,10 +110,10 @@ void System::GrabImageRGBD(Mat& imRGB, Mat& imD) {
 		}
 		nFrames++;
 	}
-//	Timer::Print();
 
-	if(mbStop)
-		exit(0);
+	Timer::Stop("all", "all");
+	Timer::Print();
+	return true;
 }
 
 void System::saveMesh() {
@@ -157,7 +171,7 @@ void System::saveMesh() {
 	delete host_color;
 }
 
-void System::Reboot() {
+void System::reboot() {
 	mpMap->reset();
 	mpTracker->reset();
 }
@@ -166,13 +180,20 @@ void System::PrintTimings() {
 	Timer::Print();
 }
 
-void System::Stop() {
-	mbStop = true;
-}
-#include <unistd.h>
 void System::JoinViewer() {
 
-	while(!mbStop) {
-		usleep(3000);
+	while(true) {
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		if(requestSaveMesh) {
+			saveMesh();
+			mutexReq.lock();
+			requestSaveMesh = false;
+			mutexReq.unlock();
+		}
+
+		if(requestStop) {
+			return;
+		}
 	}
 }
