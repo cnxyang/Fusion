@@ -86,6 +86,8 @@ bool System::grabImage(Mat& imRGB, Mat& imD) {
 
 	if(requestStop) {
 		mpViewer->signalQuit();
+		SafeCall(cudaDeviceSynchronize());
+		SafeCall(cudaGetLastError());
 		return false;
 	}
 
@@ -176,11 +178,7 @@ void System::reboot() {
 	mpTracker->reset();
 }
 
-void System::PrintTimings() {
-	Timer::Print();
-}
-
-void System::JoinViewer() {
+void System::joinViewer() {
 
 	while(true) {
 

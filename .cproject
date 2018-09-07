@@ -58,7 +58,6 @@
 									<listOptionValue builtIn="false" value="opencv_cudafeatures2d"/>
 								</option>
 								<option id="nvcc.linker.option.paths.1613290429" name="Library search path (-L)" superClass="nvcc.linker.option.paths" valueType="libPaths">
-									<listOptionValue builtIn="false" value="/usr/lib64"/>
 									<listOptionValue builtIn="false" value="/usr/lib"/>
 								</option>
 								<option id="nvcc.linker.option.linkgl.742248940" name="Link with OpenGL libraries" superClass="nvcc.linker.option.linkgl" value="false" valueType="boolean"/>
@@ -290,8 +289,8 @@
 								<option id="nvcc.compiler.cpp11option.847191146" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.maxregcount.489571593" name="Maximum number of registers (-maxrregcount)" superClass="nvcc.compiler.maxregcount" value="" valueType="string"/>
 								<option id="nvcc.compiler.usefastmath.1644290170" name="Make use of fast math library (-use_fast_math)" superClass="nvcc.compiler.usefastmath" value="true" valueType="boolean"/>
-								<option id="nvcc.compiler.option.lineinfo.48103133" superClass="nvcc.compiler.option.lineinfo" value="true" valueType="boolean"/>
-								<option id="nvcc.compiler.option.gprof.968466511" superClass="nvcc.compiler.option.gprof" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.option.lineinfo.48103133" name="Generate line-number information for device code (-lineinfo)" superClass="nvcc.compiler.option.lineinfo" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.option.gprof.968466511" name="Generate gprof information (-pg)" superClass="nvcc.compiler.option.gprof" value="true" valueType="boolean"/>
 								<inputType id="nvcc.compiler.input.cu.1808986766" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.158064856" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.1663648578" superClass="nvcc.compiler.input.c"/>

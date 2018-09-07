@@ -76,19 +76,27 @@ bool tracker::track() {
 
 		std::swap(state, lastState);
 		state = -1;
-
-		break;
+		return false;
 
 	case -1:
 		valid = relocalise();
 		if(valid) {
 			state = 0;
-			return false;
+			return true;
 		}
 
 		std::swap(state, lastState);
 		state = -1;
-		break;
+		return false;
+
+	case 2:
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+		if(!pause) {
+			std::swap(state, lastState);
+			state = 1;
+			return true;
+		}
+		return false;
 	}
 }
 

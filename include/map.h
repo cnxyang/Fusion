@@ -113,6 +113,7 @@ public:
 	// Key Point
 	DeviceArray<ORBKey> mapPoints;
 	DeviceArray<uint> mapPointIdx;
+	std::mutex mutexKeyUpdate;
 };
 
 #endif

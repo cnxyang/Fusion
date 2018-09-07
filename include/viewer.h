@@ -43,7 +43,6 @@ private:
 	tracker* ptracker;
 	bool quitSignaled;
 	pangolin::OpenGlRenderState sCam;
-	pangolin::OpenGlRenderState sCam2;
 	pangolin::GlSlProgram phongShader;
 	pangolin::GlSlProgram normalShader;
 	pangolin::GlSlProgram colorShader;

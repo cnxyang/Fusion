@@ -37,7 +37,6 @@ int main(int argc, char** argv) {
 				cam.stopStreaming();
 				return 0;
 			}
-			slam.PrintTimings();
 		}
 	}
 }

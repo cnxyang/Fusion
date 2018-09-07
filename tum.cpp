@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
 			return 0;
 	}
 
-	slam.JoinViewer();
+	slam.joinViewer();
 }
 
 void LoadDatasetTUM(std::string & sRootPath, std::vector<std::string> & vsDList,

@@ -92,9 +92,7 @@ Frame::Frame(const DeviceArray2D<uchar> & img, const cv::Mat & imD, KeyFrame * k
 	cuda::GpuMat DescTemp;
 	std::vector<KeyPoint> KPTemp;
 
-	Timer::Start("test", "create frame");
 	mORB->detectAndCompute(cudaImage, cuda::GpuMat(), KPTemp, DescTemp);
-	Timer::Stop("test", "create frame");
 	N = KPTemp.size();
 	if (N <= 0)
 		return;

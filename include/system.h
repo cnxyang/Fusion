@@ -31,9 +31,7 @@ public:
 	System(const char* str);
 	System(SysDesc* pParam);
 	bool grabImage(cv::Mat& imRGB, cv::Mat& imD);
-	void SetParameters(SysDesc& desc);
-	void PrintTimings();
-	void JoinViewer();
+	void joinViewer();
 	void saveMesh();
 	void reboot();
 
