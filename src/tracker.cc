@@ -5,10 +5,10 @@
 
 using namespace cv;
 
-tracker::tracker(int w, int h, float fx, float fy, float cx, float cy)
+Tracker::Tracker(int w, int h, float fx, float fy, float cx, float cy)
 	:referenceKF(nullptr), lastKF(nullptr),
-	 useIcp(true), useSo3(true), state(1),
-	 lastState(1), lastReloc(0) {
+	 useIcp(true), useSo3(true), state(1), needImages(false),
+	 lastState(1), lastReloc(0), imageUpdated(false) {
 
 	for(int i = 0; i < NUM_PYRS; ++i) {
 		int cols = w / (1 << i);
@@ -27,10 +27,9 @@ tracker::tracker(int w, int h, float fx, float fy, float cx, float cy)
 
 	depth.create(w, h);
 	color.create(w, h);
-	sumSE3.create(MaxThread);
-	sumSO3.create(MaxThread);
-	outSE3.create(1);
-	outSO3.create(1);
+	renderedImage.create(w, h);
+	renderedDepth.create(w, h);
+	rgbaImage.create(w, h);
 
 	iteration[0] = 10;
 	iteration[1] = 5;
@@ -44,7 +43,7 @@ tracker::tracker(int w, int h, float fx, float fy, float cx, float cy)
 	orbMatcher = cuda::DescriptorMatcher::createBFMatcher(NORM_HAMMING);
 }
 
-void tracker::reset() {
+void Tracker::reset() {
 
 	state = 1;
 	lastState = 1;
@@ -54,7 +53,7 @@ void tracker::reset() {
 	lastPose = Eigen::Matrix4d::Identity();
 }
 
-bool tracker::track() {
+bool Tracker::track() {
 
 	bool valid = false;
 
@@ -68,8 +67,7 @@ bool tracker::track() {
 		valid = trackFrame(false);
 		if(valid) {
 			state = 0;
-			if(needNewKF())
-				createNewKF();
+			fuseMapPoint();
 			swapFrame();
 			return true;
 		}
@@ -88,19 +86,14 @@ bool tracker::track() {
 		std::swap(state, lastState);
 		state = -1;
 		return false;
-
-	case 2:
-		std::this_thread::sleep_for(std::chrono::milliseconds(500));
-		if(!paused) {
-			std::swap(state, lastState);
-			state = 1;
-			return true;
-		}
-		return false;
 	}
 }
 
-bool tracker::trackFrame(bool useKF) {
+void Tracker::fuseMapPoint() const {
+
+}
+
+bool Tracker::trackFrame(bool useKF) {
 
 	bool valid = false;
 	valid = trackKeys();
@@ -114,7 +107,7 @@ bool tracker::trackFrame(bool useKF) {
 	return valid;
 }
 
-bool tracker::trackKeys() {
+bool Tracker::trackKeys() {
 
 	std::vector<cv::DMatch> refined;
 	std::vector<std::vector<cv::DMatch>> rawMatches;
@@ -147,7 +140,7 @@ bool tracker::trackKeys() {
 	return result;
 }
 
-void tracker::initTracking() {
+void Tracker::initTracking() {
 
 	reset();
 	if(useIcp)
@@ -157,7 +150,7 @@ void tracker::initTracking() {
 	return;
 }
 
-bool tracker::grabFrame(const cv::Mat & image, const cv::Mat & depth) {
+bool Tracker::grabFrame(const cv::Mat & image, const cv::Mat & depth) {
 
 	color.upload((void*) image.data, image.step, image.cols, image.rows);
 	ColourImageToIntensity(color, nextImage[0]);
@@ -165,7 +158,7 @@ bool tracker::grabFrame(const cv::Mat & image, const cv::Mat & depth) {
 	return track();
 }
 
-void tracker::initIcp() {
+void Tracker::initIcp() {
 
 	depth.upload((void*)nextFrame.rawDepth.data,
 			nextFrame.rawDepth.step,
@@ -186,10 +179,16 @@ void tracker::initIcp() {
 	}
 }
 
-void tracker::swapFrame() {
+void Tracker::swapFrame() {
 
 	std::swap(state, lastState);
 	lastFrame = Frame(nextFrame);
+	if(needImages) {
+		RenderImage(lastVMap[0], lastNMap[0], make_float3(0, 0, 0), renderedImage);
+		depthToImage(nextDepth[0], renderedDepth);
+		rgbImageToRgba(color, rgbaImage);
+		imageUpdated = true;
+	}
 	for (int i = 0; i < NUM_PYRS; ++i) {
 		nextImage[i].swap(lastImage[i]);
 		nextDepth[i].swap(lastDepth[i]);
@@ -198,20 +197,20 @@ void tracker::swapFrame() {
 	}
 }
 
-float tracker::rotationChanged() const {
+float Tracker::rotationChanged() const {
 	Eigen::Matrix4d delta = nextFrame.pose.inverse() * referenceKF->pose;
 	Eigen::Matrix3d rotation = delta.topLeftCorner(3, 3);
 	Eigen::Vector3d angles = rotation.eulerAngles(0, 1, 2).array().sin();
 	return angles.norm();
 }
 
-float tracker::translationChanged() const {
+float Tracker::translationChanged() const {
 	Eigen::Matrix4d delta = nextFrame.pose.inverse() * referenceKF->pose;
 	Eigen::Vector3d translation = delta.topRightCorner(3, 1);
 	return translation.norm();
 }
 
-bool tracker::needNewKF() {
+bool Tracker::needNewKF() {
 
 	if(rotationChanged() >= 0.2 || translationChanged() >= 0.1)
 		return true;
@@ -219,7 +218,7 @@ bool tracker::needNewKF() {
 	return false;
 }
 
-void tracker::createNewKF() {
+void Tracker::createNewKF() {
 
 	std::swap(lastKF, referenceKF);
 	if(lastKF)
@@ -228,7 +227,7 @@ void tracker::createNewKF() {
 	mpMap->push_back(referenceKF);
 }
 
-bool tracker::computeSE3() {
+bool Tracker::computeSE3() {
 
 	Eigen::Matrix<double, 6, 6, Eigen::RowMajor> matA;
 	Eigen::Matrix<double, 6, 1> vecb;
@@ -243,8 +242,6 @@ bool tracker::computeSE3() {
 			float icpError = ICPReduceSum(nextVMap[i], lastVMap[i], nextNMap[i],
 					lastNMap[i], nextFrame, lastFrame, i, matA.data(),
 					vecb.data());
-
-//			std::cout << icpError << std::endl;
 
 			if (std::isnan(icpError) || icpError >= 1e-3) {
 				nextFrame.SetPose(lastPose);
@@ -262,7 +259,7 @@ bool tracker::computeSE3() {
 	return true;
 }
 
-bool tracker::relocalise() {
+bool Tracker::relocalise() {
 
 	if(lastState != -1) {
 		mpMap->updateKeyIndices();
@@ -275,9 +272,7 @@ bool tracker::relocalise() {
 	return true;
 }
 
-Eigen::Matrix4f tracker::getCurrentPose() const {
-//	if(lastFrame.frameId == 0)
-//		return Eigen::Matrix4f::Identity();
+Eigen::Matrix4f Tracker::getCurrentPose() const {
 	return lastFrame.pose.cast<float>();
 }
 
@@ -418,10 +413,10 @@ Eigen::Matrix4f tracker::getCurrentPose() const {
 //	return true;
 //}
 
-void tracker::setMap(Mapping* pMap) {
+void Tracker::setMap(Mapping* pMap) {
 	mpMap = pMap;
 }
 
-void tracker::setViewer(Viewer* pViewer) {
+void Tracker::setViewer(Viewer* pViewer) {
 	mpViewer = pViewer;
 }

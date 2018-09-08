@@ -6,14 +6,15 @@
 #include "viewer.h"
 #include "cuarray.h"
 #include "reduction.h"
+#include <mutex>
 
 class Viewer;
 class Mapping;
 
-class tracker {
+class Tracker {
 public:
-	tracker();
-	tracker(int w, int h, float fx, float fy, float cx, float cy);
+	Tracker();
+	Tracker(int w, int h, float fx, float fy, float cx, float cy);
 
 	void reset();
 	void initIcp();
@@ -27,6 +28,7 @@ public:
 	bool computeSO3();
 	bool computeSE3();
 	bool trackKeys();
+	void fuseMapPoint() const;
 	bool grabFrame(const cv::Mat & rgb, const cv::Mat & depth);
 	bool relocalise();
 
@@ -34,7 +36,7 @@ public:
 	float translationChanged() const;
 
 	void setMap(Mapping* pMap);
-	void setTracker(tracker * tracker);
+	void setTracker(Tracker * tracker);
 	void setViewer(Viewer* pViewer);
 
 	Eigen::Matrix4f getCurrentPose() const;
@@ -46,6 +48,9 @@ public:
 	static const int NUM_PYRS = 3;
 	DeviceArray2D<unsigned short> depth;
 	DeviceArray2D<uchar3> color;
+	DeviceArray2D<uchar4> renderedImage;
+	DeviceArray2D<uchar4> renderedDepth;
+	DeviceArray2D<uchar4> rgbaImage;
 
 	DeviceArray2D<float> lastDepth[NUM_PYRS];
 	DeviceArray2D<unsigned char> lastImage[NUM_PYRS];
@@ -94,6 +99,9 @@ public:
 	Frame nextFrame;
 	Mapping* mpMap;
 	Viewer* mpViewer;
+
+	std::atomic<bool> imageUpdated;
+	std::atomic<bool> needImages;
 };
 
 #endif

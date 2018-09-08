@@ -11,7 +11,7 @@
 
 class Viewer;
 class Mapping;
-class tracker;
+class Tracker;
 
 struct SysDesc {
 	int cols, rows;
@@ -39,13 +39,15 @@ public:
 	Mapping * mpMap;
 	Viewer * mpViewer;
 	SysDesc * param;
-	tracker * mpTracker;
+	Tracker * mpTracker;
 
 	cv::Mat mK;
 	int nFrames;
 	std::thread * mptViewer;
 
+	bool state;
 	std::mutex mutexReq;
+	std::atomic<bool> paused;
 	std::atomic<bool> requestSaveMesh;
 	std::atomic<bool> requestReboot;
 	std::atomic<bool> requestStop;

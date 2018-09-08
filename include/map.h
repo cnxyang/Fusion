@@ -61,7 +61,7 @@ public:
 	void push_back(const KeyFrame * kf, Eigen::Matrix4d & dT);
 	void push_back(KeyFrame * kf);
 	void remove(const KeyFrame * kf);
-	void setTracker(tracker * ptracker);
+	void setTracker(Tracker * ptracker);
 	void setSystem(System * psystem);
 
 	void updateKeyIndices();
@@ -69,7 +69,7 @@ public:
 	std::vector<uint> getKeyIndices() const;
 	std::vector<ORBKey> getAllKeys() const;
 
-	tracker * ptracker;
+	Tracker * ptracker;
 	System * psystem;
 
 	bool lost;

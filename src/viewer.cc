@@ -17,15 +17,9 @@ void Viewer::signalQuit() {
 	quit = true;
 }
 
-void setImageData(unsigned char * imageArray, int size) {
-	for (int i = 0; i < size; i++) {
-		imageArray[i] = (unsigned char) (rand() / (RAND_MAX / 255.0));
-	}
-}
-
 void Viewer::spin() {
 
-	CreateWindowAndBind("main", 1920, 1200);
+	CreateWindowAndBind("FUSION", 2560, 1440);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -48,42 +42,58 @@ void Viewer::spin() {
 	colorShader.Link();
 
 	sCam = OpenGlRenderState(
-			ProjectionMatrix(640, 480, 525, 525, 320, 240, 0.1f, 1000.0f),
+			ProjectionMatrix(640, 480, 520.149963, 516.175781, 309.993548, 227.090932, 0.1f, 1000.0f),
 			ModelViewLookAtRUB(0, 0, 0, 0, 0, 1, 0, -1, 0));
 
 	glGenVertexArrays(1, &vao);
-	vertex.Reinitialise(GlArrayBuffer, DeviceMap::MaxTriangles * 6,
+	vertex.Reinitialise(GlArrayBuffer, DeviceMap::MaxVertices,
 	GL_FLOAT, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
 	vertexMaped = new CudaScopedMappedPtr(vertex);
 
-	normal.Reinitialise(GlArrayBuffer, DeviceMap::MaxTriangles * 3,
+	normal.Reinitialise(GlArrayBuffer, DeviceMap::MaxVertices,
 	GL_FLOAT, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
 	normalMaped = new CudaScopedMappedPtr(normal);
 
-	color.Reinitialise(GlArrayBuffer, DeviceMap::MaxTriangles * 3,
+	color.Reinitialise(GlArrayBuffer, DeviceMap::MaxVertices,
 	GL_UNSIGNED_BYTE, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
 	colorMaped = new CudaScopedMappedPtr(color);
 
-	View & dCam = CreateDisplay().SetBounds(0.0, 1.0, Attach::Pix(300), 1.0,
-			-640.0 / 480).SetHandler(new Handler3D(sCam));
+	colorImage.Reinitialise(640, 480, GL_RGB, true, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+	colorImageMaped = new CudaScopedMappedArray(colorImage);
 
-	CreatePanel("UI").SetBounds(0.0, 1.0, 0.0, Attach::Pix(300), true);
+	depthImage.Reinitialise(640, 480, GL_RGBA, true, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	depthImageMaped = new CudaScopedMappedArray(depthImage);
+
+	renderedImage.Reinitialise(640, 480, GL_RGBA, false, 0,  GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	renderedImageMaped = new CudaScopedMappedArray(renderedImage);
+
+	View & dCam = CreateDisplay().SetAspect(-640.0 / 480).SetHandler(new Handler3D(sCam));
+	View & Image0 = CreateDisplay().SetAspect(640.0 / 480);
+	View & Image1 = CreateDisplay().SetAspect(640.0 / 480);
+	View & Image2 = CreateDisplay().SetAspect(640.0 / 480);
+	Display("SubDisplay0").SetBounds(0.0, 1.0,  Attach::Pix(200), 1.0).AddDisplay(dCam);
+	Display("SubDisplay1").SetBounds(0.0, 0.3333, 0.75, 1.0).
+			SetLayout(LayoutOverlay).AddDisplay(Image0).
+			AddDisplay(Image1).
+			AddDisplay(Image2);
+
+	CreatePanel("UI").SetBounds(0.0, 1.0, 0.0, Attach::Pix(200), true);
 	Var<bool> btnReset("UI.Reset System", false, false);
 	Var<bool> btnShowKeyFrame("UI.Show Key Frames", false, true);
 	Var<bool> btnShowKeyPoint("UI.Show Key Points", true, true);
-	Var<bool> btnShowMesh("UI.Show Mesh", false, true);
+	Var<bool> btnShowMesh("UI.Show Mesh", true, true);
 	Var<bool> btnShowCam("UI.Show Camera", true, true);
 	Var<bool> btnFollowCam("UI.Fllow Camera", false, true);
 	Var<bool> btnShowNormal("UI.Show Normal", false, true);
 	Var<bool> btnShowColor("UI.Show Color Map", false, true);
 	Var<bool> btnSaveMesh("UI.Save as Mesh", false, false);
 	Var<bool> btnDrawWireFrame("UI.WireFrame Mode", false, true);
+	Var<bool> btnShowColorImage("UI.Color Image", false, true);
+	Var<bool> btnShowDepthImage("UI.Depth Image", false, true);
+	Var<bool> btnShowRenderedImage("UI.Rendered Image", false, true);
+	Var<bool> btnPauseSystem("UI.Pause System", false, false);
 
-	const int width = 640;
-	const int height = 480;
-	unsigned char* imageArray = new unsigned char[3 * width * height];
-	GlTexture imageTexture(width, height, GL_RGB, false, 0, GL_RGB,
-			GL_UNSIGNED_BYTE);
+	imageArray = new unsigned char[3 * 640 * 480];
 
 	while (1) {
 
@@ -97,13 +107,11 @@ void Viewer::spin() {
 		glClearColor(0.0f, 0.2f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		if (Pushed(btnReset)) {
+		if (Pushed(btnReset))
 			psystem->requestReboot = true;
-		}
 
-		if (Pushed(btnSaveMesh)) {
+		if (Pushed(btnSaveMesh))
 			psystem->requestSaveMesh = true;
-		}
 
 		dCam.Activate(sCam);
 
@@ -143,8 +151,67 @@ void Viewer::spin() {
 		if (btnFollowCam)
 			followCam();
 
+		if (btnShowRenderedImage ||
+			btnShowDepthImage ||
+			btnShowColorImage) {
+			if(!ptracker->needImages)
+				ptracker->needImages = true;
+		}
+		else
+			if(ptracker->needImages)
+				ptracker->needImages = false;
+
+		Image0.Activate();
+		if (btnShowRenderedImage)
+			showPrediction();
+
+		Image1.Activate();
+		if (btnShowDepthImage)
+			showDepthImage();
+
+		Image2.Activate();
+		if (btnShowColorImage)
+			showColorImage();
+
+		if (ptracker->imageUpdated)
+			ptracker->imageUpdated = false;
+
 		FinishFrame();
 	}
+}
+
+void Viewer::showPrediction() {
+	if(ptracker->imageUpdated) {
+		SafeCall(cudaMemcpy2DToArray(**renderedImageMaped, 0, 0,
+				(void*) ptracker->renderedImage.data(),
+				 ptracker->renderedImage.step(), sizeof(uchar4) * 640, 480,
+				 cudaMemcpyDeviceToDevice));
+	}
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+	renderedImage.RenderToViewport(true);
+}
+
+void Viewer::showDepthImage() {
+	if(ptracker->imageUpdated) {
+		SafeCall(cudaMemcpy2DToArray(**depthImageMaped, 0, 0,
+				(void*) ptracker->renderedDepth.data(),
+				 ptracker->renderedDepth.step(), sizeof(uchar4) * 640, 480,
+				 cudaMemcpyDeviceToDevice));
+	}
+
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+	depthImage.RenderToViewport(true);
+}
+
+void Viewer::showColorImage() {
+	if(ptracker->imageUpdated) {
+		SafeCall(cudaMemcpy2DToArray(**colorImageMaped, 0, 0,
+				(void*) ptracker->rgbaImage.data(),
+				ptracker->rgbaImage.step(), sizeof(uchar4) * 640, 480,
+				cudaMemcpyDeviceToDevice));
+	}
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+	colorImage.RenderToViewport(true);
 }
 
 void Viewer::drawColor() {
@@ -251,38 +318,7 @@ void Viewer::Insert(std::vector<GLfloat>& vPt, Eigen::Vector3f& pt) {
 }
 
 void Viewer::drawKeyFrame() {
-	std::set<KeyFrame *>::iterator iter = mpMap->keyFrames.begin();
-	std::set<KeyFrame *>::iterator lend = mpMap->keyFrames.end();
-	vector<GLfloat> cam;
 
-	for(; iter != lend; ++iter) {
-		Eigen::Vector3f p[4];
-		p[0] << 0.1, 0.08, 0;
-		p[1] << 0.1, -0.08, 0;
-		p[2] << -0.1, 0.08, 0;
-		p[3] << -0.1, -0.08, 0;
-
-		Eigen::Matrix3f r = (*iter)->pose.topLeftCorner(3, 3).cast<float>();
-		Eigen::Vector3f t = (*iter)->pose.topRightCorner(3, 1).cast<float>();
-		for (int i = 0; i < 4; ++i) {
-			p[i] = r * p[i] * 0.3 + t;
-		}
-		Insert(cam, p[0]);
-		Insert(cam, p[1]);
-		Insert(cam, p[2]);
-		Insert(cam, p[1]);
-		Insert(cam, p[2]);
-		Insert(cam, p[3]);
-		Insert(cam, p[0]);
-		Insert(cam, p[2]);
-		Insert(cam, p[3]);
-
-		glColor3f(1.0, 1.0, 1.0);
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_TRIANGLES, 3);
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		cam.clear();
-	}
 }
 
 void Viewer::drawCamera() {
@@ -299,7 +335,7 @@ void Viewer::drawCamera() {
 	Eigen::Matrix3f rotation = pose.topLeftCorner(3, 3);
 	Eigen::Vector3f translation = pose.topRightCorner(3, 1);
 	for (int i = 0; i < 5; ++i) {
-		p[i] = rotation * p[i] + translation;
+		p[i] = rotation * p[i] * 0.5 + translation;
 	}
 
 	Insert(cam, p[0]);
@@ -346,6 +382,6 @@ void Viewer::setSystem(System* pSystem) {
 	psystem = pSystem;
 }
 
-void Viewer::setTracker(tracker* pTracker) {
+void Viewer::setTracker(Tracker* pTracker) {
 	ptracker = pTracker;
 }

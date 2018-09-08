@@ -12,7 +12,7 @@
 
 class System;
 class Mapping;
-class tracker;
+class Tracker;
 
 class Viewer {
 public:
@@ -22,7 +22,7 @@ public:
 
 	void setMap(Mapping* pMap);
 	void setSystem(System* pSystem);
-	void setTracker(tracker* pTracker);
+	void setTracker(Tracker* pTracker);
 	void signalQuit();
 
 private:
@@ -35,13 +35,17 @@ private:
 	void drawColor();
 	void drawKeyFrame();
 	void drawMesh(bool bNormal);
+	void showColorImage();
+	void showPrediction();
+	void showDepthImage();
 
 	Mapping* mpMap;
 
 	GLuint vao;
 	System* psystem;
-	tracker* ptracker;
+	Tracker* ptracker;
 	std::atomic<bool> quit;
+	unsigned char * imageArray;
 	pangolin::OpenGlRenderState sCam;
 	pangolin::GlSlProgram phongShader;
 	pangolin::GlSlProgram normalShader;
@@ -52,6 +56,13 @@ private:
 	pangolin::CudaScopedMappedPtr * vertexMaped;
 	pangolin::CudaScopedMappedPtr * normalMaped;
 	pangolin::CudaScopedMappedPtr * colorMaped;
+
+	pangolin::GlTextureCudaArray colorImage;
+	pangolin::GlTextureCudaArray depthImage;
+	pangolin::GlTextureCudaArray renderedImage;
+	pangolin::CudaScopedMappedArray * colorImageMaped;
+	pangolin::CudaScopedMappedArray * depthImageMaped;
+	pangolin::CudaScopedMappedArray * renderedImageMaped;
 };
 
 #endif

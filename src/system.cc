@@ -18,7 +18,7 @@ nFrames(0), requestReboot(false) {
 System::System(SysDesc* pParam) :
 		mpMap(nullptr), mpViewer(nullptr), mpTracker(nullptr),
 		requestStop(false),	nFrames(0), requestSaveMesh(false),
-		requestReboot(false) {
+		requestReboot(false), paused(false), state(true) {
 
 	if(pParam) {
 		param = new SysDesc();
@@ -48,7 +48,7 @@ System::System(SysDesc* pParam) :
 	mpMap->create();
 
 	mpViewer = new Viewer();
-	mpTracker = new tracker(param->cols,
+	mpTracker = new Tracker(param->cols,
 							 param->rows,
 							 param->fx,
 							 param->fy,
@@ -89,9 +89,11 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 	}
 
 	Timer::Start("all", "all");
-	bool bOK = mpTracker->grabFrame(image, depth);
+	if(!paused) {
+		state = mpTracker->grabFrame(image, depth);
+	}
 
-	if (bOK) {
+	if (state) {
 		uint no;
 		mpMap->fuseColor(mpTracker->lastDepth[0], mpTracker->color,
 				mpTracker->lastFrame.Rot_gpu(),
