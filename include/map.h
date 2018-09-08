@@ -59,7 +59,7 @@ public:
 	operator DeviceMap() const;
 
 	void push_back(const KeyFrame * kf, Eigen::Matrix4d & dT);
-	void push_back(const KeyFrame * kf);
+	void push_back(KeyFrame * kf);
 	void remove(const KeyFrame * kf);
 	void setTracker(tracker * ptracker);
 	void setSystem(System * psystem);
@@ -73,9 +73,9 @@ public:
 	System * psystem;
 
 	bool lost;
-	bool meshUpdated;
-	bool mapPointsUpdated;
-	bool mapUpdated;
+	std::atomic<bool> meshUpdated;
+	std::atomic<bool> mapPointsUpdated;
+	std::atomic<bool> mapUpdated;
 
 	// Reconstructions
 	DeviceArray<int> heap;

@@ -17,7 +17,7 @@ struct KeyFrame;
 class Frame {
 public:
 	Frame();
-	Frame(const Frame& other);
+	Frame(Frame& other);
 	Frame(const cv::Mat& imRGB, const cv::Mat& imD);
 	Frame(const DeviceArray2D<uchar> & img, const cv::Mat & imD, KeyFrame * refKF);
 

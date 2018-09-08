@@ -169,6 +169,6 @@ Mapping::operator DeviceMap() const {
 	map.entryPtr = hashCounter;
 	return map;
 }
-void Mapping::push_back(const KeyFrame * kf) {
-
+void Mapping::push_back(KeyFrame * kf) {
+	keyFrames.insert(kf);
 }

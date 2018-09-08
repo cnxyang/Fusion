@@ -27,7 +27,7 @@ public:
 	bool computeSO3();
 	bool computeSE3();
 	bool trackKeys();
-	bool grabFrame(cv::Mat & rgb, cv::Mat & depth);
+	bool grabFrame(const cv::Mat & rgb, const cv::Mat & depth);
 	bool relocalise();
 
 	float rotationChanged() const;
@@ -42,6 +42,7 @@ public:
 	MatK K;
 	bool useIcp;
 	bool useSo3;
+	bool paused;
 	static const int NUM_PYRS = 3;
 	DeviceArray2D<unsigned short> depth;
 	DeviceArray2D<uchar3> color;

@@ -1,7 +1,7 @@
 #include "frame.h"
 #include "timer.h"
 #include "cufunc.h"
-
+#include "keyFrame.h"
 #include <Eigen/Dense>
 
 using namespace cv;
@@ -18,15 +18,17 @@ Ptr<cuda::ORB> Frame::mORB;
 
 Frame::Frame():N(0) {}
 
-Frame::Frame(const Frame& other):N(0) {
+Frame::Frame(Frame& other):N(other.N) {
 
 	mPoints = other.mPoints;
 	keys = other.keys;
 	other.descriptors.copyTo(descriptors);
 
 	frameId = other.frameId;
-	pose = other.pose;
-//	mPoseInv = other.mPoseInv;
+	Eigen::Matrix4d tmp = other.pose;
+	other.pose = pose;
+	pose = tmp;
+//	pose = other.pose;
 }
 
 bool computeVertexAndNormal(const cv::Mat & imD, float & x, float & y,

@@ -12,13 +12,16 @@ __global__ void BackProjectPointsDevice(const PtrStepSz<float> src,
 		return;
 
 	float4 point;
+
 	point.z = src.ptr(y)[x];
 	if (!isnan(point.z) && point.z > 1e-3) {
 		point.x = point.z * (x - cx) * invfx;
 		point.y = point.z * (y - cy) * invfy;
 		point.w = 1.0;
-	} else
-		point.x = __int_as_float(0x7fffffff);
+	}
+	else {
+		dst.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
+	}
 
 	dst.ptr(y)[x] = point;
 }
@@ -70,6 +73,55 @@ void ComputeNormalMap(const DeviceArray2D<float4>& src,
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
+}
+
+__global__ void forwardProjectKernel(PtrStepSz<float4> src_vmap,
+								     PtrStep<float3> src_nmap,
+								     PtrStep<float4> dst_vmap,
+								     PtrStep<float3> dst_nmap,
+								     Matrix3f Rcurr, float3 tcurr,
+								     Matrix3f RlastInv, float3 tlast,
+								     float fx, float fy,
+								     float cx, float cy) {
+
+	int x = blockDim.x * blockIdx.x + threadIdx.x;
+	int y = blockDim.y * blockIdx.y + threadIdx.y;
+	if(x >= src_vmap.cols || y >= src_vmap.rows)
+		return;
+
+	float4 & vsrc = src_vmap.ptr(y)[x];
+	float3 & nsrc = src_nmap.ptr(y)[x];
+	if(isnan(vsrc.x) || isnan(nsrc.x)) {
+		return;
+	}
+
+	float3 vdst = Rcurr * (RlastInv * (make_float3(vsrc) - tlast)) + tcurr;
+	int u = __float2int_rd(fx * vdst.x / vdst.z + cx + 0.5);
+	int v = __float2int_rd(fy * vdst.y / vdst.z + cy + 0.5);
+	printf("%d\n", u);
+	if(u < 0 || v < 0 || u >= src_vmap.cols || v >= src_vmap.rows)
+		return;
+
+
+
+	dst_vmap.ptr(v)[u] = make_float4(vdst, vsrc.w);
+	dst_nmap.ptr(v)[u] = Rcurr * (RlastInv * nsrc);
+}
+
+void forwardProjection(const DeviceArray2D<float4> & vsrc,
+					   const DeviceArray2D<float3> & nsrc,
+					   DeviceArray2D<float4> & vdst,
+					   DeviceArray2D<float3> & ndst,
+					   Matrix3f Rcurr, float3 tcurr,
+					   Matrix3f RlastInv, float3 tlast,
+					   float fx, float fy,
+					   float cx, float cy) {
+
+	dim3 thread(16, 8);
+	dim3 block(cv::divUp(vsrc.cols(), thread.x), cv::divUp(vsrc.rows(), thread.y));
+
+	forwardProjectKernel<<<block, thread>>>(vsrc, nsrc, vdst, ndst, Rcurr,
+			tcurr, RlastInv, tlast, fx, fy, cx, cy);
 }
 
 //__global__ void WarpGrayScaleImageDevice(PtrStepSz<float4> src,

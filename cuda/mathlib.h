@@ -336,6 +336,10 @@ struct Matrix3f {
 	__host__ __device__ inline float3 operator*(float3 a) const {
 		return make_float3(rowx * a, rowy * a, rowz * a);
 	}
+
+	__host__ __device__ inline float3 operator*(float4 a) const {
+		return make_float3(rowx * a, rowy * a, rowz * a);
+	}
 };
 
 #endif

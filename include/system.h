@@ -30,25 +30,25 @@ class System {
 public:
 	System(const char* str);
 	System(SysDesc* pParam);
-	bool grabImage(cv::Mat& imRGB, cv::Mat& imD);
+	bool grabImage(const cv::Mat& image, const cv::Mat& depth);
 	void joinViewer();
 	void saveMesh();
 	void reboot();
 
 public:
-	Mapping* mpMap;
-	Viewer* mpViewer;
-	SysDesc* mpParam;
-	tracker* mpTracker;
+	Mapping * mpMap;
+	Viewer * mpViewer;
+	SysDesc * param;
+	tracker * mpTracker;
 
 	cv::Mat mK;
 	int nFrames;
-	std::thread* mptViewer;
+	std::thread * mptViewer;
 
 	std::mutex mutexReq;
-	bool requestSaveMesh;
-	bool requestReboot;
-	bool requestStop;
+	std::atomic<bool> requestSaveMesh;
+	std::atomic<bool> requestReboot;
+	std::atomic<bool> requestStop;
 };
 
 #endif

@@ -27,13 +27,13 @@ public:
 
 private:
 
-	void Insert(std::vector<GLfloat>& vPt, Eigen::Vector3f& pt);
+	void Insert(std::vector<GLfloat> & vPt, Eigen::Vector3f & pt);
 	void drawCamera();
 	void drawKeys();
 	void followCam();
 	void drawNormal();
 	void drawColor();
-	void drawTrajectory();
+	void drawKeyFrame();
 	void drawMesh(bool bNormal);
 
 	Mapping* mpMap;
@@ -41,7 +41,7 @@ private:
 	GLuint vao;
 	System* psystem;
 	tracker* ptracker;
-	bool quitSignaled;
+	std::atomic<bool> quit;
 	pangolin::OpenGlRenderState sCam;
 	pangolin::GlSlProgram phongShader;
 	pangolin::GlSlProgram normalShader;

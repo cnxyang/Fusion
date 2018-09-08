@@ -1,4 +1,5 @@
 #include "viewer.h"
+#include "keyFrame.h"
 #include <unistd.h>
 #include <algorithm>
 #include <pangolin/gl/glcuda.h>
@@ -9,12 +10,11 @@ using namespace pangolin;
 
 Viewer::Viewer() :
 		mpMap(nullptr), ptracker(nullptr), psystem(nullptr), vao(0), vertexMaped(
-				nullptr), normalMaped(nullptr), colorMaped(nullptr), quitSignaled(
-				false) {
+				nullptr), normalMaped(nullptr), colorMaped(nullptr), quit(false) {
 }
 
 void Viewer::signalQuit() {
-	quitSignaled = true;
+	quit = true;
 }
 
 void setImageData(unsigned char * imageArray, int size) {
@@ -69,7 +69,7 @@ void Viewer::spin() {
 
 	CreatePanel("UI").SetBounds(0.0, 1.0, 0.0, Attach::Pix(300), true);
 	Var<bool> btnReset("UI.Reset System", false, false);
-	Var<bool> btnShowTrajectory("UI.Show Trajectory", false, true);
+	Var<bool> btnShowKeyFrame("UI.Show Key Frames", false, true);
 	Var<bool> btnShowKeyPoint("UI.Show Key Points", true, true);
 	Var<bool> btnShowMesh("UI.Show Mesh", false, true);
 	Var<bool> btnShowCam("UI.Show Camera", true, true);
@@ -85,7 +85,10 @@ void Viewer::spin() {
 	GlTexture imageTexture(width, height, GL_RGB, false, 0, GL_RGB,
 			GL_UNSIGNED_BYTE);
 
-	while (!quitSignaled) {
+	while (1) {
+
+		if (quit)
+			std::terminate();
 
 		if (ShouldQuit()) {
 			psystem->requestStop = true;
@@ -95,27 +98,23 @@ void Viewer::spin() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		if (Pushed(btnReset)) {
-			psystem->mutexReq.lock();
 			psystem->requestReboot = true;
-			psystem->mutexReq.unlock();
 		}
 
 		if (Pushed(btnSaveMesh)) {
-			psystem->mutexReq.lock();
 			psystem->requestSaveMesh = true;
-			psystem->mutexReq.unlock();
 		}
 
-		if (btnShowTrajectory)
-			drawTrajectory();
+		dCam.Activate(sCam);
+
+		if (btnShowKeyFrame)
+			drawKeyFrame();
 
 		if (btnShowKeyPoint)
 			drawKeys();
 
 		if (btnDrawWireFrame)
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-		dCam.Activate(sCam);
 
 		if (btnShowMesh) {
 			if (btnShowNormal)
@@ -146,8 +145,6 @@ void Viewer::spin() {
 
 		FinishFrame();
 	}
-
-	return;
 }
 
 void Viewer::drawColor() {
@@ -160,9 +157,7 @@ void Viewer::drawColor() {
 				   sizeof(uchar3) * mpMap->noTriangles[0] * 3,
 				   cudaMemcpyDeviceToDevice);
 
-		mpMap->mutexMesh.lock();
 		mpMap->meshUpdated = false;
-		mpMap->mutexMesh.unlock();
 	}
 
 	colorShader.SaveBind();
@@ -209,11 +204,11 @@ void Viewer::drawMesh(bool bNormal) {
 	if (mpMap->meshUpdated) {
 
 		cudaMemcpy((void*) **vertexMaped, (void*) mpMap->modelVertex,
-				sizeof(float3) * mpMap->noTrianglesHost * 3,
-				cudaMemcpyDeviceToDevice);
+				   sizeof(float3) * mpMap->noTrianglesHost * 3,
+				   cudaMemcpyDeviceToDevice);
 		cudaMemcpy((void*) **normalMaped, (void*) mpMap->modelNormal,
-				sizeof(float3) * mpMap->noTrianglesHost * 3,
-				cudaMemcpyDeviceToDevice);
+				   sizeof(float3) * mpMap->noTrianglesHost * 3,
+				   cudaMemcpyDeviceToDevice);
 
 		mpMap->mutexMesh.lock();
 		mpMap->meshUpdated = false;
@@ -255,8 +250,39 @@ void Viewer::Insert(std::vector<GLfloat>& vPt, Eigen::Vector3f& pt) {
 	vPt.push_back(pt(2));
 }
 
-void Viewer::drawTrajectory() {
+void Viewer::drawKeyFrame() {
+	std::set<KeyFrame *>::iterator iter = mpMap->keyFrames.begin();
+	std::set<KeyFrame *>::iterator lend = mpMap->keyFrames.end();
+	vector<GLfloat> cam;
 
+	for(; iter != lend; ++iter) {
+		Eigen::Vector3f p[4];
+		p[0] << 0.1, 0.08, 0;
+		p[1] << 0.1, -0.08, 0;
+		p[2] << -0.1, 0.08, 0;
+		p[3] << -0.1, -0.08, 0;
+
+		Eigen::Matrix3f r = (*iter)->pose.topLeftCorner(3, 3).cast<float>();
+		Eigen::Vector3f t = (*iter)->pose.topRightCorner(3, 1).cast<float>();
+		for (int i = 0; i < 4; ++i) {
+			p[i] = r * p[i] * 0.3 + t;
+		}
+		Insert(cam, p[0]);
+		Insert(cam, p[1]);
+		Insert(cam, p[2]);
+		Insert(cam, p[1]);
+		Insert(cam, p[2]);
+		Insert(cam, p[3]);
+		Insert(cam, p[0]);
+		Insert(cam, p[2]);
+		Insert(cam, p[3]);
+
+		glColor3f(1.0, 1.0, 1.0);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_TRIANGLES, 3);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		cam.clear();
+	}
 }
 
 void Viewer::drawCamera() {

@@ -91,7 +91,7 @@ bool tracker::track() {
 
 	case 2:
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
-		if(!pause) {
+		if(!paused) {
 			std::swap(state, lastState);
 			state = 1;
 			return true;
@@ -157,11 +157,11 @@ void tracker::initTracking() {
 	return;
 }
 
-bool tracker::grabFrame(cv::Mat & imRgb, cv::Mat & imD) {
+bool tracker::grabFrame(const cv::Mat & image, const cv::Mat & depth) {
 
-	color.upload((void*) imRgb.data, imRgb.step, imRgb.cols, imRgb.rows);
+	color.upload((void*) image.data, image.step, image.cols, image.rows);
 	ColourImageToIntensity(color, nextImage[0]);
-	nextFrame = Frame(nextImage[0], imD, referenceKF);
+	nextFrame = Frame(nextImage[0], depth, referenceKF);
 	return track();
 }
 
@@ -199,22 +199,21 @@ void tracker::swapFrame() {
 }
 
 float tracker::rotationChanged() const {
-	Eigen::Matrix4d delta = nextFrame.pose.inverse() * lastFrame.pose;
+	Eigen::Matrix4d delta = nextFrame.pose.inverse() * referenceKF->pose;
 	Eigen::Matrix3d rotation = delta.topLeftCorner(3, 3);
 	Eigen::Vector3d angles = rotation.eulerAngles(0, 1, 2).array().sin();
 	return angles.norm();
 }
 
 float tracker::translationChanged() const {
-	Eigen::Matrix4d delta = nextFrame.pose.inverse() * lastFrame.pose;
+	Eigen::Matrix4d delta = nextFrame.pose.inverse() * referenceKF->pose;
 	Eigen::Vector3d translation = delta.topRightCorner(3, 1);
 	return translation.norm();
 }
 
 bool tracker::needNewKF() {
 
-	if(rotationChanged() >= 0.1 ||
-	   translationChanged() >= 0.2)
+	if(rotationChanged() >= 0.2 || translationChanged() >= 0.1)
 		return true;
 
 	return false;
@@ -244,6 +243,8 @@ bool tracker::computeSE3() {
 			float icpError = ICPReduceSum(nextVMap[i], lastVMap[i], nextNMap[i],
 					lastNMap[i], nextFrame, lastFrame, i, matA.data(),
 					vecb.data());
+
+//			std::cout << icpError << std::endl;
 
 			if (std::isnan(icpError) || icpError >= 1e-3) {
 				nextFrame.SetPose(lastPose);

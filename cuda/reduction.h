@@ -90,27 +90,18 @@ struct JtJJtrSO3 {
 	}
 };
 
-void icpStep(const DeviceArray2D<float4> & nextVMap,
-			 const DeviceArray2D<float4> & lastVMap,
-			 const DeviceArray2D<float3> & nextNMap,
-			 const DeviceArray2D<float3> & lastNMap,
-			 DeviceArray<JtJJtrSE3> & sum,
-			 DeviceArray<JtJJtrSE3> & out,
-			 float * residual,
-			 double * matA,
-			 double * vecb,
-			 Matrix3f rcurr,
-			 float3 tcurr,
-			 Matrix3f rlast,
-			 Matrix3f rInvlast,
-			 float3 tlast,
-			 MatK K);
+void computeVMap(const DeviceArray2D<float> & depth, DeviceArray2D<float4> & vmap,
+				 float fx, float fy, float cx, float cy, float depthCutoff = 3.0f);
+void computeVMap(const DeviceArray2D<float4> & vmap, const DeviceArray2D<float3> & nmap);
+void rgbImageToIntensity(const DeviceArray2D<uchar3> & rgb, DeviceArray2D<unsigned char> & image);
+void pyrDownGauss(const DeviceArray2D<float> & src, DeviceArray2D<float> & dst);
+void pyrDownGauss(const DeviceArray2D<unsigned char> & src, DeviceArray2D<unsigned char> & dst);
+void bilateralFilter(const DeviceArray2D<unsigned short> & depth, DeviceArray2D<float> & filteredDepth, float depthScale);
 
 #include "frame.h"
 double ICPReduceSum(DeviceArray2D<float4> & nextVMap, DeviceArray2D<float4> & lastVMap,
-		DeviceArray2D<float3> & nextNMap, DeviceArray2D<float3> & lastNMap,
-		Frame& NextFrame, Frame& LastFrame, int pyr, double* host_a,
-		double* host_b);
+					DeviceArray2D<float3> & nextNMap, DeviceArray2D<float3> & lastNMap,
+					Frame& NextFrame, Frame& LastFrame, int pyr, double* host_a, double* host_b);
 #define WarpSize 32
 #define MaxThread 1024
 #endif

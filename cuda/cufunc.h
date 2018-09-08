@@ -24,4 +24,12 @@ void ComputeNormalMap(const DeviceArray2D<float4>& src, DeviceArray2D<float3>& d
 void RenderImage(const DeviceArray2D<float4>& points, const DeviceArray2D<float3>& normals, const float3 & light_pose, DeviceArray2D<uchar4>& image);
 void ComputeVertexMapDiff(DeviceArray2D<float4> & vsrc, DeviceArray2D<float4> & vdst,
 		Matrix3f Rcurr, float3 tcurr, Matrix3f RlastInv, float3 tlast);
+void forwardProjection(const DeviceArray2D<float4> & vsrc,
+		   const DeviceArray2D<float3> & nsrc,
+		   DeviceArray2D<float4> & vdst,
+		   DeviceArray2D<float3> & ndst,
+		   Matrix3f Rcurr, float3 tcurr,
+		   Matrix3f RlastInv, float3 tlast,
+		   float fx, float fy,
+		   float cx, float cy);
 #endif

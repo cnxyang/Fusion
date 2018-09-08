@@ -1,6 +1,6 @@
 #include "timer.h"
 #include "system.h"
-
+#include "cufunc.h"
 #include <fstream>
 
 using namespace cv;
@@ -8,7 +8,7 @@ using namespace std;
 
 System::System(const char* str):
 mpMap(nullptr), mpViewer(nullptr),
-mpTracker(nullptr), mpParam(nullptr),
+mpTracker(nullptr), param(nullptr),
 mptViewer(nullptr), requestStop(false),
 nFrames(0), requestReboot(false) {
 	if(!str)
@@ -21,39 +21,39 @@ System::System(SysDesc* pParam) :
 		requestReboot(false) {
 
 	if(pParam) {
-		mpParam = new SysDesc();
-		memcpy((void*)mpParam, (void*)pParam, sizeof(SysDesc));
+		param = new SysDesc();
+		memcpy((void*)param, (void*)pParam, sizeof(SysDesc));
 	}
 	else {
-		mpParam = new SysDesc();
-		mpParam->DepthScale = 1000.0f;
-		mpParam->DepthCutoff = 8.0f;
-		mpParam->fx = 525.0f;
-		mpParam->fy = 525.0f;
-		mpParam->cx = 320.0f;
-		mpParam->cy = 240.0f;
-		mpParam->cols = 640;
-		mpParam->rows = 480;
-		mpParam->TrackModel = true;
+		param = new SysDesc();
+		param->DepthScale = 1000.0f;
+		param->DepthCutoff = 8.0f;
+		param->fx = 525.0f;
+		param->fy = 525.0f;
+		param->cx = 320.0f;
+		param->cy = 240.0f;
+		param->cols = 640;
+		param->rows = 480;
+		param->TrackModel = true;
 	}
 
 	mK = Mat::eye(3, 3, CV_32FC1);
-	mK.at<float>(0, 0) = mpParam->fx;
-	mK.at<float>(1, 1) = mpParam->fy;
-	mK.at<float>(0, 2) = mpParam->cx;
-	mK.at<float>(1, 2) = mpParam->cy;
+	mK.at<float>(0, 0) = param->fx;
+	mK.at<float>(1, 1) = param->fy;
+	mK.at<float>(0, 2) = param->cx;
+	mK.at<float>(1, 2) = param->cy;
 	Frame::SetK(mK);
 
 	mpMap = new Mapping();
 	mpMap->create();
 
 	mpViewer = new Viewer();
-	mpTracker = new tracker(mpParam->cols,
-							 mpParam->rows,
-							 mpParam->fx,
-							 mpParam->fy,
-							 mpParam->cx,
-							 mpParam->cy);
+	mpTracker = new tracker(param->cols,
+							 param->rows,
+							 param->fx,
+							 param->fy,
+							 param->cx,
+							 param->cy);
 
 	mpViewer->setMap(mpMap);
 	mpViewer->setSystem(this);
@@ -62,26 +62,23 @@ System::System(SysDesc* pParam) :
 	mpTracker->setMap(mpMap);
 
 	mptViewer = new thread(&Viewer::spin, mpViewer);
+	mptViewer->detach();
 
-	Frame::mDepthScale = mpParam->DepthScale;
-	Frame::mDepthCutoff = mpParam->DepthCutoff;
+	Frame::mDepthScale = param->DepthScale;
+	Frame::mDepthCutoff = param->DepthCutoff;
 	Timer::Enable();
 }
 
-bool System::grabImage(Mat& imRGB, Mat& imD) {
+bool System::grabImage(const Mat & image, const Mat & depth) {
 
 	if(requestSaveMesh) {
 		saveMesh();
-		mutexReq.lock();
 		requestSaveMesh = false;
-		mutexReq.unlock();
 	}
 
 	if(requestReboot) {
 		reboot();
-		mutexReq.lock();
 		requestReboot = false;
-		mutexReq.unlock();
 	}
 
 	if(requestStop) {
@@ -92,7 +89,7 @@ bool System::grabImage(Mat& imRGB, Mat& imD) {
 	}
 
 	Timer::Start("all", "all");
-	bool bOK = mpTracker->grabFrame(imRGB, imD);
+	bool bOK = mpTracker->grabFrame(image, depth);
 
 	if (bOK) {
 		uint no;
@@ -101,20 +98,48 @@ bool System::grabImage(Mat& imRGB, Mat& imD) {
 				mpTracker->lastFrame.RotInv_gpu(),
 				mpTracker->lastFrame.Trans_gpu(), no);
 
-		mpMap->rayTrace(no, mpTracker->lastFrame.Rot_gpu(),
-				mpTracker->lastFrame.RotInv_gpu(),
-				mpTracker->lastFrame.Trans_gpu(), mpTracker->lastVMap[0],
-				mpTracker->lastNMap[0]);
+//		if(nFrames % 5 != 0) {
+//			Eigen::Matrix4d Tlastcurr = mpTracker->lastFrame.pose.inverse() * mpTracker->nextFrame.pose;
+//			Eigen::Matrix3d Rlastcurr = Tlastcurr.inverse().topLeftCorner(3, 3);
+//			Eigen::Vector3d tlastcurr = Tlastcurr.inverse().topRightCorner(3, 1);
+//			std::cout << Tlastcurr << std::endl;
+//			Matrix3f deviceR;
+//			deviceR.rowx = { (float) Rlastcurr(0, 0), (float) Rlastcurr(0, 1), (float) Rlastcurr(0, 2) };
+//			deviceR.rowy = { (float) Rlastcurr(1, 0), (float) Rlastcurr(1, 1), (float) Rlastcurr(1, 2) };
+//			deviceR.rowz = { (float) Rlastcurr(2, 0), (float) Rlastcurr(2, 1), (float) Rlastcurr(2, 2) };
+//			float3 devicet = { (float) tlastcurr(0), (float) tlastcurr(1), (float) tlastcurr(2) };
+//			forwardProjection(mpTracker->nextVMap[0], mpTracker->nextNMap[0],
+//					mpTracker->lastVMap[0], mpTracker->lastNMap[0],
+//					mpTracker->lastFrame.Rot_gpu(),
+//					mpTracker->lastFrame.Trans_gpu(),
+//					mpTracker->nextFrame.RotInv_gpu(),
+//					mpTracker->nextFrame.Trans_gpu(), Frame::fx(0),
+//					Frame::fy(0), Frame::cx(0), Frame::cy(0));
 
-		if(nFrames > 15) {
-			nFrames = 0;
+//			mpTracker->lastVMap[0].swap(mpTracker->nextVMap[0]);
+//			mpTracker->lastNMap[0].swap(mpTracker->nextNMap[0]);
+
+//			cv::Mat img(480, 640, CV_32FC3);
+//			mpTracker->nextNMap[0].download(img.data, img.step);
+//			cv::imshow("img", img);
+//			cv::waitKey(0);
+//		}
+//		else {
+			mpMap->rayTrace(no, mpTracker->lastFrame.Rot_gpu(),
+					mpTracker->lastFrame.RotInv_gpu(),
+					mpTracker->lastFrame.Trans_gpu(), mpTracker->lastVMap[0],
+					mpTracker->lastNMap[0]);
+//		}
+
+		if(nFrames % 25 == 0) {
 			mpMap->createModel();
 		}
+
 		nFrames++;
 	}
 
 	Timer::Stop("all", "all");
-	Timer::Print();
+//	Timer::Print();
 	return true;
 }
 
