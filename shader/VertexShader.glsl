@@ -12,7 +12,7 @@ void main() {
 	vec3 lightpos = vec3(0.0, 0.0, -1.0);
 	gl_Position = projMat * viewMat * vec4(a_position, 1.0);
 	vec3 pos = a_position;
-	vec3 normal = a_normal; 
+  vec3 normal = a_normal;
 	const float ka = 0.3;
 	const float kd = 0.5;
 	const float ks = 0.2;

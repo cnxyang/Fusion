@@ -8,53 +8,36 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
 
-#include "Frame.hpp"
-#include "Tracking.hpp"
+#include "frame.h"
+#include "tracker.h"
 
-enum MemRepType {
-	Byte = 1,
-	KiloByte = 1024,
-	MegaByte = 1024 * 1024,
-	GigaByte = 1024 * 1024 * 1024
-};
-
-void CudaCheckMemory(float & free, float & total, const MemRepType factor) {
-	size_t freeByte;
-	size_t totalByte;
-	SafeCall(cudaMemGetInfo(&freeByte, &totalByte));
-	free = (float) freeByte / factor;
-	total = (float) totalByte / factor;
-}
-
-void PrintMemoryConsumption();
-void LoadDatasetTUM(std::string & sRootPath, std::vector<std::string> & vsDList,
-		std::vector<std::string> & vsRGBList,
-		std::vector<double> & vdTimeStamp);
+void load_tum_dataset(std::string & dataset_path,
+		std::vector<std::string> & depth_image_list,
+		std::vector<std::string> & rgb_image_list,
+		std::vector<double> & time_stamp_list);
 
 int main(int argc, char** argv) {
 
 	if (argc != 2) {
-		std::cout << "Wrong Parameters.\n"
-				<< "Usage: ./tum_example path_to_tum_dataset" << std::endl;
 		exit(-1);
 	}
 
-	std::string sPath = std::string(argv[1]);
-	std::vector<std::string> vsDList;
-	std::vector<std::string> vsRGBList;
-	std::vector<double> vdTimeList;
+	std::string data_path = std::string(argv[1]);
+	std::vector<std::string> depth_image_list;
+	std::vector<std::string> rgb_image_list;
+	std::vector<double> time_stamp_list;
 
-	LoadDatasetTUM(sPath, vsDList, vsRGBList, vdTimeList);
+	load_tum_dataset(data_path, depth_image_list, rgb_image_list, time_stamp_list);
 
-	if (vsDList.empty()) {
+	if (depth_image_list.empty()) {
 		std::cout << "Error occurs while reading the dataset.\n"
-				<< "Please check your input parameters." << std::endl;
+				  << "Please check your input parameters." << std::endl;
 		exit(-1);
 	}
 
 	SysDesc desc;
 
-	desc.DepthCutoff = 8.0f;
+	desc.DepthCutoff = 3.0f;
 	desc.DepthScale = 5000.0f;
 	desc.cols = 640;
 	desc.rows = 480;
@@ -67,56 +50,49 @@ int main(int argc, char** argv) {
 
 	System slam(&desc);
 
-	int nImages = std::min(vsRGBList.size(), vdTimeList.size());
-	std::cout << "----------------------------------------------\n"
-			<< "Total Images to be processed: " << nImages << std::endl;
-	for (int i = 0; i < nImages; ++i) {
-		cv::Mat imD = cv::imread(vsDList[i], cv::IMREAD_UNCHANGED);
-		cv::Mat imRGB = cv::imread(vsRGBList[i], cv::IMREAD_UNCHANGED);
-		slam.GrabImageRGBD(imRGB, imD);
+	int N = std::min(rgb_image_list.size(), time_stamp_list.size());
+	for (int i = 0; i < N; ++i) {
+		cv::Mat depth = cv::imread(depth_image_list[i], cv::IMREAD_UNCHANGED);
+		cv::Mat image = cv::imread(rgb_image_list[i], cv::IMREAD_UNCHANGED);
+		bool nonstop = slam.grabImage(image, depth);
+		if(!nonstop)
+			return 0;
 	}
 
-	slam.JoinViewer();
+	slam.joinViewer();
 }
 
-void LoadDatasetTUM(std::string & sRootPath, std::vector<std::string> & vsDList,
-		std::vector<std::string> & vsRGBList,
-		std::vector<double> & vdTimeList) {
+void load_tum_dataset(std::string & dataset_path,
+		std::vector<std::string> & depth_image_list,
+		std::vector<std::string> & rgb_image_list,
+		std::vector<double> & time_stamp_list) {
 
-	std::ifstream dfile, rfile;
-	std::string sDPath, sRGBPath;
+	std::ifstream depth_file, rgb_file;
+	std::string depth_file_path, rgb_file_path;
 
-	if (sRootPath.back() != '/')
-		sRootPath += '/';
+	if (dataset_path.back() != '/')
+		dataset_path += '/';
 
-	dfile.open(sRootPath + "depth.txt");
-	rfile.open(sRootPath + "rgb.txt");
+	depth_file.open(dataset_path + "depth.txt");
+	rgb_file.open(dataset_path + "rgb.txt");
 
 	std::string temp;
 	for (int i = 0; i < 3; ++i) {
-		getline(dfile, temp);
-		getline(rfile, temp);
+		getline(depth_file, temp);
+		getline(rgb_file, temp);
 	}
 
-	std::string line, sD, sR;
+	std::string line, depth_line, rgb_line;
 	while (true) {
 		double t;
-		dfile >> t;
-		vdTimeList.push_back(t);
-		dfile >> sD;
-		vsDList.push_back(sRootPath + sD);
-		rfile >> sR;
-		rfile >> sR;
-		vsRGBList.push_back(sRootPath + sR);
-		if (dfile.eof() || rfile.eof())
+		depth_file >> t;
+		time_stamp_list.push_back(t);
+		depth_file >> depth_line;
+		depth_image_list.push_back(dataset_path + depth_line);
+		rgb_file >> rgb_line;
+		rgb_file >> rgb_line;
+		rgb_image_list.push_back(dataset_path + rgb_line);
+		if (depth_file.eof() || rgb_file.eof())
 			return;
 	}
-}
-
-void PrintMemoryConsumption() {
-	float free, total;
-	CudaCheckMemory(free, total, MemRepType::MegaByte);
-	std::cout << "----------------------------------------------\n"
-			<< "Device Memory Consumption:\n" << "Free  - " << free << "MB\n"
-			<< "Total - " << total << "MB" << std::endl;
 }
