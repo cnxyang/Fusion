@@ -83,7 +83,7 @@ void Viewer::spin() {
 	CreatePanel("UI").SetBounds(0.0, 1.0, 0.0, Attach::Pix(200), true);
 	Var<bool> btnReset("UI.Reset System", false, false);
 	Var<bool> btnShowKeyFrame("UI.Show Key Frames", false, true);
-	Var<bool> btnShowKeyPoint("UI.Show Key Points", true, true);
+	Var<bool> btnShowKeyPoint("UI.Show Key Points", false, true);
 	Var<bool> btnShowMesh("UI.Show Mesh", true, true);
 	Var<bool> btnShowCam("UI.Show Camera", true, true);
 	Var<bool> btnFollowCam("UI.Fllow Camera", false, true);

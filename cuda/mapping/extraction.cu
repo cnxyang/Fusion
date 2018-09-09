@@ -299,7 +299,7 @@ __global__ void CheckBlockKernel(MeshEngine me) {
 	me.checkBlocks();
 }
 
-__global__ void MeshSceneKernel(MeshEngine me) {
+__global__ void __launch_bounds__(512, 2) MeshSceneKernel(MeshEngine me) {
 	me.MarchingCube();
 }
 

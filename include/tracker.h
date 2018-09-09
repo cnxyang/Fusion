@@ -90,7 +90,7 @@ public:
 	int lastState;
 
 	bool graphMatching;
-	const int maxIter = 30;
+	const int maxIter = 50;
 	const int maxIterReloc = 200;
 	int noAttempsBeforeReloc;
 	std::vector<bool> outliers;

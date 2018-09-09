@@ -39,6 +39,10 @@
 								<option id="nvcc.compiler.cpp11option.764890108" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.maxregcount.1566045215" name="Maximum number of registers (-maxrregcount)" superClass="nvcc.compiler.maxregcount" value="" valueType="string"/>
 								<option id="nvcc.compiler.usefastmath.1738223669" name="Make use of fast math library (-use_fast_math)" superClass="nvcc.compiler.usefastmath" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.option.lineinfo.1528494473" name="Generate line-number information for device code (-lineinfo)" superClass="nvcc.compiler.option.lineinfo" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.ptxasoptions.835638465" superClass="nvcc.compiler.ptxasoptions" valueType="stringList">
+									<listOptionValue builtIn="false" value="-dlcm=ca"/>
+								</option>
 								<inputType id="nvcc.compiler.input.cu.1254519792" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.2026858129" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.1330689639" superClass="nvcc.compiler.input.c"/>
@@ -120,6 +124,13 @@
 								<option defaultValue="nvcc.compiler.optimization.level.most" id="nvcc.compiler.optimization.level.2031662772" name="Optimization Level" superClass="nvcc.compiler.optimization.level" value="nvcc.compiler.optimization.level.most" valueType="enumerated"/>
 								<option id="nvcc.compiler.pic.1578847836" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic"/>
 								<option id="nvcc.compiler.cpp11option.1819772136" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.usefastmath.1451683578" name="Make use of fast math library (-use_fast_math)" superClass="nvcc.compiler.usefastmath" value="false" valueType="boolean"/>
+								<option id="nvcc.compiler.dontuseprofile.163871488" name="Do not use profile (-noprof)" superClass="nvcc.compiler.dontuseprofile" value="false" valueType="boolean"/>
+								<option id="nvcc.compiler.disableWarnings.338042166" name="Inhibit all warning messages (-w)" superClass="nvcc.compiler.disableWarnings" value="false" valueType="boolean"/>
+								<option id="nvcc.compiler.option.lineinfo.866568391" name="Generate line-number information for device code (-lineinfo)" superClass="nvcc.compiler.option.lineinfo" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.ptxasoptions.268446638" name="ptaxas options (-Xptxas)" superClass="nvcc.compiler.ptxasoptions" valueType="stringList">
+									<listOptionValue builtIn="false" value="-dlcm=ca"/>
+								</option>
 								<inputType id="nvcc.compiler.input.cu.706824923" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.1839489581" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.487450435" superClass="nvcc.compiler.input.c"/>
@@ -142,6 +153,7 @@
 									<listOptionValue builtIn="false" value="/usr/lib64"/>
 								</option>
 								<option id="nvcc.linker.option.linkgl.1678750853" name="Link with OpenGL libraries" superClass="nvcc.linker.option.linkgl" value="false" valueType="boolean"/>
+								<option id="nvcc.linker.option.cudart.1636869375" name="CUDA Runtime Library:" superClass="nvcc.linker.option.cudart" value="nvcc.linker.option.cudart.static" valueType="enumerated"/>
 								<inputType id="nvcc.linker.input.2053790043" superClass="nvcc.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
@@ -384,4 +396,5 @@
 		</configuration>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cproject>

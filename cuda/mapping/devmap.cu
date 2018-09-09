@@ -178,6 +178,25 @@ __device__ Voxel DeviceMap::FindVoxel(const float3 & pos) {
 	return voxelBlocks[entry.ptr + voxelPosToLocalIdx(p)];
 }
 
+__device__ Voxel DeviceMap::FindVoxel(const float3 & pos, HashEntry & cache, bool & valid) {
+	int3 p = make_int3(pos);
+	int3 blockPos = voxelPosToBlockPos(p);
+	if(blockPos == cache.pos) {
+		valid = true;
+		return voxelBlocks[cache.ptr + voxelPosToLocalIdx(p)];
+	}
+
+	HashEntry entry = FindEntry(blockPos);
+	if (entry.ptr == EntryAvailable) {
+		valid = false;
+		return Voxel();
+	}
+
+	valid = true;
+	cache = entry;
+	return voxelBlocks[entry.ptr + voxelPosToLocalIdx(p)];
+}
+
 __device__ HashEntry DeviceMap::FindEntry(const float3 & pos) {
 	int3 blockIdx = worldPosToBlockPos(pos);
 

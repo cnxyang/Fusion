@@ -224,7 +224,7 @@ void integrateColor(const DeviceArray2D<float> & depth,
 	fuse.maxDepth = DeviceMap::DepthMax;
 	fuse.minDepth = DeviceMap::DepthMin;
 
-	dim3 thread(32, 8);
+	dim3 thread(16, 8);
 	dim3 block(cv::divUp(cols, thread.x), cv::divUp(rows, thread.y));
 	Timer::Start("debug", "createBlocksKernel");
 	createBlocksKernel<<<block, thread>>>(fuse);

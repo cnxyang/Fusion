@@ -9,7 +9,7 @@ using namespace std;
 
 Mat Frame::mK[NUM_PYRS];
 bool Frame::mbFirstCall = true;
-float Frame::mDepthCutoff = 8.0f;
+float Frame::mDepthCutoff = 3.0f;
 float Frame::mDepthScale = 1000.0f;
 int Frame::mCols[NUM_PYRS];
 int Frame::mRows[NUM_PYRS];

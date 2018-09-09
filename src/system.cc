@@ -61,8 +61,8 @@ System::System(SysDesc* pParam) :
 
 	mpTracker->setMap(mpMap);
 
-	mptViewer = new thread(&Viewer::spin, mpViewer);
-	mptViewer->detach();
+//	mptViewer = new thread(&Viewer::spin, mpViewer);
+//	mptViewer->detach();
 
 	Frame::mDepthScale = param->DepthScale;
 	Frame::mDepthCutoff = param->DepthCutoff;
@@ -138,12 +138,12 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 //		}
 			Timer::Stop("raytracing", "raytracing");
 
-//		cv::Mat img(480, 640, CV_8UC4);
-//		mpTracker->renderedImage.download(img.data, img.step);
-//		cv::imshow("img", img);
-//		int key = cv::waitKey(10);
-//		if(key == 27)
-//			return false;
+		cv::Mat img(480, 640, CV_8UC4);
+		mpTracker->renderedImage.download(img.data, img.step);
+		cv::imshow("img", img);
+		int key = cv::waitKey(10);
+		if(key == 27)
+			return false;
 
 		if(nFrames % 25 == 0) {
 			mpMap->createModel();

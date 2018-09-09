@@ -56,31 +56,32 @@ struct HostMap {
 struct DeviceMap {
 
 	__device__ uint Hash(const int3 & pos);
-	__device__ Voxel FindVoxel(const int3& pos);
-	__device__ Voxel FindVoxel(const float3& pos);
-	__device__ HashEntry FindEntry(const int3& pos);
-	__device__ HashEntry FindEntry(const float3& pos);
-	__device__ void CreateBlock(const int3& blockPos);
-	__device__ bool FindVoxel(const int3& pos, Voxel& vox);
-	__device__ bool FindVoxel(const float3& pos, Voxel& vox);
-	__device__ HashEntry CreateEntry(const int3& pos, const int& offset);
+	__device__ Voxel FindVoxel(const int3 & pos);
+	__device__ Voxel FindVoxel(const float3 & pos);
+	__device__ Voxel FindVoxel(const float3 & pos, HashEntry & cache, bool & valid);
+	__device__ HashEntry FindEntry(const int3 & pos);
+	__device__ HashEntry FindEntry(const float3 & pos);
+	__device__ void CreateBlock(const int3 & blockPos);
+	__device__ bool FindVoxel(const int3 & pos, Voxel & vox);
+	__device__ bool FindVoxel(const float3 & pos, Voxel & vox);
+	__device__ HashEntry CreateEntry(const int3 & pos, const int & offset);
 
 	__device__ int3 worldPosToVoxelPos(float3 pos) const;
 	__device__ float3 worldPosToVoxelPosF(float3 pos) const;
 	__device__ float3 voxelPosToWorldPos(int3 pos) const;
-	__device__ int3 voxelPosToBlockPos(const int3& pos) const;
-	__device__ int3 blockPosToVoxelPos(const int3& pos) const;
-	__device__ int3 voxelPosToLocalPos(const int3& pos) const;
-	__device__ int localPosToLocalIdx(const int3& pos) const;
-	__device__ int3 localIdxToLocalPos(const int& idx) const;
-	__device__ int3 worldPosToBlockPos(const float3& pos) const;
-	__device__ float3 blockPosToWorldPos(const int3& pos) const;
-	__device__ int voxelPosToLocalIdx(const int3& pos) const;
+	__device__ int3 voxelPosToBlockPos(const int3 & pos) const;
+	__device__ int3 blockPosToVoxelPos(const int3 & pos) const;
+	__device__ int3 voxelPosToLocalPos(const int3 & pos) const;
+	__device__ int localPosToLocalIdx(const int3 & pos) const;
+	__device__ int3 localIdxToLocalPos(const int & idx) const;
+	__device__ int3 worldPosToBlockPos(const float3 & pos) const;
+	__device__ float3 blockPosToWorldPos(const int3 & pos) const;
+	__device__ int voxelPosToLocalIdx(const int3 & pos) const;
 
 	static constexpr uint BlockSize = 8;
 	static constexpr uint BlockSize3 = 512;
 	static constexpr float DepthMin = 0.1f;
-	static constexpr float DepthMax = 2.5f;
+	static constexpr float DepthMax = 3.0f;
 	static constexpr uint NumExcess = 500000;
 	static constexpr uint NumBuckets = 1000000;
 	static constexpr uint NumSdfBlocks = 400000;
@@ -88,11 +89,12 @@ struct DeviceMap {
 	static constexpr uint MaxTriangles = 20000000; // roughly 700MB memory
 	static constexpr uint MaxVertices = MaxTriangles * 3;
 	static constexpr float VoxelSize = 0.008f;
-	static constexpr float TruncateDist = 0.05f;
+	static constexpr float TruncateDist = 0.04f;
 	static constexpr int MaxRenderingBlocks = 260000;
 	static constexpr float voxelSizeInv = 1.0 / VoxelSize;
 	static constexpr float blockWidth = VoxelSize * BlockSize;
 	static constexpr uint NumEntries = NumBuckets + NumExcess;
+	static constexpr float stepScale = TruncateDist * voxelSizeInv;
 
 	PtrSz<int> heapMem;
 	PtrSz<int> entryPtr;

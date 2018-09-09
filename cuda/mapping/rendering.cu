@@ -284,61 +284,62 @@ struct Rendering {
 	Matrix3f Rview, RviewInv;
 	float3 tview;
 
-	__device__ inline float readSdf(const float3 & pt3d) {
-		Voxel voxel = map.FindVoxel(pt3d);
+	__device__ inline float readSdf(const float3 & pt3d, HashEntry & cache, bool & valid) {
+		Voxel voxel = map.FindVoxel(pt3d, cache, valid);
 		if (voxel.sdfW == 0)
-			return 1.f;
+			valid = false;
 		return voxel.GetSdf();
 	}
 
-	__device__ inline float readSdfInterped(const float3 & pt) {
+	__device__ inline float readSdfInterped(const float3 & pt, HashEntry & cache, bool & valid) {
 
 		float3 xyz = pt - floor(pt);
 		float sdf[2], result[4];
-		sdf[0] = map.FindVoxel(pt).GetSdf();
-		sdf[1] = map.FindVoxel(pt + make_float3(1, 0, 0)).GetSdf();
+		sdf[0] = map.FindVoxel(pt, cache, valid).GetSdf();
+		sdf[1] = map.FindVoxel(pt + make_float3(1, 0, 0), cache, valid).GetSdf();
 		result[0] = (1.0f - xyz.x) * sdf[0] + xyz.x * sdf[1];
 
-		sdf[0] = map.FindVoxel(pt + make_float3(0, 1, 0)).GetSdf();
-		sdf[1] = map.FindVoxel(pt + make_float3(1, 1, 0)).GetSdf();
+		sdf[0] = map.FindVoxel(pt + make_float3(0, 1, 0), cache, valid).GetSdf();
+		sdf[1] = map.FindVoxel(pt + make_float3(1, 1, 0), cache, valid).GetSdf();
 		result[1] = (1.0f - xyz.x) * sdf[0] + xyz.x * sdf[1];
 		result[2] = (1.0f - xyz.y) * result[0] + xyz.y * result[1];
 
-		sdf[0] = map.FindVoxel(pt + make_float3(0, 0, 1)).GetSdf();
-		sdf[1] = map.FindVoxel(pt + make_float3(1, 0, 1)).GetSdf();
+		sdf[0] = map.FindVoxel(pt + make_float3(0, 0, 1), cache, valid).GetSdf();
+		sdf[1] = map.FindVoxel(pt + make_float3(1, 0, 1), cache, valid).GetSdf();
 		result[0] = (1.0f - xyz.x) * sdf[0] + xyz.x * sdf[1];
 
-		sdf[0] = map.FindVoxel(pt + make_float3(0, 1, 1)).GetSdf();
-		sdf[1] = map.FindVoxel(pt + make_float3(1, 1, 1)).GetSdf();
+		sdf[0] = map.FindVoxel(pt + make_float3(0, 1, 1), cache, valid).GetSdf();
+		sdf[1] = map.FindVoxel(pt + make_float3(1, 1, 1), cache, valid).GetSdf();
 		result[1] = (1.0f - xyz.x) * sdf[0] + xyz.x * sdf[1];
 		result[3] = (1.0f - xyz.y) * result[0] + xyz.y * result[1];
 		return (1.0f - xyz.z) * result[2] + xyz.z * result[3];
 	}
 
-	__device__ inline bool readNormal(const float3 & pt, float3 & n) {
+	__device__ inline bool readNormal(const float3 & pt, HashEntry & cache, float3 & n) {
 
+		bool valid;
 		float sdf[6];
-		sdf[0] = readSdfInterped(pt + make_float3(1, 0, 0));
+		sdf[0] = readSdfInterped(pt + make_float3(1, 0, 0), cache, valid);
 		if(isnan(sdf[0]) || sdf[0] == 1.0f)
 			return false;
 
-		sdf[1] = readSdfInterped(pt + make_float3(-1, 0, 0));
+		sdf[1] = readSdfInterped(pt + make_float3(-1, 0, 0), cache, valid);
 		if(isnan(sdf[1]) || sdf[1] == 1.0f)
 			return false;
 
-		sdf[2] = readSdfInterped(pt + make_float3(0, 1, 0));
+		sdf[2] = readSdfInterped(pt + make_float3(0, 1, 0), cache, valid);
 		if(isnan(sdf[2]) || sdf[2] == 1.0f)
 			return false;
 
-		sdf[3] = readSdfInterped(pt + make_float3(0, -1, 0));
+		sdf[3] = readSdfInterped(pt + make_float3(0, -1, 0), cache, valid);
 		if(isnan(sdf[3]) || sdf[3] == 1.0f)
 			return false;
 
-		sdf[4] = readSdfInterped(pt + make_float3(0, 0, 1));
+		sdf[4] = readSdfInterped(pt + make_float3(0, 0, 1), cache, valid);
 		if(isnan(sdf[4]) || sdf[4] == 1.0f)
 			return false;
 
-		sdf[5] = readSdfInterped(pt + make_float3(0, 0, -1));
+		sdf[5] = readSdfInterped(pt + make_float3(0, 0, -1), cache, valid);
 		if(isnan(sdf[5]) || sdf[5] == 1.0f)
 			return false;
 
@@ -348,30 +349,31 @@ struct Rendering {
 	}
 
 
-	__device__ inline bool readNormalFast(const float3 & pt, float3 & n) {
+	__device__ inline bool readNormalFast(const float3 & pt, HashEntry & cache, float3 & n) {
 
+		bool valid = false;
 		float sdf[6];
-		sdf[0] = readSdf(pt + make_float3(1, 0, 0));
+		sdf[0] = readSdf(pt + make_float3(1, 0, 0), cache, valid);
 		if(isnan(sdf[0]) || sdf[0] == 1.0f)
 			return false;
 
-		sdf[1] = readSdf(pt + make_float3(-1, 0, 0));
+		sdf[1] = readSdf(pt + make_float3(-1, 0, 0), cache, valid);
 		if(isnan(sdf[1]) || sdf[1] == 1.0f)
 			return false;
 
-		sdf[2] = readSdf(pt + make_float3(0, 1, 0));
+		sdf[2] = readSdf(pt + make_float3(0, 1, 0), cache, valid);
 		if(isnan(sdf[2]) || sdf[2] == 1.0f)
 			return false;
 
-		sdf[3] = readSdf(pt + make_float3(0, -1, 0));
+		sdf[3] = readSdf(pt + make_float3(0, -1, 0), cache, valid);
 		if(isnan(sdf[3]) || sdf[3] == 1.0f)
 			return false;
 
-		sdf[4] = readSdf(pt + make_float3(0, 0, 1));
+		sdf[4] = readSdf(pt + make_float3(0, 0, 1), cache, valid);
 		if(isnan(sdf[4]) || sdf[4] == 1.0f)
 			return false;
 
-		sdf[5] = readSdf(pt + make_float3(0, 0, -1));
+		sdf[5] = readSdf(pt + make_float3(0, 0, -1), cache, valid);
 		if(isnan(sdf[5]) || sdf[5] == 1.0f)
 			return false;
 
@@ -401,7 +403,6 @@ struct Rendering {
 			return;
 
 		float sdf = 1.0f;
-		float stepScale = DeviceMap::TruncateDist * DeviceMap::voxelSizeInv;
 
 		float3 pt3d;
 		pt3d.z = zRange.x;
@@ -419,43 +420,44 @@ struct Rendering {
 		float3 dir = normalised(block_e - block_s);
 		float3 result = block_s;
 
+		bool valid_sdf = false;
 		bool found_pt = false;
 		float step;
+		HashEntry b;
 		while (dist_s < dist_e) {
-			int3 blockPos = map.voxelPosToBlockPos(make_int3(result));
-			HashEntry b = map.FindEntry(blockPos);
-			if(b.ptr != EntryAvailable) {
-				sdf = readSdf(result);
-				if(sdf <= 0.1f && sdf >= -0.5f) {
-					sdf = readSdfInterped(result);
+			sdf = readSdf(result, b, valid_sdf);
+			if(!valid_sdf) {
+				step = DeviceMap::BlockSize;
+			}
+			else {
+				if (sdf <= 0.1f && sdf >= -0.5f) {
+					sdf = readSdfInterped(result, b, valid_sdf);
 				}
 
-				if(sdf <= 0.0f)
+				if (sdf <= 0.0f)
 					break;
 
-				step = max(sdf * stepScale, 1.0f);
+				step = max(sdf * DeviceMap::stepScale, 1.0f);
 			}
-			else
-				step = DeviceMap::BlockSize;
 
 			result += step * dir;
 			dist_s += step;
 		}
 
 		if(sdf <= 0.0f) {
-			step = sdf * stepScale;
+			step = sdf * DeviceMap::stepScale;
 			result += step * dir;
 
-			sdf = readSdfInterped(result);
+			sdf = readSdfInterped(result, b, valid_sdf);
 
-			step = sdf * stepScale;
+			step = sdf * DeviceMap::stepScale;
 			result += step * dir;
 			found_pt = true;
 		}
 
 		if(found_pt) {
 			float3 normal;
-			if(readNormal(result, normal)) {
+			if(readNormal(result, b, normal)) {
 				result = RviewInv * (result * DeviceMap::VoxelSize - tview);
 				vmap.ptr(y)[x] = make_float4(result, 1.0);
 				nmap.ptr(y)[x] = normal;
@@ -464,7 +466,9 @@ struct Rendering {
 	}
 };
 
-__global__ void RayCastKernel(Rendering cast) {
+__global__ void
+__launch_bounds__(32, 32)
+RayCastKernel(Rendering cast) {
 	cast();
 }
 
@@ -502,7 +506,7 @@ void rayCast(DeviceMap map,
 	cast.tview = tview;
 
 	dim3 block;
-	dim3 thread(32, 8);
+	dim3 thread(4, 8);
 	block.x = cv::divUp(cols, thread.x);
 	block.y = cv::divUp(rows, thread.y);
 
