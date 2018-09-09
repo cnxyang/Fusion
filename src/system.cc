@@ -95,10 +95,13 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 
 	if (state) {
 		uint no;
+		Timer::Start("fuse", "fuse");
 		mpMap->fuseColor(mpTracker->lastDepth[0], mpTracker->color,
 				mpTracker->lastFrame.Rot_gpu(),
 				mpTracker->lastFrame.RotInv_gpu(),
 				mpTracker->lastFrame.Trans_gpu(), no);
+		SafeCall(cudaDeviceSynchronize());
+		Timer::Stop("fuse", "fuse");
 
 //		if(nFrames % 5 != 0) {
 //			Eigen::Matrix4d Tlastcurr = mpTracker->lastFrame.pose.inverse() * mpTracker->nextFrame.pose;
@@ -127,21 +130,31 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 //			cv::waitKey(0);
 //		}
 //		else {
+			Timer::Start("raytracing", "raytracing");
 			mpMap->rayTrace(no, mpTracker->lastFrame.Rot_gpu(),
 					mpTracker->lastFrame.RotInv_gpu(),
 					mpTracker->lastFrame.Trans_gpu(), mpTracker->lastVMap[0],
 					mpTracker->lastNMap[0]);
 //		}
+			Timer::Stop("raytracing", "raytracing");
+
+//		cv::Mat img(480, 640, CV_8UC4);
+//		mpTracker->renderedImage.download(img.data, img.step);
+//		cv::imshow("img", img);
+//		int key = cv::waitKey(10);
+//		if(key == 27)
+//			return false;
 
 		if(nFrames % 25 == 0) {
 			mpMap->createModel();
+			mpMap->updateMapKeys();
 		}
 
 		nFrames++;
 	}
 
 	Timer::Stop("all", "all");
-//	Timer::Print();
+	Timer::Print();
 	return true;
 }
 

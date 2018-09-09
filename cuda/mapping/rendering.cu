@@ -125,30 +125,30 @@ struct Projection {
 	__device__ inline void operator()() const {
 
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
-		if(x >= noVisibleBlocks || visibleBlocks[x].ptr == EntryAvailable)
-			return;
 
 		bool valid = false;
 		uint requiredNoBlocks = 0;
 		RenderingBlock block;
 		int nx, ny;
 
-		valid = projectBlock(visibleBlocks[x].pos, block);
-		float dx = (float) block.lowerRight.x - block.upperLeft.x + 1;
-		float dy = (float) block.lowerRight.y - block.upperLeft.y + 1;
-		nx = __float2int_ru(dx / renderingBlockSizeX);
-		ny = __float2int_ru(dy / renderingBlockSizeY);
-		if (valid) {
-			requiredNoBlocks = nx * ny;
-			uint totalNoBlocks = *noRenderingBlocks + requiredNoBlocks;
-			if (totalNoBlocks >= renderingBlockList.size) {
-				requiredNoBlocks = 0;
-				valid = false;
+		if(x < noVisibleBlocks && visibleBlocks[x].ptr != EntryAvailable) {
+			valid = projectBlock(visibleBlocks[x].pos, block);
+			float dx = (float) block.lowerRight.x - block.upperLeft.x + 1;
+			float dy = (float) block.lowerRight.y - block.upperLeft.y + 1;
+			nx = __float2int_ru(dx / renderingBlockSizeX);
+			ny = __float2int_ru(dy / renderingBlockSizeY);
+			if (valid) {
+				requiredNoBlocks = nx * ny;
+				uint totalNoBlocks = *noRenderingBlocks + requiredNoBlocks;
+				if (totalNoBlocks >= renderingBlockList.size) {
+					requiredNoBlocks = 0;
+				}
 			}
 		}
 
 		int offset = ComputeOffset<1024>(requiredNoBlocks, noRenderingBlocks);
-		if (valid && offset != -1)
+		if (valid && offset != -1 &&
+			(offset + requiredNoBlocks) < DeviceMap::MaxRenderingBlocks)
 			createRenderingBlockList(offset, block, nx, ny);
 	}
 
@@ -158,17 +158,17 @@ struct Projection {
 		int y = threadIdx.y;
 
 		int block = blockIdx.x * 4 + blockIdx.y;
-		if (block >= *noRenderingBlocks)
+		if (block >= renderingBlockList.size)
 			return;
 
 		RenderingBlock & b(renderingBlockList[block]);
 
 		int xpos = b.upperLeft.x + x;
-		if (xpos > b.lowerRight.x)
+		if (xpos > b.lowerRight.x || xpos >= zRangeX.cols)
 			return;
 
 		int ypos = b.upperLeft.y + y;
-		if (ypos > b.lowerRight.y)
+		if (ypos > b.lowerRight.y || ypos >= zRangeX.rows)
 			return;
 
 		atomicMin(& zRangeX.ptr(ypos)[xpos], b.zRange.x);
@@ -212,6 +212,9 @@ bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
 						  float fy,
 						  float cx,
 						  float cy) {
+
+	if(noVisibleBlocks == 0)
+		return false;
 
 	int cols = zRangeX.cols();
 	int rows = zRangeX.rows();
@@ -260,8 +263,7 @@ bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
 	}
 
 	thread = dim3(16, 16);
-	block.x = (uint)ceil((float)totalBlocks / 4);
-	block.y = 4;
+	block = dim3((uint)ceil((float)totalBlocks / 4), 4);
 
 	fillBlocksKernel<<<block, thread>>>(proj);
 	SafeCall(cudaGetLastError());

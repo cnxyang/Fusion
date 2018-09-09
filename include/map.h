@@ -41,8 +41,7 @@ public:
 			DeviceArray2D<float3> & nmap);
 
 
-	DeviceArray<int> mKeyMutex;
-	DeviceArray<ORBKey> mORBKeys;
+
 
 	std::vector<Eigen::Vector3d> mCamTrace;
 
@@ -65,9 +64,10 @@ public:
 	void setSystem(System * psystem);
 
 	void updateKeyIndices();
-	void fuseKeys(std::vector<ORBKey> & newKeys);
+	void updateMapKeys();
+	void fuseKeys(Frame & f, std::vector<bool> & outliers);
 	std::vector<uint> getKeyIndices() const;
-	std::vector<ORBKey> getAllKeys() const;
+	std::vector<ORBKey> getAllKeys();
 
 	Tracker * ptracker;
 	System * psystem;
@@ -111,9 +111,12 @@ public:
 	DeviceArray2D<float> zRangeMax;
 
 	// Key Point
-	DeviceArray<ORBKey> mapPoints;
-	DeviceArray<uint> mapPointIdx;
-	std::mutex mutexKeyUpdate;
+	DeviceArray<int> mKeyMutex;
+	DeviceArray<ORBKey> mORBKeys;
+	DeviceArray<ORBKey> tmpKeys;
+	std::vector<ORBKey> hostKeys;
+	uint noKeysInMap;
+	bool mapKeyUpdated;
 };
 
 #endif

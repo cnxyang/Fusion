@@ -5,7 +5,7 @@
 #include "reduction.h"
 
 Mapping::Mapping() :
-		meshUpdated(false) {
+		meshUpdated(false), mapKeyUpdated(false), noKeysInMap(0) {
 	create();
 }
 
@@ -23,7 +23,7 @@ void Mapping::create() {
 
 	// extraction
 	nBlocks.create(1);
-	noTriangles.create(1, true);
+	noTriangles.create(1);
 	modelVertex.create(DeviceMap::MaxVertices);
 	modelNormal.create(DeviceMap::MaxVertices);
 	modelColor.create(DeviceMap::MaxVertices);
@@ -38,13 +38,13 @@ void Mapping::create() {
 	// rendering
 	zRangeMin.create(80, 60);
 	zRangeMax.create(80, 60);
-	noRenderingBlocks.create(1, true);
+	noRenderingBlocks.create(1);
 	renderingBlockList.create(DeviceMap::MaxRenderingBlocks);
 
 	// key point
 	mKeyMutex.create(KeyMap::MaxKeys);
-//	mapPoints.create(KeyMap::MaxKeys);
-	mORBKeys.create(KeyMap::MaxKeys * KeyMap::nBuckets);
+	mORBKeys.create(KeyMap::maxEntries);
+	tmpKeys.create(KeyMap::maxEntries);
 
 	reset();
 }
@@ -54,7 +54,7 @@ void Mapping::createModel() {
 	meshScene(nBlocks, noTriangles, *this, edgeTable, vertexTable,
 			triangleTable, modelNormal, modelVertex, modelColor, blockPoses);
 
-	noTrianglesHost = noTriangles[0];
+	noTriangles.download(&noTrianglesHost);
 	if (noTrianglesHost > 0) {
 		mutexMesh.lock();
 		meshUpdated = true;
@@ -62,33 +62,39 @@ void Mapping::createModel() {
 	}
 }
 
-void Mapping::IntegrateKeys(Frame& F) {
-
-	std::vector<ORBKey> keys;
-	cv::Mat desc;
-	F.descriptors.download(desc);
-	std::cout << F.N << std::endl;
-	for (int i = 0; i < F.N; ++i) {
-			ORBKey key;
-			key.obs = 1;
-			key.valid = true;
-			cv::Vec3f normal = F.mNormals[i];
-			Eigen::Vector3d worldPos = F.Rotation() * F.mPoints[i] + F.Translation();
-			key.pos = make_float3((float)worldPos(0), (float)worldPos(1), (float)worldPos(2));
-			key.normal = make_float3(normal(0), normal(1), normal(2));
-			for (int j = 0; j < 32; ++j)
-				key.descriptor[j] = desc.at<char>(i, j);
-			keys.push_back(key);
+void Mapping::fuseKeys(Frame & f, std::vector<bool> & outliers) {
+	std::vector<ORBKey> newKeys;
+	cv::Mat descriptors;
+	f.descriptors.download(descriptors);
+	for(int i = 0; i < f.N; ++i) {
+		ORBKey key;
+		key.obs = 1;
+		key.valid = true;
+		cv::Vec3f normal = f.mNormals[i];
+		Eigen::Vector3d worldPos = f.Rotation() * f.mPoints[i] + f.Translation();
+		key.pos = make_float3((float)worldPos(0), (float)worldPos(1), (float)worldPos(2));
+		key.normal = make_float3(normal(0), normal(1), normal(2));
+		for(int j = 0; j < 32; ++j) {
+			key.descriptor[j] = descriptors.at<char>(i, j);
+		}
+		newKeys.push_back(key);
 	}
 
-	DeviceArray<ORBKey> dKeys(keys.size());
-	dKeys.upload((void*) keys.data(), keys.size());
-
+	DeviceArray<ORBKey> dKeys(newKeys.size());
+	dKeys.upload(newKeys.data(), newKeys.size());
 	InsertKeys(*this, dKeys);
 }
 
-std::vector<ORBKey> Mapping::getAllKeys()const {
+std::vector<ORBKey> Mapping::getAllKeys() {
+	return hostKeys;
+}
 
+void Mapping::updateMapKeys() {
+	CollectKeys(*this, tmpKeys, noKeysInMap);
+	if(noKeysInMap == 0)
+		return;
+	hostKeys.resize(noKeysInMap);
+	tmpKeys.download(hostKeys.data(), noKeysInMap);
 }
 
 void Mapping::updateKeyIndices() {
@@ -124,6 +130,7 @@ void Mapping::rayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 
 void Mapping::reset() {
 	resetDeviceMap(*this);
+	resetKeyMap(*this);
 }
 
 Mapping::operator KeyMap() {

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <pangolin/gl/glcuda.h>
 #include <pangolin/gl/glvbo.h>
+#include <cuda_profiler_api.h>
 
 using namespace std;
 using namespace pangolin;
@@ -46,6 +47,8 @@ void Viewer::spin() {
 			ModelViewLookAtRUB(0, 0, 0, 0, 0, 1, 0, -1, 0));
 
 	glGenVertexArrays(1, &vao);
+	glGenVertexArrays(1, &vao_color);
+
 	vertex.Reinitialise(GlArrayBuffer, DeviceMap::MaxVertices,
 	GL_FLOAT, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
 	vertexMaped = new CudaScopedMappedPtr(vertex);
@@ -97,10 +100,12 @@ void Viewer::spin() {
 
 	while (1) {
 
-		if (quit)
+		if (quit) {
 			std::terminate();
+		}
 
 		if (ShouldQuit()) {
+			SafeCall(cudaProfilerStop());
 			psystem->requestStop = true;
 		}
 
@@ -218,10 +223,10 @@ void Viewer::drawColor() {
 	if (mpMap->meshUpdated) {
 
 		cudaMemcpy((void*) **vertexMaped, (void*) mpMap->modelVertex,
-				   sizeof(float3) * mpMap->noTriangles[0] * 3,
+				   sizeof(float3) * mpMap->noTrianglesHost * 3,
 				   cudaMemcpyDeviceToDevice);
 		cudaMemcpy((void*) **colorMaped, (void*) mpMap->modelColor,
-				   sizeof(uchar3) * mpMap->noTriangles[0] * 3,
+				   sizeof(uchar3) * mpMap->noTrianglesHost * 3,
 				   cudaMemcpyDeviceToDevice);
 
 		mpMap->meshUpdated = false;
@@ -230,7 +235,7 @@ void Viewer::drawColor() {
 	colorShader.SaveBind();
 	colorShader.SetUniform("viewMat", sCam.GetModelViewMatrix());
 	colorShader.SetUniform("projMat", sCam.GetProjectionMatrix());
-	glBindVertexArray(vao);
+	glBindVertexArray(vao_color);
 	vertex.Bind();
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(0);
@@ -371,7 +376,21 @@ void Viewer::drawCamera() {
 }
 
 void Viewer::drawKeys() {
+	std::vector<ORBKey> allKeys = mpMap->getAllKeys();
+	if(allKeys.size() == 0)
+		return;
 
+	vector<GLfloat> points;
+	for(int i = 0; i < allKeys.size(); ++i) {
+		points.push_back(allKeys[i].pos.x);
+		points.push_back(allKeys[i].pos.y);
+		points.push_back(allKeys[i].pos.z);
+	}
+
+	glColor3f(1.0, 0.0, 0.0);
+	glPointSize(3.0);
+	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_POINTS, 3);
+	glPointSize(1.0);
 }
 
 void Viewer::setMap(Mapping* pMap) {

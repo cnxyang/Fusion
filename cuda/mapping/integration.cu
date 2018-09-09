@@ -1,5 +1,6 @@
 #include "rendering.h"
 #include "prefixsum.h"
+#include "timer.h"
 
 struct Fusion {
 
@@ -162,10 +163,13 @@ struct Fusion {
 		float sdf = dp - pos.z;
 		if (sdf >= -thresh) {
 			sdf = fmin(1.0f, sdf / thresh);
-			uchar3 color = rgb.ptr(uv.y)[uv.x];
-			Voxel curr(sdf, 1, color);
+			float3 color = make_float3(rgb.ptr(uv.y)[uv.x]);
 			Voxel & prev = map.voxelBlocks[entry.ptr + locId];
-			prev += curr;
+			prev.SetSdf((prev.GetSdf() * prev.sdfW + sdf) / (prev.sdfW + 1));
+			prev.sdfW += 1;
+			float3 color_prev = make_float3(prev.rgb);
+			float3 res =  0.2f * color + 0.8f * color_prev;
+			prev.rgb = make_uchar3(res);
 		}
 	}
 };
@@ -222,11 +226,17 @@ void integrateColor(const DeviceArray2D<float> & depth,
 
 	dim3 thread(32, 8);
 	dim3 block(cv::divUp(cols, thread.x), cv::divUp(rows, thread.y));
+	Timer::Start("debug", "createBlocksKernel");
 	createBlocksKernel<<<block, thread>>>(fuse);
+	SafeCall(cudaDeviceSynchronize());
+	Timer::Stop("debug", "createBlocksKernel");
 
 	thread = dim3(1024);
 	block = dim3(cv::divUp((int) DeviceMap::NumEntries, thread.x));
+	Timer::Start("debug", "checkVisibleBlockKernel");
 	checkVisibleBlockKernel<<<block, thread>>>(fuse);
+	SafeCall(cudaDeviceSynchronize());
+	Timer::Stop("debug", "checkVisibleBlockKernel");
 
 	host_data[0] = 0;
 	noVisibleBlocks.download((void*) host_data);
@@ -235,7 +245,11 @@ void integrateColor(const DeviceArray2D<float> & depth,
 
 	thread = dim3(512);
 	block = dim3(host_data[0]);
+	Timer::Start("debug", "fuseColorKernal");
 	fuseColorKernal<<<block, thread>>>(fuse);
+	SafeCall(cudaDeviceSynchronize());
+	Timer::Stop("debug", "fuseColorKernal");
+
 }
 
 __global__ void resetHashKernel(DeviceMap map) {
@@ -275,11 +289,30 @@ void resetDeviceMap(DeviceMap map) {
 	dim3 block(cv::divUp((int) DeviceMap::NumEntries, thread.x));
 
 	resetHashKernel<<<block, thread>>>(map);
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
 
 	block.x = cv::divUp((int) DeviceMap::NumSdfBlocks, thread.x);
 	resetSdfBlockKernel<<<block, thread>>>(map);
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
+}
+
+__global__ void resetKeyMapKernel(KeyMap map) {
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	if(x < KeyMap::maxEntries) {
+		map.Keys[x].valid = false;
+		map.Keys[x].obs = 0;
+	}
+
+	if(x < KeyMap::nBuckets) {
+		map.Mutex[x] = EntryAvailable;
+	}
+}
+
+void resetKeyMap(KeyMap map) {
+	dim3 thread(1024);
+	dim3 block(cv::divUp((int) KeyMap::maxEntries, thread.x));
+
+	resetKeyMapKernel<<<block, thread>>>(map);
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 }

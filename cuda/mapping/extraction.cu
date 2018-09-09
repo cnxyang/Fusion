@@ -19,16 +19,13 @@ struct MeshEngine {
 
 	__device__ inline void checkBlocks() {
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
-		if (x >= DeviceMap::NumEntries)
-			return;
-
 		__shared__ bool scan;
 		if(x == 0)
 			scan = false;
 		__syncthreads();
-		uint val = 0;
 
-		if (map.hashEntries[x].ptr >= 0) {
+		uint val = 0;
+		if (x < DeviceMap::NumEntries && map.hashEntries[x].ptr >= 0) {
 			int3 pos = map.hashEntries[x].pos * DeviceMap::BlockSize;
 			scan = true;
 			val = 1;
@@ -343,7 +340,6 @@ uint meshScene(DeviceArray<uint> & noOccupiedBlocks,
 	noOccupiedBlocks.download((void*) &host_data);
 	if (host_data <= 0)
 		return 0;
-	std::cout << host_data << std::endl;
 
 	thread = dim3(512);
 	block = dim3(cv::divUp((int) host_data, 16), 16);
@@ -355,6 +351,5 @@ uint meshScene(DeviceArray<uint> & noOccupiedBlocks,
 	noTotalTriangles.download((void*) &host_data);
 	host_data = min(host_data, DeviceMap::MaxTriangles);
 
-	std::cout << host_data << std::endl;
 	return host_data;
 }

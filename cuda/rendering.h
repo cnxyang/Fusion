@@ -40,6 +40,7 @@ uint meshScene(DeviceArray<uint> & noOccupiedBlocks,
 			   DeviceArray<int3> & extractedBlocks);
 
 void resetDeviceMap(DeviceMap map);
+void resetKeyMap(KeyMap map);
 
 void integrateColor(const DeviceArray2D<float> & depth,
 					const DeviceArray2D<uchar3> & color,

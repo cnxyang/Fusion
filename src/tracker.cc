@@ -61,36 +61,43 @@ bool Tracker::track() {
 	case 1:
 		initTracking();
 		swapFrame();
+		std::swap(state, lastState);
+		lastState = 0;
 		return true;
 
 	case 0:
 		valid = trackFrame(false);
+		std::swap(state, lastState);
+
 		if(valid) {
-			state = 0;
+			lastState = 0;
 			fuseMapPoint();
 			swapFrame();
 			return true;
 		}
 
-		std::swap(state, lastState);
-		state = -1;
+		lastState = -1;
 		return false;
 
 	case -1:
+		std::cout << "trackingfailed" << std::endl;
 		valid = relocalise();
+		std::swap(state, lastState);
+
 		if(valid) {
-			state = 0;
-			return true;
+			std::cout << "relocalisation success" << std::endl;
+			lastState = 0;
+			swapFrame();
+			return false;
 		}
 
-		std::swap(state, lastState);
-		state = -1;
+		lastState = -1;
 		return false;
 	}
 }
 
-void Tracker::fuseMapPoint() const {
-
+void Tracker::fuseMapPoint() {
+	mpMap->fuseKeys(nextFrame, outliers);
 }
 
 bool Tracker::trackFrame(bool useKF) {
@@ -129,11 +136,11 @@ bool Tracker::trackKeys() {
 		ref.push_back(lastFrame.mPoints[refined[i].trainIdx]);
 	}
 
-	Eigen::Matrix4d dT = Eigen::Matrix4d::Identity();
-	bool result = Solver::SolveAbsoluteOrientation(src, ref, nextFrame.outliers, dT, 100);
-	result = true;
+	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
+	bool result = Solver::SolveAbsoluteOrientation(src, ref, outliers, delta, maxIter);
+
 	if (result) {
-		lastUpdatePose = dT.inverse() * lastFrame.pose;
+		lastUpdatePose = delta.inverse() * lastFrame.pose;
 		nextFrame.SetPose(lastUpdatePose);
 	}
 
@@ -146,7 +153,6 @@ void Tracker::initTracking() {
 	if(useIcp)
 		initIcp();
 	createNewKF();
-	state = 0;
 	return;
 }
 
@@ -181,7 +187,6 @@ void Tracker::initIcp() {
 
 void Tracker::swapFrame() {
 
-	std::swap(state, lastState);
 	lastFrame = Frame(nextFrame);
 	if(needImages) {
 		RenderImage(lastVMap[0], lastNMap[0], make_float3(0, 0, 0), renderedImage);
@@ -243,9 +248,9 @@ bool Tracker::computeSE3() {
 					lastNMap[i], nextFrame, lastFrame, i, matA.data(),
 					vecb.data());
 
-			if (std::isnan(icpError) || icpError >= 1e-3) {
+			if (std::isnan(icpError) || icpError >= 5e-4) {
 				nextFrame.SetPose(lastPose);
-				return true;
+				return false;
 			}
 
 			result = matA.ldlt().solve(vecb);
@@ -261,14 +266,55 @@ bool Tracker::computeSE3() {
 
 bool Tracker::relocalise() {
 
-	if(lastState != -1) {
-		mpMap->updateKeyIndices();
+	if(state != -1) {
+		mpMap->updateMapKeys();
+
+		if(mpMap->noKeysInMap == 0)
+			return false;
+
+		cv::Mat desc(mpMap->noKeysInMap, 32, CV_8UC1);
+		mapPoints.clear();
+		for(int i = 0; i < mpMap->noKeysInMap; ++i) {
+			ORBKey & key = mpMap->hostKeys[i];
+			for(int j = 0; j < 32; ++j) {
+				desc.at<char>(i, j) = key.descriptor[j];
+			}
+			Eigen::Vector3d pos;
+			pos << key.pos.x, key.pos.y, key.pos.z;
+			mapPoints.push_back(pos);
+		}
+		keyDescriptors.upload(desc);
 	}
 
-	const std::vector<ORBKey> & host_key = mpMap->getAllKeys();
-	if(host_key.size() == 0)
+	std::vector<cv::DMatch> matches;
+	std::vector<std::vector<cv::DMatch>> rawMatches;
+	orbMatcher->knnMatch(nextFrame.descriptors, keyDescriptors, rawMatches, 2);
+
+	for (int i = 0; i < rawMatches.size(); ++i) {
+		if (rawMatches[i][0].distance < 0.85 * rawMatches[i][1].distance) {
+			matches.push_back(rawMatches[i][0]);
+		}
+	}
+
+	if (matches.size() < 50)
 		return false;
 
+	std::vector<Eigen::Vector3d> plist;
+	std::vector<Eigen::Vector3d> qlist;
+	for (int i = 0; i < matches.size(); ++i) {
+		plist.push_back(nextFrame.mPoints[matches[i].queryIdx]);
+		qlist.push_back(mapPoints[matches[i].trainIdx]);
+	}
+
+	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
+	bool bOK = Solver::SolveAbsoluteOrientation(plist, qlist, outliers, delta, maxIterReloc);
+
+	if (!bOK) {
+		std::cout << "Relocalisation Failed." << std::endl;
+		return false;
+	}
+
+	nextFrame.SetPose(delta.inverse());
 	return true;
 }
 

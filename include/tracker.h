@@ -28,7 +28,7 @@ public:
 	bool computeSO3();
 	bool computeSE3();
 	bool trackKeys();
-	void fuseMapPoint() const;
+	void fuseMapPoint();
 	bool grabFrame(const cv::Mat & rgb, const cv::Mat & depth);
 	bool relocalise();
 
@@ -90,7 +90,10 @@ public:
 	int lastState;
 
 	bool graphMatching;
+	const int maxIter = 30;
+	const int maxIterReloc = 200;
 	int noAttempsBeforeReloc;
+	std::vector<bool> outliers;
 	cv::cuda::GpuMat keyDescriptors;
 	std::vector<Eigen::Vector3d> mapPoints;
 	cv::Ptr<cv::cuda::DescriptorMatcher> orbMatcher;

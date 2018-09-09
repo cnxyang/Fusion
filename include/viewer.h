@@ -42,6 +42,7 @@ private:
 	Mapping* mpMap;
 
 	GLuint vao;
+	GLuint vao_color;
 	System* psystem;
 	Tracker* ptracker;
 	std::atomic<bool> quit;

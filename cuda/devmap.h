@@ -80,15 +80,15 @@ struct DeviceMap {
 	static constexpr uint BlockSize = 8;
 	static constexpr uint BlockSize3 = 512;
 	static constexpr float DepthMin = 0.1f;
-	static constexpr float DepthMax = 3.0f;
+	static constexpr float DepthMax = 2.5f;
 	static constexpr uint NumExcess = 500000;
 	static constexpr uint NumBuckets = 1000000;
 	static constexpr uint NumSdfBlocks = 400000;
 	static constexpr uint NumVoxels = NumSdfBlocks * BlockSize3;
 	static constexpr uint MaxTriangles = 20000000; // roughly 700MB memory
 	static constexpr uint MaxVertices = MaxTriangles * 3;
-	static constexpr float VoxelSize = 0.005f;
-	static constexpr float TruncateDist = 0.03f;
+	static constexpr float VoxelSize = 0.008f;
+	static constexpr float TruncateDist = 0.05f;
 	static constexpr int MaxRenderingBlocks = 260000;
 	static constexpr float voxelSizeInv = 1.0 / VoxelSize;
 	static constexpr float blockWidth = VoxelSize * BlockSize;
@@ -115,10 +115,11 @@ struct ORBKey {
 struct KeyMap {
 
 	static constexpr float GridSize = 0.03;
-	static const int MaxKeys = 1000000;
-	static const int nBuckets = 5;
-	static const int MaxObs = 10;
-	static const int MinObsThresh = -5;
+	static constexpr int MaxKeys = 100000;
+	static constexpr int nBuckets = 5;
+	static constexpr int maxEntries = MaxKeys * nBuckets;
+	static constexpr int MaxObs = 10;
+	static constexpr int MinObsThresh = -5;
 
 public:
 	__device__ int Hash(const int3& pos);
