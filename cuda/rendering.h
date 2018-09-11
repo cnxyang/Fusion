@@ -2,7 +2,7 @@
 
 void rayCast(DeviceMap map,
 			 DeviceArray2D<float4> & vmap,
-			 DeviceArray2D<float3> & nmap,
+			 DeviceArray2D<float4> & nmap,
 			 DeviceArray2D<float> & zRangeX,
 			 DeviceArray2D<float> & zRangeY,
 			 Matrix3f Rview,
@@ -57,6 +57,9 @@ void integrateColor(const DeviceArray2D<float> & depth,
 					float depthMin,
 					uint * host_data);
 
+void bundleDepthAndColor(const DeviceArray2D<float> & depth,
+						 const DeviceArray2D<uchar3> & color,
+						 DeviceArray2D<float4> & bundle) ;
 
 void ResetKeys(KeyMap map);
 
@@ -64,22 +67,5 @@ void CollectKeys(KeyMap, DeviceArray<ORBKey>&, uint& n);
 
 void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys);
 
-void ProjectVisibleKeys(KeyMap map,
-					    Matrix3f RviewInv,
-					    float3 tview,
-					    int cols,
-					    int rows,
-					    float fx,
-					    float fy,
-					    float cx,
-					    float cy);
-
-#include <opencv.hpp>
-void BuildAdjecencyMatrix(cv::cuda::GpuMat& AM,
-						  DeviceArray<ORBKey>& TrainKeys,
-						  DeviceArray<ORBKey>& QueryKeys,
-						  DeviceArray<float>& MatchDist,
-						  DeviceArray<ORBKey>& train_select,
-						  DeviceArray<ORBKey>& query_select,
-						  DeviceArray<int>& QueryIdx,
-						  DeviceArray<int>& SelectedIdx);
+void ProjectVisibleKeys(KeyMap map, Matrix3f RviewInv, float3 tview,
+		int cols, int rows, float fx, float fy, float cx, float cy);

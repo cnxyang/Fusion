@@ -46,6 +46,7 @@ public:
 	std::thread * mptViewer;
 
 	bool state;
+	cudaStream_t stream;
 	std::mutex mutexReq;
 	std::atomic<bool> paused;
 	std::atomic<bool> requestSaveMesh;

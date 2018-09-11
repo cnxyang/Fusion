@@ -173,8 +173,8 @@ void ComputeDerivativeImage(const DeviceArray2D<uchar>& src,
 }
 
 __global__ void ResizeMap_device(const PtrStepSz<float4> vsrc,
-		const PtrStep<float3> nsrc, PtrStepSz<float4> vdst,
-		PtrStep<float3> ndst) {
+		const PtrStep<float4> nsrc, PtrStepSz<float4> vdst,
+		PtrStep<float4> ndst) {
 
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -185,10 +185,10 @@ __global__ void ResizeMap_device(const PtrStepSz<float4> vsrc,
 	float4 v01 = vsrc.ptr(y * 2 + 0)[x * 2 + 1];
 	float4 v10 = vsrc.ptr(y * 2 + 1)[x * 2 + 0];
 	float4 v11 = vsrc.ptr(y * 2 + 1)[x * 2 + 1];
-	float3 n00 = nsrc.ptr(y * 2 + 0)[x * 2 + 0];
-	float3 n01 = nsrc.ptr(y * 2 + 0)[x * 2 + 1];
-	float3 n10 = nsrc.ptr(y * 2 + 1)[x * 2 + 0];
-	float3 n11 = nsrc.ptr(y * 2 + 1)[x * 2 + 1];
+	float4 n00 = nsrc.ptr(y * 2 + 0)[x * 2 + 0];
+	float4 n01 = nsrc.ptr(y * 2 + 0)[x * 2 + 1];
+	float4 n10 = nsrc.ptr(y * 2 + 1)[x * 2 + 0];
+	float4 n11 = nsrc.ptr(y * 2 + 1)[x * 2 + 1];
 
 	if (isnan(v00.x) || isnan(v01.x) || isnan(v10.x) || isnan(v11.x)) {
 		vdst.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
@@ -197,15 +197,15 @@ __global__ void ResizeMap_device(const PtrStepSz<float4> vsrc,
 	}
 
 	if (isnan(n00.x) || isnan(n01.x) || isnan(n10.x) || isnan(n11.x)) {
-		ndst.ptr(y)[x] = make_float3(__int_as_float(0x7fffffff));
+		ndst.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
 	} else {
 		ndst.ptr(y)[x] = normalised((n00 + n01 + n10 + n11) / 4);
 	}
 }
 
 void ResizeMap(const DeviceArray2D<float4>& vsrc,
-		const DeviceArray2D<float3>& nsrc, DeviceArray2D<float4>& vdst,
-		DeviceArray2D<float3>& ndst) {
+		const DeviceArray2D<float4>& nsrc, DeviceArray2D<float4>& vdst,
+		DeviceArray2D<float4>& ndst) {
 
 //	vdst.create(vsrc.cols() / 2, vsrc.rows() / 2);
 //	ndst.create(nsrc.cols() / 2, nsrc.rows() / 2);

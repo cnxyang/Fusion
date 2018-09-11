@@ -206,7 +206,7 @@ __device__ HashEntry DeviceMap::FindEntry(const float3 & pos) {
 __device__ HashEntry DeviceMap::FindEntry(const int3& blockPos) {
 	uint bucketId = Hash(blockPos);
 	HashEntry* e = &hashEntries[bucketId];
-	if (e->pos == blockPos && e->ptr != EntryAvailable)
+	if (e->ptr != EntryAvailable && e->pos == blockPos)
 		return *e;
 
 	while (e->offset > 0) {

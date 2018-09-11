@@ -67,6 +67,8 @@ System::System(SysDesc* pParam) :
 	Frame::mDepthScale = param->DepthScale;
 	Frame::mDepthCutoff = param->DepthCutoff;
 	Timer::Enable();
+
+	SafeCall(cudaStreamCreate(& stream));
 }
 
 bool System::grabImage(const Mat & image, const Mat & depth) {
@@ -96,10 +98,13 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 	if (state) {
 		uint no;
 		Timer::Start("fuse", "fuse");
-		mpMap->fuseColor(mpTracker->lastDepth[0], mpTracker->color,
+		mpMap->fuseColor(
+				mpTracker->lastDepth[0],
+				mpTracker->color,
 				mpTracker->lastFrame.Rot_gpu(),
 				mpTracker->lastFrame.RotInv_gpu(),
-				mpTracker->lastFrame.Trans_gpu(), no);
+				mpTracker->lastFrame.Trans_gpu(),
+				no);
 		SafeCall(cudaDeviceSynchronize());
 		Timer::Stop("fuse", "fuse");
 
@@ -120,23 +125,25 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 //					mpTracker->nextFrame.RotInv_gpu(),
 //					mpTracker->nextFrame.Trans_gpu(), Frame::fx(0),
 //					Frame::fy(0), Frame::cx(0), Frame::cy(0));
-
+//
 //			mpTracker->lastVMap[0].swap(mpTracker->nextVMap[0]);
 //			mpTracker->lastNMap[0].swap(mpTracker->nextNMap[0]);
-
-//			cv::Mat img(480, 640, CV_32FC3);
+//
+//			cv::Mat img(480, 640, CV_32FC4);
 //			mpTracker->nextNMap[0].download(img.data, img.step);
 //			cv::imshow("img", img);
 //			cv::waitKey(0);
 //		}
 //		else {
-			Timer::Start("raytracing", "raytracing");
-			mpMap->rayTrace(no, mpTracker->lastFrame.Rot_gpu(),
-					mpTracker->lastFrame.RotInv_gpu(),
-					mpTracker->lastFrame.Trans_gpu(), mpTracker->lastVMap[0],
-					mpTracker->lastNMap[0]);
+		Timer::Start("raytracing", "raytracing");
+		mpMap->rayTrace(no,
+				mpTracker->lastFrame.Rot_gpu(),
+				mpTracker->lastFrame.RotInv_gpu(),
+				mpTracker->lastFrame.Trans_gpu(),
+				mpTracker->lastVMap[0],
+				mpTracker->lastNMap[0]);
+		Timer::Stop("raytracing", "raytracing");
 //		}
-			Timer::Stop("raytracing", "raytracing");
 
 //		cv::Mat img(480, 640, CV_8UC4);
 //		mpTracker->renderedImage.download(img.data, img.step);

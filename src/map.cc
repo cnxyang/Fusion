@@ -4,8 +4,9 @@
 #include "rendering.h"
 #include "reduction.h"
 
-Mapping::Mapping() :
-		meshUpdated(false), mapKeyUpdated(false), noKeysInMap(0) {
+Mapping::Mapping(bool default_stream, cudaStream_t * stream_) :
+		meshUpdated(false), mapKeyUpdated(false), noKeysInMap(0),
+		useDefaultStream(default_stream), stream(stream_) {
 	create();
 }
 
@@ -115,7 +116,7 @@ void Mapping::fuseColor(const DeviceArray2D<float> & depth,
 }
 
 void Mapping::rayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
-		float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float3> & nmap) {
+		float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float4> & nmap) {
 
 	if (createRenderingBlock(visibleEntries, zRangeMin, zRangeMax, 3.0, 0.1,
 			renderingBlockList, noRenderingBlocks, RviewInv, tview,

@@ -1,4 +1,5 @@
 #include "rendering.h"
+#include "reduction.h"
 #include "prefixsum.h"
 
 __global__ void CollectORBKeys(KeyMap Km,

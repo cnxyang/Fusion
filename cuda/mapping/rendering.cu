@@ -1,5 +1,6 @@
 #include "rendering.h"
 #include "prefixsum.h"
+#include "opencv.hpp"
 
 #define minMaxSubSample 8
 #define renderingBlockSizeX 16
@@ -277,7 +278,7 @@ struct Rendering {
 	int cols, rows;
 	DeviceMap map;
 	mutable PtrStep<float4> vmap;
-	mutable PtrStep<float3> nmap;
+	mutable PtrStep<float4> nmap;
 	PtrStep<float> zRangeX;
 	PtrStep<float> zRangeY;
 	float invfx, invfy, cx, cy;
@@ -390,7 +391,7 @@ struct Rendering {
 			return;
 
 		vmap.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
-		nmap.ptr(y)[x] = make_float3(__int_as_float(0x7fffffff));
+		nmap.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
 
 		int2 locId;
 		locId.x = __float2int_rd((float) x / minMaxSubSample);
@@ -457,24 +458,24 @@ struct Rendering {
 
 		if(found_pt) {
 			float3 normal;
-			if(readNormal(result, b, normal)) {
+			if(readNormalFast(result, b, normal)) {
 				result = RviewInv * (result * DeviceMap::VoxelSize - tview);
 				vmap.ptr(y)[x] = make_float4(result, 1.0);
-				nmap.ptr(y)[x] = normal;
+				nmap.ptr(y)[x] = make_float4(normal, 1.0);
 			}
 		}
 	}
 };
 
 __global__ void
-__launch_bounds__(32, 32)
+__launch_bounds__(32, 16)
 RayCastKernel(Rendering cast) {
 	cast();
 }
 
 void rayCast(DeviceMap map,
 			 DeviceArray2D<float4> & vmap,
-			 DeviceArray2D<float3> & nmap,
+			 DeviceArray2D<float4> & nmap,
 			 DeviceArray2D<float> & zRangeX,
 			 DeviceArray2D<float> & zRangeY,
 			 Matrix3f Rview,

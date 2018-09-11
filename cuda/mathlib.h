@@ -283,10 +283,10 @@ __host__  __device__  __forceinline__ float3 cross(float3 a, float3 b) {
 			           a.x * b.y - a.y * b.x);
 }
 
-__host__  __device__  __forceinline__ float3 cross(float4 a, float4 b) {
-	return make_float3(a.y * b.z - a.z * b.y,
+__host__  __device__  __forceinline__ float4 cross(float4 a, float4 b) {
+	return make_float4(a.y * b.z - a.z * b.y,
 			           a.z * b.x - a.x * b.z,
-			           a.x * b.y - a.y * b.x);
+			           a.x * b.y - a.y * b.x, 1.0f);
 }
 
 __host__ __device__ __forceinline__ float norm(float3 a) {

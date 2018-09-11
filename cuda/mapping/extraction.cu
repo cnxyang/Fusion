@@ -1,5 +1,6 @@
 #include "rendering.h"
 #include "prefixsum.h"
+#include "opencv.hpp"
 
 struct MeshEngine {
 
@@ -149,7 +150,7 @@ struct MeshEngine {
 		return (0 - v1) / (v2 - v1);
 	}
 
-	__device__ inline int buildVertexList(float3* vlist, float3* nlist, uchar3* clist, int3 & pos) {
+	__device__ inline int buildVertexList(float3* vlist, float3* nlist, uchar3* clist, const int3 & pos) {
 
 		float3 normal[8];
 		uchar3 color[8];
@@ -267,20 +268,20 @@ struct MeshEngine {
 		float3 nlist[12];
 		uchar3 clist[12];
 
-		uint noTriangleNeeded = 0;
 		int3 pos = blockPos[x] * DeviceMap::BlockSize;
-		pos = pos + map.localIdxToLocalPos(threadIdx.x);
-		int cubeIdx = buildVertexList(vlist, nlist, clist, pos);
-		if(cubeIdx > 0)
-			noTriangleNeeded = noVertexTable[cubeIdx] / 3;
+		for(int i = 0; i < DeviceMap::BlockSize; ++i) {
+			int3 localPos = make_int3(threadIdx.x, threadIdx.y, i);
+			int cubeIdx = buildVertexList(vlist, nlist, clist, pos + localPos);
+			if(cubeIdx <= 0)
+				continue;
 
-		int offset = ComputeOffset<512>(noTriangleNeeded, noTriangles);
-		if(offset == -1 || noTriangleNeeded == 0)
-			return;
+			int noTriangleNeeded = noVertexTable[cubeIdx] / 3;
+			uint offset = atomicAdd(noTriangles, noTriangleNeeded);
+			for(int i = 0; i < noTriangleNeeded; ++i) {
+				int tid = offset + i;
+				if(tid >= DeviceMap::MaxTriangles)
+					return;
 
-		for(int i = 0; i < noTriangleNeeded; ++i) {
-			int tid = offset + i;
-			if(tid < DeviceMap::MaxTriangles) {
 				vertices[tid * 3 + 0] = vlist[triangleTable.ptr(cubeIdx)[i * 3 + 0]] * DeviceMap::VoxelSize;
 				vertices[tid * 3 + 1] = vlist[triangleTable.ptr(cubeIdx)[i * 3 + 1]] * DeviceMap::VoxelSize;
 				vertices[tid * 3 + 2] = vlist[triangleTable.ptr(cubeIdx)[i * 3 + 2]] * DeviceMap::VoxelSize;
@@ -299,7 +300,7 @@ __global__ void CheckBlockKernel(MeshEngine me) {
 	me.checkBlocks();
 }
 
-__global__ void __launch_bounds__(512, 2) MeshSceneKernel(MeshEngine me) {
+__global__ void __launch_bounds__(64, 16) MeshSceneKernel(MeshEngine me) {
 	me.MarchingCube();
 }
 
@@ -341,8 +342,8 @@ uint meshScene(DeviceArray<uint> & noOccupiedBlocks,
 	if (host_data <= 0)
 		return 0;
 
-	thread = dim3(512);
-	block = dim3(cv::divUp((int) host_data, 16), 16);
+	thread = dim3(8, 8, 1);
+	block = dim3(cv::divUp((int) host_data, 16), 16, 1);
 
 	MeshSceneKernel<<<block, thread>>>(engine);
 	SafeCall(cudaGetLastError());

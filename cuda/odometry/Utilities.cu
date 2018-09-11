@@ -41,7 +41,7 @@ void BackProjectPoints(const DeviceArray2D<float>& src,
 }
 
 __global__ void ComputeNormalMapDevice(const PtrStepSz<float4> src,
-		PtrStepSz<float3> dst) {
+		PtrStepSz<float4> dst) {
 
 	const int x = blockDim.x * blockIdx.x + threadIdx.x;
 	const int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -49,7 +49,7 @@ __global__ void ComputeNormalMapDevice(const PtrStepSz<float4> src,
 		return;
 
 	if (x == src.cols - 1 || y == src.rows - 1) {
-		dst.ptr(y)[x] = make_float3(__int_as_float(0x7fffffff));
+		dst.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
 		return;
 	}
 
@@ -60,11 +60,11 @@ __global__ void ComputeNormalMapDevice(const PtrStepSz<float4> src,
 	if (!isnan(vcentre.x) && !isnan(vright.x) && !isnan(vdown.x)) {
 		dst.ptr(y)[x] = normalised(cross(vright - vcentre, vdown - vcentre));
 	} else
-		dst.ptr(y)[x] = make_float3(__int_as_float(0x7fffffff));
+		dst.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
 }
 
 void ComputeNormalMap(const DeviceArray2D<float4>& src,
-		DeviceArray2D<float3>& dst) {
+		DeviceArray2D<float4>& dst) {
 
 	dim3 block(8, 8);
 	dim3 grid(cv::divUp(src.cols(), block.x), cv::divUp(src.rows(), block.y));
@@ -76,121 +76,50 @@ void ComputeNormalMap(const DeviceArray2D<float4>& src,
 }
 
 __global__ void forwardProjectKernel(PtrStepSz<float4> src_vmap,
-								     PtrStep<float3> src_nmap,
+								     PtrStep<float4> src_nmap,
 								     PtrStep<float4> dst_vmap,
-								     PtrStep<float3> dst_nmap,
-								     Matrix3f Rcurr, float3 tcurr,
-								     Matrix3f RlastInv, float3 tlast,
+								     PtrStep<float4> dst_nmap,
+								     Matrix3f KRKinv, float3 Kt,
 								     float fx, float fy,
-								     float cx, float cy) {
+								     float cx, float cy,
+								     int cols, int rows) {
 
 	int x = blockDim.x * blockIdx.x + threadIdx.x;
 	int y = blockDim.y * blockIdx.y + threadIdx.y;
 	if(x >= src_vmap.cols || y >= src_vmap.rows)
 		return;
 
-	float4 & vsrc = src_vmap.ptr(y)[x];
-	float3 & nsrc = src_nmap.ptr(y)[x];
-	if(isnan(vsrc.x) || isnan(nsrc.x)) {
+	float3 pixel = make_float3(x, y, 1.f);
+	pixel = KRKinv * pixel + Kt;
+	int u = __float2int_rd(pixel.x / pixel.z * fx + cx + 0.5);
+	int v = __float2int_rd(pixel.y / pixel.z * fy + cy + 0.5);
+	if(u < 0 || v < 0 || u >= cols || v >= rows) {
+		dst_vmap.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
+		dst_nmap.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
 		return;
 	}
 
-	float3 vdst = Rcurr * (RlastInv * (make_float3(vsrc) - tlast)) + tcurr;
-	int u = __float2int_rd(fx * vdst.x / vdst.z + cx + 0.5);
-	int v = __float2int_rd(fy * vdst.y / vdst.z + cy + 0.5);
-	printf("%d\n", u);
-	if(u < 0 || v < 0 || u >= src_vmap.cols || v >= src_vmap.rows)
-		return;
-
-
-
-	dst_vmap.ptr(v)[u] = make_float4(vdst, vsrc.w);
-	dst_nmap.ptr(v)[u] = Rcurr * (RlastInv * nsrc);
+	dst_vmap.ptr(y)[x] = src_vmap.ptr(v)[u];
+	dst_nmap.ptr(y)[x] = src_nmap.ptr(v)[u];
 }
 
 void forwardProjection(const DeviceArray2D<float4> & vsrc,
-					   const DeviceArray2D<float3> & nsrc,
+					   const DeviceArray2D<float4> & nsrc,
 					   DeviceArray2D<float4> & vdst,
-					   DeviceArray2D<float3> & ndst,
-					   Matrix3f Rcurr, float3 tcurr,
-					   Matrix3f RlastInv, float3 tlast,
+					   DeviceArray2D<float4> & ndst,
+					   Matrix3f KRKinv, float3 Kt,
 					   float fx, float fy,
 					   float cx, float cy) {
 
 	dim3 thread(16, 8);
 	dim3 block(cv::divUp(vsrc.cols(), thread.x), cv::divUp(vsrc.rows(), thread.y));
 
-	forwardProjectKernel<<<block, thread>>>(vsrc, nsrc, vdst, ndst, Rcurr,
-			tcurr, RlastInv, tlast, fx, fy, cx, cy);
+//	forwardProjectKernel<<<block, thread>>>(vsrc, nsrc, vdst, ndst, Rcurr,
+//			tcurr, RlastInv, tlast, fx, fy, cx, cy);
 }
 
-//__global__ void WarpGrayScaleImageDevice(PtrStepSz<float4> src,
-//		PtrStep<uchar> gray, Matrix3f R1, Matrix3f invR2, float3 t1, float3 t2,
-//		float fx, float fy, float cx, float cy, PtrStep<uchar> diff) {
-//
-//	const int x = blockDim.x * blockIdx.x + threadIdx.x;
-//	const int y = blockDim.y * blockIdx.y + threadIdx.y;
-//	if (x >= src.cols || y >= src.rows)
-//		return;
-//
-//	diff.ptr(y)[x] = 0;
-//
-//	float3 srcp = make_float3(src.ptr(y)[x]);
-//	if (isnan(srcp.x) || srcp.z < 1e-6)
-//		return;
-//	float3 dst = R1 * srcp + t1;
-//	dst = invR2 * (dst - t2);
-//
-//	int u = __float2int_rd(fx * dst.x / dst.z + cx + 0.5);
-//	int v = __float2int_rd(fy * dst.y / dst.z + cy + 0.5);
-//	if (u >= 0 && v >= 0 && u < src.cols && v < src.rows)
-//		diff.ptr(y)[x] = gray.ptr(v)[u];
-//}
-
-//void WarpGrayScaleImage(const Frame& frame1, const Frame& frame2,
-//		DeviceArray2D<uchar>& diff) {
-
-//	dim3 block(8, 8);
-//	dim3 grid(cv::divUp(diff.cols(), block.x), cv::divUp(diff.rows(), block.y));
-//
-//	const int pyr = 0;
-//	WarpGrayScaleImageDevice<<<grid, block>>>(frame1.mVMap[pyr],
-//			frame2.mGray[pyr], frame1.Rot_gpu(), frame2.RotInv_gpu(),
-//			frame1.Trans_gpu(), frame2.Trans_gpu(), Frame::fx(pyr),
-//			Frame::fy(pyr), Frame::cx(pyr), Frame::cy(pyr), diff);
-//
-//	SafeCall(cudaDeviceSynchronize());
-//	SafeCall(cudaGetLastError());
-//}
-//
-//__global__ void ComputeResidualImageDevice(PtrStepSz<uchar> src,
-//		PtrStep<uchar> dst, PtrStep<uchar> residual) {
-//
-//	const int x = blockDim.x * blockIdx.x + threadIdx.x;
-//	const int y = blockDim.y * blockIdx.y + threadIdx.y;
-//	if (x >= src.cols || y >= src.rows)
-//		return;
-//
-//	residual.ptr(y)[x] = abs(src.ptr(y)[x] - dst.ptr(y)[x]);
-//}
-//
-//void ComputeResidualImage(const DeviceArray2D<uchar>& src,
-//		DeviceArray2D<uchar>& residual, const Frame& frame) {
-//	dim3 block(8, 8);
-//	dim3 grid(cv::divUp(residual.cols(), block.x),
-//			cv::divUp(residual.rows(), block.y));
-//
-//	const int pyrlvl = 0;
-//
-//	ComputeResidualImageDevice<<<grid, block>>>(src, frame.mGray[pyrlvl],
-//			residual);
-//
-//	SafeCall(cudaDeviceSynchronize());
-//	SafeCall(cudaGetLastError());
-//}
-//
 __global__ void RenderImageDevice(const PtrStep<float4> vmap,
-								  const PtrStep<float3> nmap,
+								  const PtrStep<float4> nmap,
 								  const float3 lightPose,
 								  PtrStepSz<uchar4> dst) {
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -210,7 +139,7 @@ __global__ void RenderImageDevice(const PtrStep<float4> vmap,
 		color = bgr1 * (1 - w) + bgr2 * w;
 	} else {
 		float3 P = p;
-		float3 N = nmap.ptr(y)[x];
+		float3 N = make_float3(nmap.ptr(y)[x]);
 
 		const float Ka = 0.3f;  //ambient coeff
 		const float Kd = 0.5f;  //diffuse coeff
@@ -240,7 +169,7 @@ __global__ void RenderImageDevice(const PtrStep<float4> vmap,
 }
 
 void RenderImage(const DeviceArray2D<float4> & points,
-				 const DeviceArray2D<float3> & normals,
+				 const DeviceArray2D<float4> & normals,
 				 const float3 light_pose,
 				 DeviceArray2D<uchar4> & image) {
 
@@ -301,51 +230,3 @@ void rgbImageToRgba(const DeviceArray2D<uchar3> & image,
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
 }
-//
-//__global__ void ProjectToDepth_device(const PtrStep<float4> vmap_src,
-//		PtrStepSz<float> dst) {
-//	int x = blockIdx.x * blockDim.x + threadIdx.x;
-//	int y = blockIdx.y * blockDim.y + threadIdx.y;
-//
-//	if (x >= dst.cols || y >= dst.rows)
-//		return;
-//
-//	float z = vmap_src.ptr(y)[x].z;
-//
-//	dst.ptr(y)[x] = isnan(z) || z <= 1e-3 ? __int_as_float(0x7fffffff) : z;
-//}
-//
-//void ProjectToDepth(const DeviceArray2D<float4>& src,
-//		DeviceArray2D<float>& dst) {
-//	dim3 block(32, 8);
-//	dim3 grid(cv::divUp(src.cols(), block.x), cv::divUp(src.rows(), block.y));
-//
-//	ProjectToDepth_device<<<grid, block>>>(src, dst);
-//	SafeCall(cudaGetLastError());
-//}
-
-//__global__ void ComputeVertexMapDiff(PtrStepSz<float4> src, PtrStepSz<float4> dst, PtrStepSz<float> result,
-//		Matrix3f Rcurr, float3 tcurr, Matrix3f Rlast, float3 tlast) {
-//	int x = blockDim.x * blockIdx.x + threadIdx.x;
-//	int y = blockDim.y * blockIdx.y + threadIdx.y;
-//	if(x >= src.cols || y >= src.rows)
-//		return;
-//
-//
-//}
-//
-//void ComputeVertexMapDiff(DeviceArray2D<float4> & vsrc, DeviceArray2D<float4> & vdst,
-//		Matrix3f Rcurr, float3 tcurr, Matrix3f RlastInv, float3 tlast) {
-//
-//	DeviceArray2D<float> result(vsrc.cols() , vsrc.rows());
-//
-//	dim3 block(32, 8);
-//	dim3 grid(cv::divUp(vsrc.cols(), block.x), cv::divUp(vsrc.rows(), block.y));
-//
-//	ComputeVertexMapDiffKernel<<<grid, block>>>(vsrc, vdst, result, Rcurr, tcurr, RlastInv, tlast);
-//
-//	cv::Mat img(480, 640, CV_32FC1);
-//	result.download((void*) img.data, img.step);
-//	cv::imshow("result", img);
-//	cv::waitKey(0);
-//}

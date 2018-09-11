@@ -17,7 +17,7 @@ class KeyMap;
 
 class Mapping {
 public:
-	Mapping();
+	Mapping(bool useDefaultStream = true, cudaStream_t * stream = nullptr);
 	~Mapping();
 
 
@@ -25,7 +25,7 @@ public:
 			const DeviceArray2D<uchar3> & color, Matrix3f Rview,
 			Matrix3f RviewInv, float3 tview, uint & no);
 
-	void renderMap(DeviceArray2D<float4> & vmap, DeviceArray2D<float3> & nmap,
+	void renderMap(DeviceArray2D<float4> & vmap, DeviceArray2D<float4> & nmap,
 			Matrix3f viewRot, Matrix3f viewRotInv, float3 viewTrans,
 			int num_occupied_blocks);
 
@@ -38,7 +38,7 @@ public:
 
 	void rayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 			float3 tview, DeviceArray2D<float4> & vmap,
-			DeviceArray2D<float3> & nmap);
+			DeviceArray2D<float4> & nmap);
 
 
 
@@ -72,7 +72,10 @@ public:
 	Tracker * ptracker;
 	System * psystem;
 
+	// general control
 	bool lost;
+	bool useDefaultStream;
+	cudaStream_t * stream;
 	std::atomic<bool> meshUpdated;
 	std::atomic<bool> mapPointsUpdated;
 	std::atomic<bool> mapUpdated;

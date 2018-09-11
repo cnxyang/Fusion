@@ -346,7 +346,7 @@ struct ICPReduce {
 	float3 tcurr;
 	float3 tlast;
 	PtrStep<float4> VMapCurr, VMapLast;
-	PtrStep<float3> NMapCurr, NMapLast;
+	PtrStep<float4> NMapCurr, NMapLast;
 	int cols, rows, N;
 	float fx, fy, cx, cy;
 	float angleThresh, distThresh;
@@ -373,10 +373,10 @@ struct ICPReduce {
 		float3 vlast_c = make_float3(VMapLast.ptr(v)[u]);
 		vlast_g = Rlast * vlast_c + tlast;
 
-		float3 ncurr_c = NMapCurr.ptr(y)[x];
+		float3 ncurr_c = make_float3(NMapCurr.ptr(y)[x]);
 		float3 ncurr_g = Rcurr * ncurr_c;
 
-		float3 nlast_c = NMapLast.ptr(v)[u];
+		float3 nlast_c = make_float3(NMapLast.ptr(v)[u]);
 		nlast_g = Rlast * nlast_c;
 
 		float dist = norm(vlast_g - vcurr_g);
@@ -457,8 +457,8 @@ static void inline CreateMatrix(float* host_data, double* host_a,
 
 double ICPReduceSum(DeviceArray2D<float4> & nextVMap,
 					DeviceArray2D<float4> & lastVMap,
-					DeviceArray2D<float3> & nextNMap,
-					DeviceArray2D<float3> & lastNMap,
+					DeviceArray2D<float4> & nextNMap,
+					DeviceArray2D<float4> & lastNMap,
 					Frame& NextFrame,
 					Frame& LastFrame,
 					int pyr,

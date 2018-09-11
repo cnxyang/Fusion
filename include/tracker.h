@@ -55,12 +55,12 @@ public:
 	DeviceArray2D<float> lastDepth[NUM_PYRS];
 	DeviceArray2D<unsigned char> lastImage[NUM_PYRS];
 	DeviceArray2D<float4> lastVMap[NUM_PYRS];
-	DeviceArray2D<float3> lastNMap[NUM_PYRS];
+	DeviceArray2D<float4> lastNMap[NUM_PYRS];
 
 	DeviceArray2D<float> nextDepth[NUM_PYRS];
 	DeviceArray2D<unsigned char> nextImage[NUM_PYRS];
 	DeviceArray2D<float4> nextVMap[NUM_PYRS];
-	DeviceArray2D<float3> nextNMap[NUM_PYRS];
+	DeviceArray2D<float4> nextNMap[NUM_PYRS];
 	DeviceArray2D<short> nextIdx[NUM_PYRS];
 	DeviceArray2D<short> nextIdy[NUM_PYRS];
 

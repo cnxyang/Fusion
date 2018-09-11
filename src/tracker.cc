@@ -6,7 +6,7 @@
 using namespace cv;
 
 Tracker::Tracker(int w, int h, float fx, float fy, float cx, float cy)
-	:referenceKF(nullptr), lastKF(nullptr),
+	:referenceKF(nullptr), lastKF(nullptr), graphMatching(false),
 	 useIcp(true), useSo3(true), state(1), needImages(false),
 	 lastState(1), lastReloc(0), imageUpdated(false) {
 
@@ -72,6 +72,7 @@ bool Tracker::track() {
 		if(valid) {
 			lastState = 0;
 			fuseMapPoint();
+			currentPose = lastFrame.pose;
 			swapFrame();
 			return true;
 		}
@@ -87,6 +88,7 @@ bool Tracker::track() {
 		if(valid) {
 			std::cout << "relocalisation success" << std::endl;
 			lastState = 0;
+			currentPose = lastFrame.pose;
 			swapFrame();
 			return false;
 		}
@@ -140,8 +142,8 @@ bool Tracker::trackKeys() {
 	bool result = Solver::SolveAbsoluteOrientation(src, ref, outliers, delta, maxIter);
 
 	if (result) {
-		lastUpdatePose = delta.inverse() * lastFrame.pose;
-		nextFrame.SetPose(lastUpdatePose);
+		nextPose = delta.inverse() * lastFrame.pose;
+		nextFrame.SetPose(nextPose);
 	}
 
 	return result;
@@ -301,9 +303,83 @@ bool Tracker::relocalise() {
 
 	std::vector<Eigen::Vector3d> plist;
 	std::vector<Eigen::Vector3d> qlist;
-	for (int i = 0; i < matches.size(); ++i) {
-		plist.push_back(nextFrame.mPoints[matches[i].queryIdx]);
-		qlist.push_back(mapPoints[matches[i].trainIdx]);
+	if (graphMatching) {
+		std::vector<ORBKey> vFrameKey;
+		std::vector<ORBKey> vMapKey;
+		std::vector<float> vDistance;
+		std::vector<int> vQueryIdx;
+		cv::Mat cpuFrameDesc;
+		nextFrame.descriptors.download(cpuFrameDesc);
+		cv::Mat cpuMatching(2, matches.size(), CV_32SC1);
+
+		for (int i = 0; i < matches.size(); ++i) {
+			int trainIdx = matches[i].trainIdx;
+			int queryIdx = matches[i].queryIdx;
+			ORBKey trainKey = mpMap->hostKeys[trainIdx];
+			ORBKey queryKey;
+			if (trainKey.valid && queryKey.valid) {
+				cv::Vec3f normal = nextFrame.mNormals[queryIdx];
+				Eigen::Vector3d& p = nextFrame.mPoints[queryIdx];
+				queryKey.pos = make_float3(p(0), p(1), p(2));
+				queryKey.normal = make_float3(normal(0), normal(1), normal(2));
+				vFrameKey.push_back(queryKey);
+				vMapKey.push_back(trainKey);
+				vDistance.push_back(matches[i].distance);
+				vQueryIdx.push_back(queryIdx);
+			}
+		}
+
+		DeviceArray<ORBKey> trainKeys(vMapKey.size());
+		DeviceArray<ORBKey> queryKeys(vFrameKey.size());
+		DeviceArray<float> MatchDist(vDistance.size());
+		DeviceArray<int> QueryIdx(vQueryIdx.size());
+
+		MatchDist.upload((void*) vDistance.data(), vDistance.size());
+		trainKeys.upload((void*) vMapKey.data(), vMapKey.size());
+		queryKeys.upload((void*) vFrameKey.data(), vFrameKey.size());
+		QueryIdx.upload((void*) vQueryIdx.data(), vQueryIdx.size());
+
+		cuda::GpuMat AdjecencyMatrix(matches.size(), matches.size(), CV_32FC1);
+		DeviceArray<ORBKey> query_select, train_select;
+		DeviceArray<int> SelectedIdx;
+
+		BuildAdjecencyMatrix(AdjecencyMatrix, trainKeys, queryKeys, MatchDist,
+				train_select, query_select, QueryIdx, SelectedIdx);
+
+		std::vector<int> vSelectedIdx;
+		std::vector<ORBKey> vORB_train, vORB_query;
+		vSelectedIdx.resize(SelectedIdx.size());
+		vORB_train.resize(train_select.size());
+		vORB_query.resize(query_select.size());
+
+		train_select.download((void*) vORB_train.data(), vORB_train.size());
+		query_select.download((void*) vORB_query.data(), vORB_query.size());
+		SelectedIdx.download((void*) vSelectedIdx.data(), vSelectedIdx.size());
+
+		for (int i = 0; i < query_select.size(); ++i) {
+			Eigen::Vector3d p, q;
+			if (vORB_query[i].valid && vORB_train[i].valid) {
+				bool redundant = false;
+				for (int j = 0; j < i; j++) {
+					if (vSelectedIdx[j] == vSelectedIdx[i]) {
+						redundant = true;
+						break;
+					}
+				}
+				if (!redundant) {
+					p << vORB_query[i].pos.x, vORB_query[i].pos.y, vORB_query[i].pos.z;
+					q << vORB_train[i].pos.x, vORB_train[i].pos.y, vORB_train[i].pos.z;
+					plist.push_back(p);
+					qlist.push_back(q);
+				}
+			}
+		}
+	}
+	else {
+		for (int i = 0; i < matches.size(); ++i) {
+			plist.push_back(nextFrame.mPoints[matches[i].queryIdx]);
+			qlist.push_back(mapPoints[matches[i].trainIdx]);
+		}
 	}
 
 	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
@@ -319,145 +395,8 @@ bool Tracker::relocalise() {
 }
 
 Eigen::Matrix4f Tracker::getCurrentPose() const {
-	return lastFrame.pose.cast<float>();
+	return currentPose.cast<float>();
 }
-
-//bool Tracking::TrackMap(bool bUseGraphMatching) {
-//
-//	if(mLastState == OK) {
-//		mnNoAttempts = 0;
-//		mpMap->GetORBKeys(mDeviceKeys, mnMapPoints);
-//		desc.create(mnMapPoints, 32, CV_8UC1);
-//		if(mnMapPoints == 0)
-//			return false;
-//
-//		mMapPoints.clear();
-//		mHostKeys.resize(mnMapPoints);
-//		mDeviceKeys.download((void*)mHostKeys.data(), mnMapPoints);
-//		for(int i = 0; i < mHostKeys.size(); ++i) {
-//			ORBKey& key = mHostKeys[i];
-//			for(int j = 0; j < 32; ++j) {
-//				desc.at<char>(i, j) = key.descriptor[j];
-//			}
-//			Eigen::Vector3d p;
-//			p << key.pos.x, key.pos.y, key.pos.z;
-//			mMapPoints.push_back(p);
-//		}
-//	}
-//
-//	cv::cuda::GpuMat mMapDesc(desc);
-//	std::vector<cv::DMatch> matches;
-//	std::vector<std::vector<cv::DMatch>> rawMatches;
-//	mORBMatcher->knnMatch(nextFrame.mDescriptors, mMapDesc, rawMatches, 2);
-//
-//	for (int i = 0; i < rawMatches.size(); ++i) {
-//		cv::DMatch& firstMatch = rawMatches[i][0];
-//		cv::DMatch& secondMatch = rawMatches[i][1];
-//		if (firstMatch.distance < 0.85 * secondMatch.distance) {
-//			matches.push_back(firstMatch);
-//		}
-//		else if(bUseGraphMatching) {
-//			matches.push_back(firstMatch);
-//			matches.push_back(secondMatch);
-//		}
-//	}
-//
-//	if(matches.size() < 50)
-//		return false;
-//
-//	std::vector<Eigen::Vector3d> plist;
-//	std::vector<Eigen::Vector3d> qlist;
-//
-//	if(bUseGraphMatching) {
-//		std::vector<ORBKey> vFrameKey;
-//		std::vector<ORBKey> vMapKey;
-//		std::vector<float> vDistance;
-//		std::vector<int> vQueryIdx;
-//		cv::Mat cpuFrameDesc;
-//		nextFrame.mDescriptors.download(cpuFrameDesc);
-//		cv::Mat cpuMatching(2, matches.size(), CV_32SC1);
-//		for(int i = 0; i < matches.size(); ++i) {
-//			int trainIdx = matches[i].trainIdx;
-//			int queryIdx = matches[i].queryIdx;
-//			ORBKey trainKey = mHostKeys[trainIdx];
-//			ORBKey queryKey;
-//			if(trainKey.valid && queryKey.valid) {
-//				cv::Vec3f normal = nextFrame.mNormals[queryIdx];
-//				Eigen::Vector3d& p = nextFrame.mPoints[queryIdx];
-//				queryKey.pos = make_float3(p(0), p(1), p(2));
-//				queryKey.normal = make_float3(normal(0), normal(1), normal(2));
-//				vFrameKey.push_back(queryKey);
-//				vMapKey.push_back(trainKey);
-//				vDistance.push_back(matches[i].distance);
-//				vQueryIdx.push_back(queryIdx);
-//			}
-//		}
-//
-//		DeviceArray<ORBKey> trainKeys(vMapKey.size());
-//		DeviceArray<ORBKey> queryKeys(vFrameKey.size());
-//		DeviceArray<float> MatchDist(vDistance.size());
-//		DeviceArray<int> QueryIdx(vQueryIdx.size());
-//		MatchDist.upload((void*)vDistance.data(), vDistance.size());
-//		trainKeys.upload((void*)vMapKey.data(), vMapKey.size());
-//		queryKeys.upload((void*)vFrameKey.data(), vFrameKey.size());
-//		QueryIdx.upload((void*)vQueryIdx.data(), vQueryIdx.size());
-//		cuda::GpuMat AdjecencyMatrix(matches.size(), matches.size(), CV_32FC1);
-//		DeviceArray<ORBKey> query_select, train_select;
-//		DeviceArray<int> SelectedIdx;
-//		BuildAdjecencyMatrix(AdjecencyMatrix, trainKeys, queryKeys, MatchDist,
-//				train_select, query_select, QueryIdx, SelectedIdx);
-//
-//		std::vector<int> vSelectedIdx;
-//		std::vector<ORBKey> vORB_train, vORB_query;
-//		vSelectedIdx.resize(SelectedIdx.size());
-//		vORB_train.resize(train_select.size());
-//		vORB_query.resize(query_select.size());
-//		train_select.download((void*)vORB_train.data(), vORB_train.size());
-//		query_select.download((void*)vORB_query.data(), vORB_query.size());
-//		SelectedIdx.download((void*)vSelectedIdx.data(), vSelectedIdx.size());
-//		for (int i = 0; i < query_select.size(); ++i) {
-//			Eigen::Vector3d p, q;
-//			if(vORB_query[i].valid &&
-//					vORB_train[i].valid) {
-//				bool redundant = false;
-//				for(int j = 0; j < i; j++) {
-//					if(vSelectedIdx[j] == vSelectedIdx[i]) {
-//						redundant = true;
-//						break;
-//					}
-//				}
-//				if(!redundant) {
-//					p << vORB_query[i].pos.x,
-//						 vORB_query[i].pos.y,
-//						 vORB_query[i].pos.z;
-//					q << vORB_train[i].pos.x,
-//						 vORB_train[i].pos.y,
-//						 vORB_train[i].pos.z;
-//					plist.push_back(p);
-//					qlist.push_back(q);
-//				}
-//			}
-//		}
-//	}
-//	else {
-//		for (int i = 0; i < matches.size(); ++i) {
-//			plist.push_back(nextFrame.mPoints[matches[i].queryIdx]);
-//			qlist.push_back(mMapPoints[matches[i].trainIdx]);
-//		}
-//	}
-//
-//	Eigen::Matrix4d Td = Eigen::Matrix4d::Identity();
-//	bool bOK = Solver::SolveAbsoluteOrientation(plist, qlist, nextFrame.mOutliers, Td, 200);
-//	mnNoAttempts++;
-//
-//	if(!bOK) {
-//		std::cout << "Relocalisation Failed. Attempts: " << mnNoAttempts << std::endl;
-//		return false;
-//	}
-//
-//	nextFrame.SetPose(Td.inverse());
-//	return true;
-//}
 
 void Tracker::setMap(Mapping* pMap) {
 	mpMap = pMap;

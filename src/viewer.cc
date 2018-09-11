@@ -91,7 +91,7 @@ void Viewer::spin() {
 	Var<bool> btnShowColor("UI.Show Color Map", false, true);
 	Var<bool> btnSaveMesh("UI.Save as Mesh", false, false);
 	Var<bool> btnDrawWireFrame("UI.WireFrame Mode", false, true);
-	Var<bool> btnShowColorImage("UI.Color Image", false, true);
+	Var<bool> btnShowColorImage("UI.Color Image", true, true);
 	Var<bool> btnShowDepthImage("UI.Depth Image", false, true);
 	Var<bool> btnShowRenderedImage("UI.Rendered Image", false, true);
 	Var<bool> btnPauseSystem("UI.Pause System", false, false);

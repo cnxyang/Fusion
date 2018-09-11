@@ -1,5 +1,6 @@
 #include "rendering.h"
 #include "prefixsum.h"
+#include "opencv.hpp"
 #include "timer.h"
 
 struct Fusion {
@@ -16,6 +17,7 @@ struct Fusion {
 	uint* noVisibleBlocks;
 	PtrStep<float> depth;
 	PtrStep<uchar3> rgb;
+	PtrStep<float4> bundle;
 
 	__device__ inline float2 project(float3& pt3d) {
 		float2 pt2d;
@@ -146,30 +148,33 @@ struct Fusion {
 		if (entry.ptr == EntryAvailable)
 			return;
 
-		int locId = threadIdx.x;
 		int3 block_pos = map.blockPosToVoxelPos(entry.pos);
-		int3 voxel_pos = block_pos + map.localIdxToLocalPos(locId);
-		float3 pos = map.voxelPosToWorldPos(voxel_pos);
-		pos = RviewInv * (pos - tview);
-		int2 uv = make_int2(project(pos));
-		if (uv.x < 0 || uv.y < 0 || uv.x >= cols || uv.y >= rows)
-			return;
+		#pragma unroll
+		for(int i = 0; i < 8; ++i) {
+			int3 localPos = make_int3(threadIdx.x, threadIdx.y, i);
+			int locId = map.localPosToLocalIdx(localPos);
+			float3 pos = map.voxelPosToWorldPos(block_pos + localPos);
+			pos = RviewInv * (pos - tview);
+			int2 uv = make_int2(project(pos));
+			if (uv.x < 0 || uv.y < 0 || uv.x >= cols || uv.y >= rows)
+				continue;
 
-		float dp = depth.ptr(uv.y)[uv.x];
-		if (isnan(dp) || dp > maxDepth || dp < minDepth)
-			return;
+			float dp = depth.ptr(uv.y)[uv.x];
+			if (isnan(dp) || dp > maxDepth || dp < minDepth)
+				continue;
 
-		float thresh = DeviceMap::TruncateDist;
-		float sdf = dp - pos.z;
-		if (sdf >= -thresh) {
-			sdf = fmin(1.0f, sdf / thresh);
-			float3 color = make_float3(rgb.ptr(uv.y)[uv.x]);
-			Voxel & prev = map.voxelBlocks[entry.ptr + locId];
-			prev.SetSdf((prev.GetSdf() * prev.sdfW + sdf) / (prev.sdfW + 1));
-			prev.sdfW += 1;
-			float3 color_prev = make_float3(prev.rgb);
-			float3 res =  0.2f * color + 0.8f * color_prev;
-			prev.rgb = make_uchar3(res);
+			float thresh = DeviceMap::TruncateDist;
+			float sdf = dp - pos.z;
+			if (sdf >= -thresh) {
+				sdf = fmin(1.0f, sdf / thresh);
+				float3 color = make_float3(rgb.ptr(uv.y)[uv.x]);
+				Voxel & prev = map.voxelBlocks[entry.ptr + locId];
+				prev.SetSdf((prev.GetSdf() * prev.sdfW + sdf) / (prev.sdfW + 1));
+				prev.sdfW += 1;
+				float3 color_prev = make_float3(prev.rgb);
+				float3 res =  0.2f * color + 0.8f * color_prev;
+				prev.rgb = make_uchar3(res);
+			}
 		}
 	}
 };
@@ -243,13 +248,12 @@ void integrateColor(const DeviceArray2D<float> & depth,
 	if (host_data[0] == 0)
 		return;
 
-	thread = dim3(512);
+	thread = dim3(8, 8);
 	block = dim3(host_data[0]);
 	Timer::Start("debug", "fuseColorKernal");
 	fuseColorKernal<<<block, thread>>>(fuse);
 	SafeCall(cudaDeviceSynchronize());
 	Timer::Stop("debug", "fuseColorKernal");
-
 }
 
 __global__ void resetHashKernel(DeviceMap map) {
@@ -315,4 +319,25 @@ void resetKeyMap(KeyMap map) {
 	resetKeyMapKernel<<<block, thread>>>(map);
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
+}
+
+__global__ void bundleDepthAndColorKernel(PtrStepSz<float> depth,
+		PtrStep<uchar3> color, PtrStep<float4> bundle) {
+
+	int x = blockDim.x * blockIdx.x + threadIdx.x;
+	int y = blockDim.y * blockIdx.y + threadIdx.y;
+	if(x >= depth.cols || y >= depth.rows)
+		return;
+
+	uchar3 rgb = color.ptr(y)[x];
+	bundle.ptr(y)[x] = make_float4(depth.ptr(y)[x], rgb.x, rgb.y, rgb.z);
+}
+
+void bundleDepthAndColor(const DeviceArray2D<float> & depth,
+						 const DeviceArray2D<uchar3> & color,
+						 DeviceArray2D<float4> & bundle) {
+	dim3 thread(16, 8);
+	dim3 block(cv::divUp(depth.cols(), thread.x), cv::divUp(depth.rows(), thread.y));
+
+	bundleDepthAndColorKernel<<<block, thread>>>(depth, color, bundle);
 }

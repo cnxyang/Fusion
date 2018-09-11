@@ -59,6 +59,41 @@ int main(int argc, char** argv) {
 			return 0;
 	}
 
+
+//	SysDesc desc;
+//
+//	desc.DepthCutoff = 3.0f;
+//	desc.DepthScale = 1000.0f;
+//	desc.cols = 640;
+//	desc.rows = 480;
+//	desc.fx = 583;
+//	desc.fy = 583;
+//	desc.cx = 320;
+//	desc.cy = 240;
+//	desc.TrackModel = true;
+//	desc.bUseDataset = false;
+//
+//	System slam(&desc);
+//
+//	for (int i = 0; i < 8560; ++i) {
+//		std::stringstream ss;
+//		ss << std::setfill('0') << std::setw(6) << i;
+//		std::string number = "";
+//		std::string img_depth = "frame-";
+//		std::string img_rgb = "frame-";
+//		ss >> number;
+//		img_depth += number;
+//		img_depth += ".depth.png";
+//		img_rgb += number;
+//		img_rgb += ".color.jpg";
+//		std::cout << img_depth << std::endl;
+//		cv::Mat depth = cv::imread(std::string("/home/xyang/Downloads/apt0/") + img_depth, cv::IMREAD_UNCHANGED);
+//		cv::Mat image = cv::imread(std::string("/home/xyang/Downloads/apt0/") + img_rgb, cv::IMREAD_UNCHANGED);
+//		bool nonstop = slam.grabImage(image, depth);
+//		if(!nonstop)
+//			return 0;
+//	}
+
 	slam.joinViewer();
 }
 

@@ -92,7 +92,7 @@ struct JtJJtrSO3 {
 
 void computeVMap(const DeviceArray2D<float> & depth, DeviceArray2D<float4> & vmap,
 				 float fx, float fy, float cx, float cy, float depthCutoff = 3.0f);
-void computeVMap(const DeviceArray2D<float4> & vmap, const DeviceArray2D<float3> & nmap);
+void computeVMap(const DeviceArray2D<float4> & vmap, const DeviceArray2D<float4> & nmap);
 void rgbImageToIntensity(const DeviceArray2D<uchar3> & rgb, DeviceArray2D<unsigned char> & image);
 void pyrDownGauss(const DeviceArray2D<float> & src, DeviceArray2D<float> & dst);
 void pyrDownGauss(const DeviceArray2D<unsigned char> & src, DeviceArray2D<unsigned char> & dst);
@@ -100,8 +100,19 @@ void bilateralFilter(const DeviceArray2D<unsigned short> & depth, DeviceArray2D<
 
 #include "frame.h"
 double ICPReduceSum(DeviceArray2D<float4> & nextVMap, DeviceArray2D<float4> & lastVMap,
-					DeviceArray2D<float3> & nextNMap, DeviceArray2D<float3> & lastNMap,
+					DeviceArray2D<float4> & nextNMap, DeviceArray2D<float4> & lastNMap,
 					Frame& NextFrame, Frame& LastFrame, int pyr, double* host_a, double* host_b);
+
+
+#include <opencv.hpp>
+void BuildAdjecencyMatrix(cv::cuda::GpuMat& AM,
+						  DeviceArray<ORBKey>& TrainKeys,
+						  DeviceArray<ORBKey>& QueryKeys,
+						  DeviceArray<float>& MatchDist,
+						  DeviceArray<ORBKey>& train_select,
+						  DeviceArray<ORBKey>& query_select,
+						  DeviceArray<int>& QueryIdx,
+						  DeviceArray<int>& SelectedIdx);
 #define WarpSize 32
 #define MaxThread 1024
 #endif
