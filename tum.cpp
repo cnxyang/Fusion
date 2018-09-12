@@ -54,6 +54,7 @@ int main(int argc, char** argv) {
 	for (int i = 0; i < N; ++i) {
 		cv::Mat depth = cv::imread(depth_image_list[i], cv::IMREAD_UNCHANGED);
 		cv::Mat image = cv::imread(rgb_image_list[i], cv::IMREAD_UNCHANGED);
+		cvtColor(image, image, cv::COLOR_BGR2RGB);
 		bool nonstop = slam.grabImage(image, depth);
 		if(!nonstop)
 			return 0;
@@ -89,6 +90,7 @@ int main(int argc, char** argv) {
 //		std::cout << img_depth << std::endl;
 //		cv::Mat depth = cv::imread(std::string("/home/xyang/Downloads/apt0/") + img_depth, cv::IMREAD_UNCHANGED);
 //		cv::Mat image = cv::imread(std::string("/home/xyang/Downloads/apt0/") + img_rgb, cv::IMREAD_UNCHANGED);
+//		cvtColor(image, image, cv::COLOR_BGR2RGB);
 //		bool nonstop = slam.grabImage(image, depth);
 //		if(!nonstop)
 //			return 0;

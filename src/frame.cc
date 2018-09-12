@@ -75,7 +75,7 @@ bool computeVertexAndNormal(const cv::Mat & imD, float & x, float & y,
 Frame::Frame(const DeviceArray2D<uchar> & img, const cv::Mat & imD, KeyFrame * kf) {
 
 	if(mbFirstCall) {
-		mORB = cv::cuda::ORB::create(1000);
+		mORB = cv::cuda::ORB::create(1500);
 		for(int i = 0; i < NUM_PYRS; ++i) {
 			mCols[i] = imD.cols / (1 << i);
 			mRows[i] = imD.rows / (1 << i);
@@ -290,4 +290,50 @@ int Frame::cols(int pyr) {
 int Frame::rows(int pyr) {
 	assert(pyr >= 0 && pyr <= NUM_PYRS);
 	return mRows[pyr];
+}
+
+
+// refactorying
+
+void Frame::setPose(Frame * other) {
+	pose = other->pose;
+}
+
+void Frame::setPose(Eigen::Matrix4d & newPose) {
+	pose = newPose;
+}
+
+Matrix3f Frame::absRotationCuda() const {
+	Eigen::Matrix3d rot = absRotation();
+	Matrix3f mat3f;
+	mat3f.rowx = make_float3(rot(0, 0), rot(0, 1), rot(0, 2));
+	mat3f.rowy = make_float3(rot(1, 0), rot(1, 1), rot(1, 2));
+	mat3f.rowz = make_float3(rot(2, 0), rot(2, 1), rot(2, 2));
+	return mat3f;
+}
+
+Matrix3f Frame::absRotationInvCuda() const {
+	Eigen::Matrix3d rot = absRotation().transpose();
+	Matrix3f mat3f;
+	mat3f.rowx = make_float3(rot(0, 0), rot(0, 1), rot(0, 2));
+	mat3f.rowy = make_float3(rot(1, 0), rot(1, 1), rot(1, 2));
+	mat3f.rowz = make_float3(rot(2, 0), rot(2, 1), rot(2, 2));
+	return mat3f;
+}
+
+float3 Frame::absTranslationCuda() const {
+	Eigen::Vector3d trans = absTranslation();
+	return make_float3(trans(0, 3), trans(1, 3), trans(2, 3));
+}
+
+Eigen::Matrix3d Frame::absRotation() const {
+	Eigen::Matrix4d absPose;
+	absPose = pose * referenceKF->pose;
+	return absPose.topLeftCorner(3, 3);
+}
+
+Eigen::Vector3d Frame::absTranslation() const {
+	Eigen::Matrix4d absPose;
+	absPose = pose * referenceKF->pose;
+	return absPose.topRightCorner(3, 1);
 }

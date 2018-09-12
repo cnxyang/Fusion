@@ -25,6 +25,8 @@ struct KeyFrame {
 	void push_back(Frame *& f);
 	void find(Frame * f);
 	void remove(Frame * f);
+	Eigen::Matrix3d rotation() const;
+	Eigen::Vector3d translation() const;
 
 	bool valid;
 	int N;
@@ -37,6 +39,7 @@ struct KeyFrame {
 	cv::Mat rawColor;
 	cv::Mat scaledDepth;
 
+	std::vector<long int> keyIndices;
 	std::vector<Eigen::Vector3d> frameKeys;
 	cv::cuda::GpuMat frameDescriptors;
 };

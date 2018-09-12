@@ -120,6 +120,7 @@ public:
 	std::vector<ORBKey> hostKeys;
 	uint noKeysInMap;
 	bool mapKeyUpdated;
+	DeviceArray<long> keyIndices;
 };
 
 #endif

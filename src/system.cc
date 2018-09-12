@@ -69,6 +69,7 @@ System::System(SysDesc* pParam) :
 	Timer::Enable();
 
 	SafeCall(cudaStreamCreate(& stream));
+	SafeCall(cudaStreamDestroy(stream));
 }
 
 bool System::grabImage(const Mat & image, const Mat & depth) {
@@ -108,33 +109,6 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 		SafeCall(cudaDeviceSynchronize());
 		Timer::Stop("fuse", "fuse");
 
-//		if(nFrames % 5 != 0) {
-//			Eigen::Matrix4d Tlastcurr = mpTracker->lastFrame.pose.inverse() * mpTracker->nextFrame.pose;
-//			Eigen::Matrix3d Rlastcurr = Tlastcurr.inverse().topLeftCorner(3, 3);
-//			Eigen::Vector3d tlastcurr = Tlastcurr.inverse().topRightCorner(3, 1);
-//			std::cout << Tlastcurr << std::endl;
-//			Matrix3f deviceR;
-//			deviceR.rowx = { (float) Rlastcurr(0, 0), (float) Rlastcurr(0, 1), (float) Rlastcurr(0, 2) };
-//			deviceR.rowy = { (float) Rlastcurr(1, 0), (float) Rlastcurr(1, 1), (float) Rlastcurr(1, 2) };
-//			deviceR.rowz = { (float) Rlastcurr(2, 0), (float) Rlastcurr(2, 1), (float) Rlastcurr(2, 2) };
-//			float3 devicet = { (float) tlastcurr(0), (float) tlastcurr(1), (float) tlastcurr(2) };
-//			forwardProjection(mpTracker->nextVMap[0], mpTracker->nextNMap[0],
-//					mpTracker->lastVMap[0], mpTracker->lastNMap[0],
-//					mpTracker->lastFrame.Rot_gpu(),
-//					mpTracker->lastFrame.Trans_gpu(),
-//					mpTracker->nextFrame.RotInv_gpu(),
-//					mpTracker->nextFrame.Trans_gpu(), Frame::fx(0),
-//					Frame::fy(0), Frame::cx(0), Frame::cy(0));
-//
-//			mpTracker->lastVMap[0].swap(mpTracker->nextVMap[0]);
-//			mpTracker->lastNMap[0].swap(mpTracker->nextNMap[0]);
-//
-//			cv::Mat img(480, 640, CV_32FC4);
-//			mpTracker->nextNMap[0].download(img.data, img.step);
-//			cv::imshow("img", img);
-//			cv::waitKey(0);
-//		}
-//		else {
 		Timer::Start("raytracing", "raytracing");
 		mpMap->rayTrace(no,
 				mpTracker->lastFrame.Rot_gpu(),
@@ -143,7 +117,6 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 				mpTracker->lastVMap[0],
 				mpTracker->lastNMap[0]);
 		Timer::Stop("raytracing", "raytracing");
-//		}
 
 //		cv::Mat img(480, 640, CV_8UC4);
 //		mpTracker->renderedImage.download(img.data, img.step);
@@ -161,7 +134,7 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 	}
 
 	Timer::Stop("all", "all");
-	Timer::Print();
+//	Timer::Print();
 	return true;
 }
 
@@ -177,7 +150,7 @@ void System::saveMesh() {
 	mpMap->modelColor.download(host_color, mpMap->noTrianglesHost * 3);
 
 	std::ofstream file;
-	file.open("scene.ply");
+	file.open("/home/xyang/scene.ply");
 		file << "ply\n";
 		file << "format ascii 1.0\n";
 		file << "element vertex " << mpMap->noTrianglesHost * 3 << "\n";

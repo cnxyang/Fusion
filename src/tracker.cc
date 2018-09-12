@@ -31,15 +31,21 @@ Tracker::Tracker(int w, int h, float fx, float fy, float cx, float cy)
 	renderedDepth.create(w, h);
 	rgbaImage.create(w, h);
 
+	sumSE3.create(29, 96);
+	outSE3.create(29);
+	sumSO3.create(11, 96);
+	outSO3.create(11);
+
 	iteration[0] = 10;
 	iteration[1] = 5;
 	iteration[2] = 3;
 
 	lastIcpError = std::numeric_limits<float>::max();
-	lastRgbError = std::numeric_limits<float>::max();
 	lastSo3Error = std::numeric_limits<float>::max();
 
 	K = MatK(fx, fy, cx, cy);
+
+	orbExtractor = cuda::ORB::create(1500);
 	orbMatcher = cuda::DescriptorMatcher::createBFMatcher(NORM_HAMMING);
 }
 
@@ -71,10 +77,16 @@ bool Tracker::track() {
 
 		if(valid) {
 			lastState = 0;
-			fuseMapPoint();
+//			fuseMapPoint();
 			currentPose = lastFrame.pose;
-			swapFrame();
-			return true;
+			if(state != -1) {
+				if(needNewKF())
+					createNewKF();
+				swapFrame();
+				return true;
+			}
+			else
+				return false;
 		}
 
 		lastState = -1;
@@ -104,31 +116,79 @@ void Tracker::fuseMapPoint() {
 
 bool Tracker::trackFrame(bool useKF) {
 
+	Timer::Start("track", "trackframe");
 	bool valid = false;
-	valid = trackKeys();
+	if(useKF)
+		valid = trackReferenceKF();
+	else
+		valid = trackLastFrame();
 	if(!valid) {
 		return false;
 	}
 
 	initIcp();
 	valid = computeSE3();
+	Timer::Stop("track", "trackframe");
 
 	return valid;
 }
 
-bool Tracker::trackKeys() {
+void Tracker::extractFeatures() {
+	cv::cuda::GpuMat tmpImage(480, 640, CV_8UC1, nextImage[0].data(), nextImage[0].step());
+	orbExtractor->detectAndCompute(tmpImage, cv::cuda::GpuMat(), nextFrame.keys, nextFrame.descriptors);
+}
+
+bool Tracker::trackReferenceKF() {
+
+	std::vector<cv::DMatch> refined;
+	std::vector<std::vector<cv::DMatch>> rawMatches;
+	orbMatcher->knnMatch(nextFrame.descriptors, referenceKF->frameDescriptors, rawMatches, 2);
+
+	for (int i = 0; i < rawMatches.size(); ++i) {
+		if (rawMatches[i][0].distance < 0.85 * rawMatches[i][1].distance) {
+			refined.push_back(rawMatches[i][0]);
+		}
+	}
+
+	N = refined.size();
+	if (N < 3)
+		return false;
+
+	std::vector<Eigen::Vector3d> src, ref;
+	for (int i = 0; i < N; ++i) {
+		src.push_back(nextFrame.mPoints[refined[i].queryIdx]);
+		ref.push_back(referenceKF->frameKeys[refined[i].trainIdx]);
+	}
+
+	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
+	bool result = Solver::SolveAbsoluteOrientation(src, ref, outliers, delta, maxIter);
+
+	N = std::count(outliers.begin(), outliers.end(), false);
+
+	if (result) {
+		nextPose = delta.inverse() * referenceKF->pose;
+		nextFrame.pose = nextPose;
+		nextFrame.deltaPose = delta.inverse();
+		return true;
+	}
+	else {
+		return trackLastFrame();
+	}
+}
+
+bool Tracker::trackLastFrame() {
 
 	std::vector<cv::DMatch> refined;
 	std::vector<std::vector<cv::DMatch>> rawMatches;
 	orbMatcher->knnMatch(nextFrame.descriptors, lastFrame.descriptors, rawMatches, 2);
 
 	for (int i = 0; i < rawMatches.size(); ++i) {
-		if (rawMatches[i][0].distance < 0.8 * rawMatches[i][1].distance) {
+		if (rawMatches[i][0].distance < 0.85 * rawMatches[i][1].distance) {
 			refined.push_back(rawMatches[i][0]);
 		}
 	}
 
-	int N = refined.size();
+	N = refined.size();
 	if (N < 3)
 		return false;
 
@@ -141,9 +201,12 @@ bool Tracker::trackKeys() {
 	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
 	bool result = Solver::SolveAbsoluteOrientation(src, ref, outliers, delta, maxIter);
 
+	N = std::count(outliers.begin(), outliers.end(), false);
+
 	if (result) {
 		nextPose = delta.inverse() * lastFrame.pose;
-		nextFrame.SetPose(nextPose);
+		nextFrame.pose = nextPose;
+		nextFrame.deltaPose = delta.inverse() * lastFrame.deltaPose;
 	}
 
 	return result;
@@ -169,9 +232,10 @@ bool Tracker::grabFrame(const cv::Mat & image, const cv::Mat & depth) {
 void Tracker::initIcp() {
 
 	depth.upload((void*)nextFrame.rawDepth.data,
-			nextFrame.rawDepth.step,
-			nextFrame.rawDepth.cols,
-			nextFrame.rawDepth.rows);
+					    nextFrame.rawDepth.step,
+					    nextFrame.rawDepth.cols,
+					    nextFrame.rawDepth.rows);
+
 	BilateralFiltering(depth, nextDepth[0], Frame::mDepthScale);
 
 	for(int i = 1; i < NUM_PYRS; ++i) {
@@ -181,8 +245,13 @@ void Tracker::initIcp() {
 	}
 
 	for(int i = 0; i < NUM_PYRS; ++i) {
-		BackProjectPoints(nextDepth[i], nextVMap[i], Frame::mDepthCutoff,
-				Frame::fx(i), Frame::fy(i), Frame::cx(i), Frame::cy(i));
+		BackProjectPoints(nextDepth[i],
+						  nextVMap[i],
+						  Frame::mDepthCutoff,
+						  Frame::fx(i),
+						  Frame::fy(i),
+						  Frame::cx(i),
+						  Frame::cy(i));
 		ComputeNormalMap(nextVMap[i], nextNMap[i]);
 	}
 }
@@ -219,6 +288,9 @@ float Tracker::translationChanged() const {
 
 bool Tracker::needNewKF() {
 
+	if(N < 200)
+		return true;
+
 	if(rotationChanged() >= 0.2 || translationChanged() >= 0.1)
 		return true;
 
@@ -231,6 +303,7 @@ void Tracker::createNewKF() {
 	if(lastKF)
 		lastKF->frameDescriptors.release();
 	referenceKF = new KeyFrame(&nextFrame);
+	nextFrame.deltaPose = Eigen::Matrix4d::Identity();
 	mpMap->push_back(referenceKF);
 }
 
@@ -246,9 +319,24 @@ bool Tracker::computeSE3() {
 	for(int i = NUM_PYRS - 1; i >= 0; --i) {
 		for(int j = 0; j < iteration[i]; ++j) {
 
-			float icpError = ICPReduceSum(nextVMap[i], lastVMap[i], nextNMap[i],
-					lastNMap[i], nextFrame, lastFrame, i, matA.data(),
+			icpStep(nextVMap[i],
+					lastVMap[i],
+					nextNMap[i],
+					lastNMap[i],
+					nextFrame.Rot_gpu(),
+					nextFrame.Trans_gpu(),
+					lastFrame.Rot_gpu(),
+					lastFrame.RotInv_gpu(),
+					lastFrame.Trans_gpu(),
+					K(i),
+					sumSE3,
+					outSE3,
+					icpResidual,
+					matA.data(),
 					vecb.data());
+
+			float icpError = sqrt(icpResidual[0]) / icpResidual[1];
+			int icpCount = (int) icpResidual[1];
 
 			if (std::isnan(icpError) || icpError >= 5e-4) {
 				nextFrame.SetPose(lastPose);

@@ -44,21 +44,23 @@ void CollectKeys(KeyMap Km, DeviceArray<ORBKey>& keys, uint& n) {
 	SafeCall(cudaGetLastError());
 }
 
-__global__ void InsertKeysKernel(KeyMap map, PtrSz<ORBKey> key) {
+__global__ void InsertKeysKernel(KeyMap map, PtrSz<ORBKey> key, PtrSz<long int> indices) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	if (idx < key.size) {
-		map.InsertKey(&key[idx]);
+		long int hashIndex = -1;
+		map.InsertKey(&key[idx], hashIndex);
+		indices[idx] = hashIndex;
 	}
 }
 
-void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys) {
+void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys, DeviceArray<long int> & indices) {
 	if (keys.size() == 0)
 		return;
 
 	dim3 block(MaxThread);
 	dim3 grid(cv::divUp(keys.size(), block.x));
 
-	InsertKeysKernel<<<grid, block>>>(map, keys);
+	InsertKeysKernel<<<grid, block>>>(map, keys, indices);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());

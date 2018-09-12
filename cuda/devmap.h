@@ -125,9 +125,9 @@ struct KeyMap {
 
 public:
 	__device__ int Hash(const int3& pos);
-	__device__ ORBKey* FindKey(const float3& pos);
-	__device__ ORBKey* FindKey(const float3& pos, int& first, int& buck);
-	__device__ void InsertKey(ORBKey* key);
+	__device__ ORBKey* FindKey(const float3 & pos);
+	__device__ ORBKey* FindKey(const float3 & pos, int & first, int & buck, long & hashIndex);
+	__device__ void InsertKey(ORBKey* key, long & hashIndex);
 	__device__ void ResetKeys(int index);
 
 public:

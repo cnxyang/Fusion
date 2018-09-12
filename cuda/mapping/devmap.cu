@@ -309,39 +309,46 @@ __device__ ORBKey* KeyMap::FindKey(const float3& pos) {
 	return nullptr;
 }
 
-__device__ ORBKey* KeyMap::FindKey(const float3& pos, int& first, int& buck) {
+__device__ ORBKey* KeyMap::FindKey(const float3& pos, int & first, int & buck, long & hashIndex) {
 
 	first = -1;
-	float3 gridPos = pos / GridSize;
-	int3 p = make_int3((int) gridPos.x, (int) gridPos.y, (int) gridPos.z);
+	int3 p = make_int3(pos / GridSize);
 	int idx = Hash(p);
 	buck = idx;
 	int bucketIdx = idx * nBuckets;
-	const float radius = GridSize;
 	for (int i = 0; i < nBuckets; ++i, ++bucketIdx) {
 		ORBKey* key = &Keys[bucketIdx];
 		if (!key->valid && first == -1)
 			first = bucketIdx;
 
-		if (key->valid && norm(key->pos - pos) <= radius) {
-			return key;
+		if (key->valid) {
+			int3 tmp = make_int3(key->pos / GridSize);
+			if(tmp == p) {
+				hashIndex = bucketIdx;
+				return key;
+			}
 		}
 	}
+
+	if(first != -1)
+		hashIndex = first;
 	return nullptr;
 }
 
-__device__ void KeyMap::InsertKey(ORBKey* key) {
+__device__ void KeyMap::InsertKey(ORBKey* key, long & hashIndex) {
 
 	int first = -1;
 	int buck = 0;
-	ORBKey* oldKey = FindKey(key->pos, first, buck);
+	ORBKey* oldKey = FindKey(key->pos, first, buck, hashIndex);
 	if (oldKey && oldKey->valid) {
 		oldKey->obs = min(oldKey->obs + 2, MaxObs);
 		return;
-	} else if (first != -1) {
+	}
+	else if (first != -1) {
 		int lock = atomicExch(&Mutex[buck], 1);
 		if (lock < 0) {
 			key->obs = 1;
+			hashIndex = first;
 			ORBKey* oldkey = &Keys[first];
 			memcpy((void*) oldkey, (void*) key, sizeof(ORBKey));
 		}

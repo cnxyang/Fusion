@@ -27,8 +27,10 @@ public:
 	bool needNewKF();
 	bool computeSO3();
 	bool computeSE3();
-	bool trackKeys();
 	void fuseMapPoint();
+	void extractFeatures();
+	bool trackReferenceKF();
+	bool trackLastFrame();
 	bool grabFrame(const cv::Mat & rgb, const cv::Mat & depth);
 	bool relocalise();
 
@@ -64,10 +66,10 @@ public:
 	DeviceArray2D<short> nextIdx[NUM_PYRS];
 	DeviceArray2D<short> nextIdy[NUM_PYRS];
 
-	DeviceArray<JtJJtrSE3> sumSE3;
-	DeviceArray<JtJJtrSO3> sumSO3;
-	DeviceArray<JtJJtrSE3> outSE3;
-	DeviceArray<JtJJtrSO3> outSO3;
+	DeviceArray2D<float> sumSE3;
+	DeviceArray<float> outSE3;
+	DeviceArray2D<float> sumSO3;
+	DeviceArray<float> outSO3;
 
 	KeyFrame * referenceKF;
 	KeyFrame * lastKF;
@@ -81,14 +83,13 @@ public:
 	int iteration[NUM_PYRS];
 	float icpResidual[2];
 	float lastIcpError;
-	float rgbResidual[2];
-	float lastRgbError;
 	float so3Residual[2];
 	float lastSo3Error;
 
 	int state;
 	int lastState;
 
+	int N;
 	bool graphMatching;
 	const int maxIter = 50;
 	const int maxIterReloc = 200;
@@ -97,6 +98,7 @@ public:
 	cv::cuda::GpuMat keyDescriptors;
 	std::vector<Eigen::Vector3d> mapPoints;
 	cv::Ptr<cv::cuda::DescriptorMatcher> orbMatcher;
+	cv::Ptr<cv::cuda::ORB> orbExtractor;
 
 	Frame lastFrame;
 	Frame nextFrame;

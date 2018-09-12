@@ -7,3 +7,11 @@ KeyFrame::KeyFrame(const Frame * src) :
 	frameKeys = src->mPoints;
 	frameDescriptors = src->descriptors;
 }
+
+Eigen::Matrix3d KeyFrame::rotation() const {
+	return pose.topLeftCorner(3, 3);
+}
+
+Eigen::Vector3d KeyFrame::translation() const {
+	return pose.topRightCorner(3, 1);
+}

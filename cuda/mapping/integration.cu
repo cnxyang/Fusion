@@ -321,23 +321,23 @@ void resetKeyMap(KeyMap map) {
 	SafeCall(cudaGetLastError());
 }
 
-__global__ void bundleDepthAndColorKernel(PtrStepSz<float> depth,
-		PtrStep<uchar3> color, PtrStep<float4> bundle) {
-
-	int x = blockDim.x * blockIdx.x + threadIdx.x;
-	int y = blockDim.y * blockIdx.y + threadIdx.y;
-	if(x >= depth.cols || y >= depth.rows)
-		return;
-
-	uchar3 rgb = color.ptr(y)[x];
-	bundle.ptr(y)[x] = make_float4(depth.ptr(y)[x], rgb.x, rgb.y, rgb.z);
-}
-
-void bundleDepthAndColor(const DeviceArray2D<float> & depth,
-						 const DeviceArray2D<uchar3> & color,
-						 DeviceArray2D<float4> & bundle) {
-	dim3 thread(16, 8);
-	dim3 block(cv::divUp(depth.cols(), thread.x), cv::divUp(depth.rows(), thread.y));
-
-	bundleDepthAndColorKernel<<<block, thread>>>(depth, color, bundle);
-}
+//__global__ void bundleDepthAndColorKernel(PtrStepSz<float> depth,
+//		PtrStep<uchar3> color, PtrStep<float4> bundle) {
+//
+//	int x = blockDim.x * blockIdx.x + threadIdx.x;
+//	int y = blockDim.y * blockIdx.y + threadIdx.y;
+//	if(x >= depth.cols || y >= depth.rows)
+//		return;
+//
+//	uchar3 rgb = color.ptr(y)[x];
+//	bundle.ptr(y)[x] = make_float4(depth.ptr(y)[x], rgb.x, rgb.y, rgb.z);
+//}
+//
+//void bundleDepthAndColor(const DeviceArray2D<float> & depth,
+//						 const DeviceArray2D<uchar3> & color,
+//						 DeviceArray2D<float4> & bundle) {
+//	dim3 thread(16, 8);
+//	dim3 block(cv::divUp(depth.cols(), thread.x), cv::divUp(depth.rows(), thread.y));
+//
+//	bundleDepthAndColorKernel<<<block, thread>>>(depth, color, bundle);
+//}

@@ -46,6 +46,7 @@ void Mapping::create() {
 	mKeyMutex.create(KeyMap::MaxKeys);
 	mORBKeys.create(KeyMap::maxEntries);
 	tmpKeys.create(KeyMap::maxEntries);
+	keyIndices.create(1500);
 
 	reset();
 }
@@ -83,7 +84,7 @@ void Mapping::fuseKeys(Frame & f, std::vector<bool> & outliers) {
 
 	DeviceArray<ORBKey> dKeys(newKeys.size());
 	dKeys.upload(newKeys.data(), newKeys.size());
-	InsertKeys(*this, dKeys);
+	InsertKeys(*this, dKeys, keyIndices);
 }
 
 std::vector<ORBKey> Mapping::getAllKeys() {
@@ -179,4 +180,28 @@ Mapping::operator DeviceMap() const {
 }
 void Mapping::push_back(KeyFrame * kf) {
 	keyFrames.insert(kf);
+	std::cout << keyFrames.size() << std::endl;
+
+	std::vector<ORBKey> newKeys;
+	cv::Mat descriptors;
+	kf->frameDescriptors.download(descriptors);
+	for(int i = 0; i < kf->N; ++i) {
+		ORBKey key;
+		key.obs = 1;
+		key.valid = true;
+		Eigen::Vector3d worldPos = kf->rotation() * kf->frameKeys[i] + kf->translation();
+		key.pos = make_float3((float)worldPos(0), (float)worldPos(1), (float)worldPos(2));
+		for(int j = 0; j < 32; ++j) {
+			key.descriptor[j] = descriptors.at<char>(i, j);
+		}
+		newKeys.push_back(key);
+	}
+
+	DeviceArray<ORBKey> dKeys(newKeys.size());
+	dKeys.upload(newKeys.data(), newKeys.size());
+	InsertKeys(*this, dKeys, keyIndices);
+	kf->keyIndices.resize(kf->N);
+	keyIndices.download((void*) kf->keyIndices.data(), kf->N);
+	for(int i = 0; i < kf->N; ++i)
+		std::cout << kf->keyIndices[i] << std::endl;
 }

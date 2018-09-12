@@ -14,8 +14,8 @@
 struct ORBKey;
 struct KeyFrame;
 
-class Frame {
-public:
+struct Frame {
+
 	Frame();
 	Frame(Frame& other);
 	Frame(const cv::Mat& imRGB, const cv::Mat& imD);
@@ -44,9 +44,6 @@ public:
 	static int rows(int pyr);
 	static int pixels(int pyr);
 	static void SetK(cv::Mat& K);
-
-public:
-
 	static bool mbFirstCall;
 	static float mDepthScale;
 	static float mDepthCutoff;
@@ -56,18 +53,33 @@ public:
 	std::vector<Eigen::Vector3d> mPoints;
 
 	cv::Mat rawDepth;
-	cv::Mat rawColor;
-	cv::Mat scaledDepth;
-	KeyFrame * referenceKF;
-	unsigned long frameId;
-	static unsigned long nextId;
 
 	int N;
-	std::vector<bool> outliers;
 	std::vector<cv::KeyPoint> keys;
 	cv::cuda::GpuMat descriptors;
 
 	Eigen::Matrix4d pose;
+
+public:
+
+	void setPose(Frame * other);
+	void setPose(Eigen::Matrix4d & pose);
+	Matrix3f absRotationCuda() const;
+	Matrix3f absRotationInvCuda() const;
+	float3 absTranslationCuda() const;
+	Eigen::Matrix3d absRotation() const;
+	Eigen::Vector3d absTranslation() const;
+
+	KeyFrame * referenceKF;
+	Eigen::Matrix4d deltaPose;
+
+	unsigned long frameId;
+	static unsigned long nextId;
+
+	cv::Mat rawColor;
+	cv::Mat scaledDepth;
+
+	std::vector<ORBKey> keyPoints;
 };
 
 #endif

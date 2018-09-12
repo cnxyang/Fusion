@@ -57,15 +57,8 @@ void integrateColor(const DeviceArray2D<float> & depth,
 					float depthMin,
 					uint * host_data);
 
-void bundleDepthAndColor(const DeviceArray2D<float> & depth,
-						 const DeviceArray2D<uchar3> & color,
-						 DeviceArray2D<float4> & bundle) ;
-
 void ResetKeys(KeyMap map);
-
 void CollectKeys(KeyMap, DeviceArray<ORBKey>&, uint& n);
-
-void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys);
-
+void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys, DeviceArray<long int> & indices);
 void ProjectVisibleKeys(KeyMap map, Matrix3f RviewInv, float3 tview,
 		int cols, int rows, float fx, float fy, float cx, float cy);
