@@ -39,7 +39,7 @@ struct KeyFrame {
 	cv::Mat rawColor;
 	cv::Mat scaledDepth;
 
-	std::vector<long int> keyIndices;
+	std::vector<int> keyIndices;
 	std::vector<Eigen::Vector3d> frameKeys;
 	cv::cuda::GpuMat frameDescriptors;
 };

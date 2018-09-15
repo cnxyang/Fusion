@@ -98,25 +98,43 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 
 	if (state) {
 		uint no;
-		Timer::Start("fuse", "fuse");
-		mpMap->fuseColor(
-				mpTracker->lastDepth[0],
-				mpTracker->color,
-				mpTracker->lastFrame.Rot_gpu(),
-				mpTracker->lastFrame.RotInv_gpu(),
-				mpTracker->lastFrame.Trans_gpu(),
-				no);
-		SafeCall(cudaDeviceSynchronize());
-		Timer::Stop("fuse", "fuse");
+		if(!mpTracker->localisationOnly && mpTracker->state != -1) {
+			Timer::Start("fuse", "fuse");
+			mpMap->fuseColor(
+					mpTracker->lastDepth[0],
+					mpTracker->color,
+					mpTracker->lastFrame.Rot_gpu(),
+					mpTracker->lastFrame.RotInv_gpu(),
+					mpTracker->lastFrame.Trans_gpu(),
+					no);
+			SafeCall(cudaDeviceSynchronize());
+			Timer::Stop("fuse", "fuse");
+		}
 
-		Timer::Start("raytracing", "raytracing");
-		mpMap->rayTrace(no,
-				mpTracker->lastFrame.Rot_gpu(),
-				mpTracker->lastFrame.RotInv_gpu(),
-				mpTracker->lastFrame.Trans_gpu(),
-				mpTracker->lastVMap[0],
-				mpTracker->lastNMap[0]);
-		Timer::Stop("raytracing", "raytracing");
+		if(!mpTracker->localisationOnly) {
+			Timer::Start("raytracing", "raytracing");
+			mpMap->rayTrace(no,
+					mpTracker->lastFrame.Rot_gpu(),
+					mpTracker->lastFrame.RotInv_gpu(),
+					mpTracker->lastFrame.Trans_gpu(),
+					mpTracker->lastVMap[0],
+					mpTracker->lastNMap[0]);
+			Timer::Stop("raytracing", "raytracing");
+		}
+		else {
+			Timer::Start("raytracing", "raytracing");
+			mpMap->updateVisibility(mpTracker->lastFrame.Rot_gpu(),
+									mpTracker->lastFrame.RotInv_gpu(),
+									mpTracker->lastFrame.Trans_gpu(),
+									no);
+			mpMap->rayTrace(no,
+					mpTracker->lastFrame.Rot_gpu(),
+					mpTracker->lastFrame.RotInv_gpu(),
+					mpTracker->lastFrame.Trans_gpu(),
+					mpTracker->lastVMap[0],
+					mpTracker->lastNMap[0]);
+			Timer::Stop("raytracing", "raytracing");
+		}
 
 //		cv::Mat img(480, 640, CV_8UC4);
 //		mpTracker->renderedImage.download(img.data, img.step);
@@ -126,8 +144,10 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 //			return false;
 
 		if(nFrames % 25 == 0) {
-			mpMap->createModel();
-			mpMap->updateMapKeys();
+			if(!mpTracker->localisationOnly) {
+				mpMap->createModel();
+				mpMap->updateMapKeys();
+			}
 		}
 
 		nFrames++;

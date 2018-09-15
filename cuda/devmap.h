@@ -88,8 +88,8 @@ struct DeviceMap {
 	static constexpr uint NumVoxels = NumSdfBlocks * BlockSize3;
 	static constexpr uint MaxTriangles = 20000000; // roughly 700MB memory
 	static constexpr uint MaxVertices = MaxTriangles * 3;
-	static constexpr float VoxelSize = 0.005f;
-	static constexpr float TruncateDist = VoxelSize * 6;
+	static constexpr float VoxelSize = 0.008f;
+	static constexpr float TruncateDist = VoxelSize * 8;
 	static constexpr int MaxRenderingBlocks = 260000;
 	static constexpr float voxelSizeInv = 1.0 / VoxelSize;
 	static constexpr float blockWidth = VoxelSize * BlockSize;
@@ -126,8 +126,8 @@ struct KeyMap {
 public:
 	__device__ int Hash(const int3& pos);
 	__device__ ORBKey* FindKey(const float3 & pos);
-	__device__ ORBKey* FindKey(const float3 & pos, int & first, int & buck, long & hashIndex);
-	__device__ void InsertKey(ORBKey* key, long & hashIndex);
+	__device__ ORBKey* FindKey(const float3 & pos, int & first, int & buck, int & hashIndex);
+	__device__ void InsertKey(ORBKey* key, int & hashIndex);
 	__device__ void ResetKeys(int index);
 
 public:

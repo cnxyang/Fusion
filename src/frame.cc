@@ -28,6 +28,8 @@ Frame::Frame(Frame& other):N(other.N) {
 	Eigen::Matrix4d tmp = other.pose;
 	other.pose = pose;
 	pose = tmp;
+
+	index = other.index;
 //	pose = other.pose;
 }
 

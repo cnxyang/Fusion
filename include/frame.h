@@ -79,6 +79,7 @@ public:
 	cv::Mat rawColor;
 	cv::Mat scaledDepth;
 
+	std::vector<int> index;
 	std::vector<ORBKey> keyPoints;
 };
 

@@ -46,6 +46,7 @@ void Mapping::create() {
 	mKeyMutex.create(KeyMap::MaxKeys);
 	mORBKeys.create(KeyMap::maxEntries);
 	tmpKeys.create(KeyMap::maxEntries);
+	mapIndices.create(KeyMap::maxEntries);
 	keyIndices.create(1500);
 
 	reset();
@@ -92,15 +93,27 @@ std::vector<ORBKey> Mapping::getAllKeys() {
 }
 
 void Mapping::updateMapKeys() {
-	CollectKeys(*this, tmpKeys, noKeysInMap);
+	CollectKeys(*this, tmpKeys, mapIndices, noKeysInMap);
 	if(noKeysInMap == 0)
 		return;
 	hostKeys.resize(noKeysInMap);
+	hostIndex.resize(noKeysInMap);
 	tmpKeys.download(hostKeys.data(), noKeysInMap);
+	mapIndices.download(hostIndex.data(), noKeysInMap);
 }
 
 void Mapping::updateKeyIndices() {
 
+}
+
+void Mapping::updateVisibility(Matrix3f Rview,
+	    					   Matrix3f RviewInv,
+	    					   float3 tview,
+	    					   uint & no) {
+
+	checkBlockInFrustum(*this, noVisibleEntries, Rview, RviewInv, tview, 640,
+			480, Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0),
+			DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
 }
 
 void Mapping::fuseColor(const DeviceArray2D<float> & depth,
@@ -199,9 +212,13 @@ void Mapping::push_back(KeyFrame * kf) {
 
 	DeviceArray<ORBKey> dKeys(newKeys.size());
 	dKeys.upload(newKeys.data(), newKeys.size());
+
+	keyIndices.zero();
+	if(kf->frameId > 0 && kf->keyIndices.size() > 0) {
+		keyIndices.upload((void*) kf->keyIndices.data(), kf->keyIndices.size());
+	}
+
 	InsertKeys(*this, dKeys, keyIndices);
 	kf->keyIndices.resize(kf->N);
 	keyIndices.download((void*) kf->keyIndices.data(), kf->N);
-	for(int i = 0; i < kf->N; ++i)
-		std::cout << kf->keyIndices[i] << std::endl;
 }

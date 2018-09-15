@@ -2,8 +2,7 @@
 #include "reduction.h"
 #include "prefixsum.h"
 
-__global__ void CollectORBKeys(KeyMap Km,
-		PtrSz<ORBKey> index, uint* totalKeys) {
+__global__ void CollectORBKeys(KeyMap Km, PtrSz<ORBKey> keys, PtrSz<int> index, uint* totalKeys) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	__shared__ bool scan;
 	if(idx == 0)
@@ -21,12 +20,13 @@ __global__ void CollectORBKeys(KeyMap Km,
 	if(scan) {
 		int offset = ComputeOffset<1024>(val, totalKeys);
 		if(offset >= 0) {
-			memcpy((void*) &index[offset], (void*) &Km.Keys[idx], sizeof(ORBKey));
+			memcpy((void*) &keys[offset], (void*) &Km.Keys[idx], sizeof(ORBKey));
+			index[offset] = idx;
 		}
 	}
 }
 
-void CollectKeys(KeyMap Km, DeviceArray<ORBKey>& keys, uint& n) {
+void CollectKeys(KeyMap Km, DeviceArray<ORBKey>& keys, DeviceArray<int> & index, uint& n) {
 
 	keys.create(Km.Keys.size);
 
@@ -36,7 +36,7 @@ void CollectKeys(KeyMap Km, DeviceArray<ORBKey>& keys, uint& n) {
 	DeviceArray<uint> totalKeys(1);
 	totalKeys.zero();
 
-	CollectORBKeys<<<grid, block>>>(Km, keys, totalKeys);
+	CollectORBKeys<<<grid, block>>>(Km, keys, index, totalKeys);
 
 	totalKeys.download(&n);
 
@@ -44,16 +44,14 @@ void CollectKeys(KeyMap Km, DeviceArray<ORBKey>& keys, uint& n) {
 	SafeCall(cudaGetLastError());
 }
 
-__global__ void InsertKeysKernel(KeyMap map, PtrSz<ORBKey> key, PtrSz<long int> indices) {
+__global__ void InsertKeysKernel(KeyMap map, PtrSz<ORBKey> key, PtrSz<int> indices) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	if (idx < key.size) {
-		long int hashIndex = -1;
-		map.InsertKey(&key[idx], hashIndex);
-		indices[idx] = hashIndex;
+		map.InsertKey(&key[idx], indices[idx]);
 	}
 }
 
-void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys, DeviceArray<long int> & indices) {
+void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys, DeviceArray<int> & indices) {
 	if (keys.size() == 0)
 		return;
 
@@ -91,8 +89,7 @@ __global__ void BuildAdjecencyMatrixKernel(cv::cuda::PtrStepSz<float> AM,
 		float score = 0;
 		if(x == y) {
 			score = expf(-MatchDist[x]);
-		}
-		else {
+		} else {
 			ORBKey* match_0_train = &TrainKeys[x];
 			ORBKey* match_0_query = &QueryKeys[x];
 			ORBKey* match_1_train = &TrainKeys[y];
@@ -102,12 +99,12 @@ __global__ void BuildAdjecencyMatrixKernel(cv::cuda::PtrStepSz<float> AM,
 			if(d_0 > 1e-6 && d_1 > 1e-6) {
 				float alpha_0 = acosf(match_0_train->normal * match_1_train->normal);
 				float alpha_1 = acosf(match_0_query->normal * match_1_query->normal);
-//				float beta_0 = acosf(match_0_train->normal * (match_1_train->pos - match_0_train->pos) / d_0);
-//				float beta_1 = acosf(match_1_train->normal * (match_1_train->pos - match_0_train->pos) / d_0);
-//				float gamma_0 = acosf(match_0_query->normal * (match_1_query->pos - match_0_query->pos) / d_1);
-//				float gamma_1 = acosf(match_1_query->normal * (match_1_query->pos - match_0_query->pos) / d_1);
-//				score = expf(-(fabs(d_0 - d_1) + fabs(alpha_0 - alpha_1) + fabs(beta_0 - beta_1) + fabs(gamma_0 - gamma_1)));
-				score = expf(-(fabs(d_0 - d_1) + fabs(alpha_0 - alpha_1)));
+				float beta_0 = acosf(match_0_train->normal * (match_1_train->pos - match_0_train->pos) / d_0);
+				float beta_1 = acosf(match_1_train->normal * (match_1_train->pos - match_0_train->pos) / d_0);
+				float gamma_0 = acosf(match_0_query->normal * (match_1_query->pos - match_0_query->pos) / d_1);
+				float gamma_1 = acosf(match_1_query->normal * (match_1_query->pos - match_0_query->pos) / d_1);
+				score = expf(-(fabs(d_0 - d_1) + fabs(alpha_0 - alpha_1) + fabs(beta_0 - beta_1) + fabs(gamma_0 - gamma_1)));
+//				score = expf(-(fabs(d_0 - d_1) + fabs(alpha_0 - alpha_1)));
 			}
 		}
 		if(isnan(score))
@@ -138,8 +135,7 @@ void BuildAdjecencyMatrix(cv::cuda::GpuMat& AM,	DeviceArray<ORBKey>& TrainKeys,
 	dim3 block(32, 8);
 	dim3 grid(cv::divUp(AM.cols, block.x), cv::divUp(AM.rows, block.y));
 
-	BuildAdjecencyMatrixKernel<<<grid, block>>>(AM, TrainKeys, QueryKeys,
-			MatchDist);
+	BuildAdjecencyMatrixKernel<<<grid, block>>>(AM, TrainKeys, QueryKeys, MatchDist);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());

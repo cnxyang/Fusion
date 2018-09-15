@@ -191,6 +191,51 @@ __global__ void checkVisibleBlockKernel(Fusion fuse) {
 	fuse.CheckFullVisibility();
 }
 
+void checkBlockInFrustum(DeviceMap map,
+					     DeviceArray<uint> & noVisibleBlocks,
+						 Matrix3f Rview,
+						 Matrix3f RviewInv,
+						 float3 tview,
+						 int cols,
+						 int rows,
+						 float fx,
+						 float fy,
+						 float cx,
+						 float cy,
+						 float depthMax,
+						 float depthMin,
+						 uint * host_data) {
+
+	noVisibleBlocks.zero();
+
+	Fusion fuse;
+	fuse.map = map;
+	fuse.Rview = Rview;
+	fuse.RviewInv = RviewInv;
+	fuse.tview = tview;
+	fuse.fx = fx;
+	fuse.fy = fy;
+	fuse.cx = cx;
+	fuse.cy = cy;
+	fuse.invfx = 1.0 / fx;
+	fuse.invfy = 1.0 / fy;
+	fuse.rows = rows;
+	fuse.cols = cols;
+	fuse.noVisibleBlocks = noVisibleBlocks;
+	fuse.maxDepth = DeviceMap::DepthMax;
+	fuse.minDepth = DeviceMap::DepthMin;
+
+	dim3 thread = dim3(1024);
+	dim3 block = dim3(cv::divUp((int) DeviceMap::NumEntries, thread.x));
+	checkVisibleBlockKernel<<<block, thread>>>(fuse);
+	SafeCall(cudaDeviceSynchronize());
+
+	host_data[0] = 0;
+	noVisibleBlocks.download((void*) host_data);
+	if (host_data[0] == 0)
+		return;
+}
+
 void integrateColor(const DeviceArray2D<float> & depth,
 					const DeviceArray2D<uchar3> & color,
 					DeviceArray<uint> & noVisibleBlocks,
@@ -320,24 +365,3 @@ void resetKeyMap(KeyMap map) {
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 }
-
-//__global__ void bundleDepthAndColorKernel(PtrStepSz<float> depth,
-//		PtrStep<uchar3> color, PtrStep<float4> bundle) {
-//
-//	int x = blockDim.x * blockIdx.x + threadIdx.x;
-//	int y = blockDim.y * blockIdx.y + threadIdx.y;
-//	if(x >= depth.cols || y >= depth.rows)
-//		return;
-//
-//	uchar3 rgb = color.ptr(y)[x];
-//	bundle.ptr(y)[x] = make_float4(depth.ptr(y)[x], rgb.x, rgb.y, rgb.z);
-//}
-//
-//void bundleDepthAndColor(const DeviceArray2D<float> & depth,
-//						 const DeviceArray2D<uchar3> & color,
-//						 DeviceArray2D<float4> & bundle) {
-//	dim3 thread(16, 8);
-//	dim3 block(cv::divUp(depth.cols(), thread.x), cv::divUp(depth.rows(), thread.y));
-//
-//	bundleDepthAndColorKernel<<<block, thread>>>(depth, color, bundle);
-//}

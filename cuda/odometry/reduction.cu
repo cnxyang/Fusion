@@ -286,8 +286,8 @@ struct SO3Reduction {
 					warpedReferencePixel.y
 			);
 			float2 gradLast = getGradient(lastImage, x, y);
-            float gx = (gradNext.x + gradLast.x) / 2.0f;
-            float gy = (gradNext.y + gradLast.y) / 2.0f;
+            float gx = (gradNext.x + gradLast.x) * 0.5f;
+            float gy = (gradNext.y + gradLast.y) * 0.5f;
             float3 point = kinv * unwarpedReferencePoint;
             float z2 = point.z * point.z;
 
@@ -371,6 +371,8 @@ void so3Step(const DeviceArray2D<unsigned char> & nextImage,
 	so3.nextImage = nextImage;
 	so3.lastImage = lastImage;
 	so3.homography = homography;
+	so3.kinv = kinv;
+	so3.krlr = krlr;
 	so3.cols = cols;
 	so3.rows = rows;
 	so3.N = cols * rows;

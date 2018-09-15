@@ -75,8 +75,8 @@ void Viewer::spin() {
 	View & Image1 = CreateDisplay().SetAspect(640.0 / 480);
 	View & Image2 = CreateDisplay().SetAspect(640.0 / 480);
 	Display("SubDisplay0").SetBounds(0.0, 1.0,  Attach::Pix(200), 1.0).AddDisplay(dCam);
-	Display("SubDisplay1").SetBounds(0.0, 0.3333, 0.75, 1.0).
-			SetLayout(LayoutOverlay).AddDisplay(Image0).
+	Display("SubDisplay1").SetBounds(0.0, 1.0, 0.75, 1.0).
+			SetLayout(LayoutEqualVertical).AddDisplay(Image0).
 			AddDisplay(Image1).
 			AddDisplay(Image2);
 
@@ -95,6 +95,8 @@ void Viewer::spin() {
 	Var<bool> btnShowDepthImage("UI.Depth Image", false, true);
 	Var<bool> btnShowRenderedImage("UI.Rendered Image", false, true);
 	Var<bool> btnPauseSystem("UI.Pause System", false, false);
+	Var<bool> btnUseGraphMatching("UI.Graph Matching", false, true);
+	Var<bool> btnLocalisationMode("UI.Localisation Only", false, true);
 
 	imageArray = new unsigned char[3 * 640 * 480];
 
@@ -112,11 +114,31 @@ void Viewer::spin() {
 		glClearColor(0.0f, 0.2f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		if (Pushed(btnReset))
+		if (Pushed(btnReset)) {
+			btnLocalisationMode = false;
 			psystem->requestReboot = true;
+		}
 
 		if (Pushed(btnSaveMesh))
 			psystem->requestSaveMesh = true;
+
+		if (btnUseGraphMatching) {
+			if(!ptracker->graphMatching)
+				ptracker->graphMatching = true;
+		}
+		else {
+			if(ptracker->graphMatching)
+				ptracker->graphMatching = false;
+		}
+
+		if (btnLocalisationMode) {
+			if(!ptracker->localisationOnly)
+				ptracker->localisationOnly = true;
+		}
+		else {
+			if(ptracker->localisationOnly)
+				ptracker->localisationOnly = false;
+		}
 
 		dCam.Activate(sCam);
 

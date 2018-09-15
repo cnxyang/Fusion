@@ -309,7 +309,7 @@ __device__ ORBKey* KeyMap::FindKey(const float3& pos) {
 	return nullptr;
 }
 
-__device__ ORBKey* KeyMap::FindKey(const float3& pos, int & first, int & buck, long & hashIndex) {
+__device__ ORBKey* KeyMap::FindKey(const float3& pos, int & first, int & buck, int & hashIndex) {
 
 	first = -1;
 	int3 p = make_int3(pos / GridSize);
@@ -335,13 +335,20 @@ __device__ ORBKey* KeyMap::FindKey(const float3& pos, int & first, int & buck, l
 	return nullptr;
 }
 
-__device__ void KeyMap::InsertKey(ORBKey* key, long & hashIndex) {
+__device__ void KeyMap::InsertKey(ORBKey* key, int & hashIndex) {
+
+	ORBKey* oldKey = nullptr;
+	if(hashIndex > 0 && hashIndex < Keys.size) {
+		oldKey = &Keys[(int)hashIndex];
+		if(oldKey && oldKey->valid) {
+			return;
+		}
+	}
 
 	int first = -1;
 	int buck = 0;
-	ORBKey* oldKey = FindKey(key->pos, first, buck, hashIndex);
+	oldKey = FindKey(key->pos, first, buck, hashIndex);
 	if (oldKey && oldKey->valid) {
-		oldKey->obs = min(oldKey->obs + 2, MaxObs);
 		return;
 	}
 	else if (first != -1) {

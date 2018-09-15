@@ -65,6 +65,7 @@ public:
 
 	void updateKeyIndices();
 	void updateMapKeys();
+	void updateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview, uint & no);
 	void fuseKeys(Frame & f, std::vector<bool> & outliers);
 	std::vector<uint> getKeyIndices() const;
 	std::vector<ORBKey> getAllKeys();
@@ -120,7 +121,9 @@ public:
 	std::vector<ORBKey> hostKeys;
 	uint noKeysInMap;
 	bool mapKeyUpdated;
-	DeviceArray<long> keyIndices;
+	std::vector<int> hostIndex;
+	DeviceArray<int> mapIndices;
+	DeviceArray<int> keyIndices;
 };
 
 #endif

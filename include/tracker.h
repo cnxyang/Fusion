@@ -25,7 +25,7 @@ public:
 	bool track();
 	bool trackFrame(bool useKF = false);
 	bool needNewKF();
-	bool computeSO3();
+	void computeSO3();
 	bool computeSE3();
 	void fuseMapPoint();
 	void extractFeatures();
@@ -90,10 +90,12 @@ public:
 	int lastState;
 
 	int N;
-	bool graphMatching;
+	std::atomic<bool> localisationOnly;
+	std::atomic<bool> graphMatching;
 	const int maxIter = 50;
 	const int maxIterReloc = 200;
 	int noAttempsBeforeReloc;
+	unsigned long int lastRelocId;
 	std::vector<bool> outliers;
 	cv::cuda::GpuMat keyDescriptors;
 	std::vector<Eigen::Vector3d> mapPoints;
@@ -102,8 +104,8 @@ public:
 
 	Frame lastFrame;
 	Frame nextFrame;
-	Mapping* mpMap;
-	Viewer* mpViewer;
+	Mapping * mpMap;
+	Viewer * mpViewer;
 
 	std::atomic<bool> imageUpdated;
 	std::atomic<bool> needImages;
