@@ -1,0 +1,47 @@
+#ifndef KEY_FRAME_HPP__
+#define KEY_FRAME_HPP__
+
+#include "Frame.h"
+#include "DeviceArray.h"
+
+#include <Eigen/Dense>
+#include <opencv.hpp>
+
+class Frame;
+struct KeyFrame;
+
+struct SubFrame {
+	Eigen::Matrix4f deltaPose;
+	KeyFrame * referenceKF;
+	cv::Mat scaledDepth;
+	cv::Mat rawColor;
+};
+
+struct KeyFrame {
+
+	unsigned long frameId;
+
+	KeyFrame(const Frame * f);
+	void push_back(Frame *& f);
+	void find(Frame * f);
+	void remove(Frame * f);
+	Eigen::Matrix3d rotation() const;
+	Eigen::Vector3d translation() const;
+
+	bool valid;
+	int N;
+	Eigen::Matrix4d pose;
+	std::set<SubFrame *> subFrames;
+
+	DeviceArray2D<float4> vmap;
+	DeviceArray2D<float3> nmap;
+
+	cv::Mat rawColor;
+	cv::Mat scaledDepth;
+
+	std::vector<int> keyIndices;
+	std::vector<Eigen::Vector3d> frameKeys;
+	cv::cuda::GpuMat frameDescriptors;
+};
+
+#endif
