@@ -31,6 +31,7 @@ public:
 	void extractFeatures();
 	bool trackReferenceKF();
 	bool trackLastFrame();
+	void checkKeyPoints();
 	bool grabFrame(const cv::Mat & rgb, const cv::Mat & depth);
 	bool relocalise();
 

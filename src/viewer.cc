@@ -9,9 +9,10 @@
 using namespace std;
 using namespace pangolin;
 
-Viewer::Viewer() :
-		mpMap(nullptr), ptracker(nullptr), psystem(nullptr), vao(0), vertexMaped(
-				nullptr), normalMaped(nullptr), colorMaped(nullptr), quit(false) {
+Viewer::Viewer()
+: mpMap(nullptr), ptracker(nullptr), psystem(nullptr),
+  vao(0), vertexMaped(nullptr), normalMaped(nullptr),
+  colorMaped(nullptr), quit(false) {
 }
 
 void Viewer::signalQuit() {
@@ -26,8 +27,7 @@ void Viewer::spin() {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	phongShader.AddShaderFromFile(GlSlVertexShader, "shader/VertexShader.glsl");
-	phongShader.AddShaderFromFile(GlSlFragmentShader,
-			"shader/FragmentShader.glsl");
+	phongShader.AddShaderFromFile(GlSlFragmentShader, "shader/FragmentShader.glsl");
 	phongShader.Link();
 
 	normalShader.AddShaderFromFile(GlSlVertexShader,
@@ -67,14 +67,19 @@ void Viewer::spin() {
 	depthImage.Reinitialise(640, 480, GL_RGBA, true, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	depthImageMaped = new CudaScopedMappedArray(depthImage);
 
-	renderedImage.Reinitialise(640, 480, GL_RGBA, false, 0,  GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	renderedImage.Reinitialise(640, 480, GL_RGBA, true, 0,  GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	renderedImageMaped = new CudaScopedMappedArray(renderedImage);
 
+	topDownImage.Reinitialise(640, 480, GL_RGBA, true, 0,  GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	topDownImageMaped = new CudaScopedMappedArray(topDownImage);
+
 	View & dCam = CreateDisplay().SetAspect(-640.0 / 480).SetHandler(new Handler3D(sCam));
-	View & Image0 = CreateDisplay().SetAspect(640.0 / 480);
-	View & Image1 = CreateDisplay().SetAspect(640.0 / 480);
-	View & Image2 = CreateDisplay().SetAspect(640.0 / 480);
-	Display("SubDisplay0").SetBounds(0.0, 1.0,  Attach::Pix(200), 1.0).AddDisplay(dCam);
+	View & Image0 = CreateDisplay().SetAspect(-640.0 / 480);
+	View & Image1 = CreateDisplay().SetAspect(-640.0 / 480);
+	View & Image2 = CreateDisplay().SetAspect(-640.0 / 480);
+	View & Image3 = CreateDisplay().SetAspect(-640.0 / 480);
+	Display("SubDisplay0").SetBounds(0.0, 1.0,  Attach::Pix(200), 1.0).
+			SetLayout(LayoutOverlay).AddDisplay(dCam).AddDisplay(Image3);
 	Display("SubDisplay1").SetBounds(0.0, 1.0, 0.75, 1.0).
 			SetLayout(LayoutEqualVertical).AddDisplay(Image0).
 			AddDisplay(Image1).
@@ -97,8 +102,7 @@ void Viewer::spin() {
 	Var<bool> btnPauseSystem("UI.Pause System", false, false);
 	Var<bool> btnUseGraphMatching("UI.Graph Matching", false, true);
 	Var<bool> btnLocalisationMode("UI.Localisation Only", false, true);
-
-	imageArray = new unsigned char[3 * 640 * 480];
+	Var<bool> btnShowTopDownView("UI.Top Down View", false, true);
 
 	while (1) {
 
@@ -141,6 +145,11 @@ void Viewer::spin() {
 		}
 
 		dCam.Activate(sCam);
+
+		if (btnShowMesh || btnShowNormal || btnShowColor)
+			psystem->requestMesh = true;
+		else
+			psystem->requestMesh = false;
 
 		if (btnShowKeyFrame)
 			drawKeyFrame();
@@ -200,11 +209,27 @@ void Viewer::spin() {
 		if (btnShowColorImage)
 			showColorImage();
 
+		Image3.Activate();
+		if (btnShowTopDownView)
+			topDownView();
+
 		if (ptracker->imageUpdated)
 			ptracker->imageUpdated = false;
 
 		FinishFrame();
 	}
+}
+
+void Viewer::topDownView() {
+	if(psystem->imageUpdated) {
+		SafeCall(cudaMemcpy2DToArray(**topDownImageMaped, 0, 0,
+				(void*) psystem->renderedImage.data(),
+				psystem->renderedImage.step(), sizeof(uchar4) * 640, 480,
+				cudaMemcpyDeviceToDevice));
+		psystem->imageUpdated = false;
+	}
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+	topDownImage.RenderToViewport(true);
 }
 
 void Viewer::showPrediction() {
@@ -345,7 +370,21 @@ void Viewer::Insert(std::vector<GLfloat>& vPt, Eigen::Vector3f& pt) {
 }
 
 void Viewer::drawKeyFrame() {
+	vector<GLfloat> points;
+	std::set<KeyFrame *>::iterator iter = mpMap->keyFrames.begin();
+	std::set<KeyFrame *>::iterator lend = mpMap->keyFrames.end();
 
+	for(; iter != lend; ++iter) {
+		Eigen::Vector3d trans = (*iter)->translation();
+		points.push_back(trans(0));
+		points.push_back(trans(1));
+		points.push_back(trans(2));
+	}
+
+	glColor3f(1.0, 0.0, 0.0);
+	glPointSize(3.0);
+	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_POINTS, 3);
+	glPointSize(1.0);
 }
 
 void Viewer::drawCamera() {

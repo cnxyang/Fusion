@@ -109,11 +109,16 @@ void Mapping::updateKeyIndices() {
 void Mapping::updateVisibility(Matrix3f Rview,
 	    					   Matrix3f RviewInv,
 	    					   float3 tview,
+	    					   float depthMin,
+	    					   float depthMax,
+	    					   float fx,
+	    					   float fy,
+	    					   float cx,
+	    					   float cy,
 	    					   uint & no) {
 
 	checkBlockInFrustum(*this, noVisibleEntries, Rview, RviewInv, tview, 640,
-			480, Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0),
-			DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
+			480, fx, fy, cx, cy, depthMax, depthMin, &no);
 }
 
 void Mapping::fuseColor(const DeviceArray2D<float> & depth,
@@ -130,16 +135,15 @@ void Mapping::fuseColor(const DeviceArray2D<float> & depth,
 }
 
 void Mapping::rayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
-		float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float4> & nmap) {
+		float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float4> & nmap,
+		float depthMin, float depthMax, float fx, float fy, float cx, float cy) {
 
-	if (createRenderingBlock(visibleEntries, zRangeMin, zRangeMax, 3.0, 0.1,
+	if (createRenderingBlock(visibleEntries, zRangeMin, zRangeMax, depthMax, depthMin,
 			renderingBlockList, noRenderingBlocks, RviewInv, tview,
-			noVisibleBlocks, Frame::fx(0), Frame::fy(0), Frame::cx(0),
-			Frame::cy(0))) {
+			noVisibleBlocks, fx, fy, cx, cy)) {
 
 		rayCast(*this, vmap, nmap, zRangeMin, zRangeMax, Rview, RviewInv, tview,
-				1.0 / Frame::fx(0), 1.0 / Frame::fy(0), Frame::cx(0),
-				Frame::cy(0));
+				1.0 / fx, 1.0 / fy, cx, cy);
 	}
 }
 
@@ -192,8 +196,8 @@ Mapping::operator DeviceMap() const {
 	return map;
 }
 void Mapping::push_back(KeyFrame * kf) {
+
 	keyFrames.insert(kf);
-	std::cout << keyFrames.size() << std::endl;
 
 	std::vector<ORBKey> newKeys;
 	cv::Mat descriptors;

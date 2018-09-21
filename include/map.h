@@ -37,8 +37,8 @@ public:
 	std::vector<Eigen::Vector3d> GetCamTrace() { return mCamTrace; }
 
 	void rayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
-			float3 tview, DeviceArray2D<float4> & vmap,
-			DeviceArray2D<float4> & nmap);
+			float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float4> & nmap,
+			float depthMin, float depthMax, float fx, float fy, float cx, float cy);
 
 
 
@@ -65,7 +65,9 @@ public:
 
 	void updateKeyIndices();
 	void updateMapKeys();
-	void updateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview, uint & no);
+	void updateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
+			float depthMin, float depthMax, float fx, float fy, float cx,
+			float cy, uint & no);
 	void fuseKeys(Frame & f, std::vector<bool> & outliers);
 	std::vector<uint> getKeyIndices() const;
 	std::vector<ORBKey> getAllKeys();

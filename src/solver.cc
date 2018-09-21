@@ -148,12 +148,12 @@ bool Solver::SolveAbsoluteOrientation(vector<Vector3d>& src,
 	Td.topLeftCorner(3, 3) = R_best;
 	Td.topRightCorner(3, 1) = t_best;
 
-	if (confidence < 0.95) {
-		std::cout << "low confident" << std::endl;
-		Eigen::Vector3d angles = R_best.eulerAngles(0, 1, 2).array().sin();
-		if(angles.norm() >= 0.2 || t_best.norm() >= 0.1)
-			return false;
-	}
+//	if (confidence < 0.95) {
+//		std::cout << "low confident" << std::endl;
+//		Eigen::Vector3d angles = R_best.eulerAngles(0, 1, 2).array().sin();
+//		if(angles.norm() >= 0.2 || t_best.norm() >= 0.1)
+//			return false;
+//	}
 
 	return true;
 }

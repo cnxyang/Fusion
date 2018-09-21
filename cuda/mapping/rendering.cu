@@ -56,7 +56,7 @@ struct Projection {
 
 		block.upperLeft = make_int2(zRangeX.cols, zRangeX.rows);
 		block.lowerRight = make_int2(-1, -1);
-		block.zRange = make_float2(DeviceMap::DepthMax, DeviceMap::DepthMin);
+		block.zRange = make_float2(depthMax, depthMin);
 		for (int corner = 0; corner < 8; ++corner) {
 			int3 tmp = pos;
 			tmp.x += (corner & 1) ? 1 : 0;
@@ -95,9 +95,9 @@ struct Projection {
 			return false;
 		if (block.upperLeft.y > block.lowerRight.y)
 			return false;
-		if (block.zRange.x < DeviceMap::DepthMin)
-			block.zRange.x = DeviceMap::DepthMin;
-		if (block.zRange.y < DeviceMap::DepthMin)
+		if (block.zRange.x < depthMin)
+			block.zRange.x = depthMin;
+		if (block.zRange.y < depthMin)
 			return false;
 
 		return true;
@@ -196,7 +196,7 @@ __global__ void fillDepthRangeKernel(PtrStepSz<float> zX) {
 	if(x >= zX.cols || y >= zX.rows)
 		return;
 
-	zX.ptr(y)[x] = 5;
+	zX.ptr(y)[x] = 100;
 }
 
 bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
@@ -227,8 +227,8 @@ bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
 	proj.cx = cx;
 	proj.cy = cy;
 	proj.visibleBlocks = visibleBlocks;
-	proj.cols = 640;
-	proj.rows = 480;
+	proj.cols = cols;
+	proj.rows = rows;
 	proj.RcurrInv = RviewInv;
 	proj.tcurr = tview;
 	proj.zRangeX = zRangeX;

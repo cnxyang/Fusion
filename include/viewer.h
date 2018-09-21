@@ -38,6 +38,7 @@ private:
 	void showColorImage();
 	void showPrediction();
 	void showDepthImage();
+	void topDownView();
 
 	Mapping* mpMap;
 
@@ -61,9 +62,11 @@ private:
 	pangolin::GlTextureCudaArray colorImage;
 	pangolin::GlTextureCudaArray depthImage;
 	pangolin::GlTextureCudaArray renderedImage;
+	pangolin::GlTextureCudaArray topDownImage;
 	pangolin::CudaScopedMappedArray * colorImageMaped;
 	pangolin::CudaScopedMappedArray * depthImageMaped;
 	pangolin::CudaScopedMappedArray * renderedImageMaped;
+	pangolin::CudaScopedMappedArray * topDownImageMaped;
 };
 
 #endif

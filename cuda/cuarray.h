@@ -46,7 +46,7 @@ public:
 	void download(void* host_ptr, size_t size);
 	void zero();
 	T* last();
-	void release();
+	void Release();
 	void copyTo(DeviceArray<T>& other) const;
 	bool empty() const;
 	size_t size() const;
@@ -59,9 +59,9 @@ public:
 
 private:
 
-	void* mpData;
+	void* data;
 	size_t mSize;
-	std::atomic<int>* mpRef;
+	std::atomic<int>* ref;
 };
 
 template<class T> struct PtrStep {
@@ -143,11 +143,11 @@ template<class T> __device__ inline PtrSz<T>::operator const T*() const {
 // DeviceArray
 //------------------------------------------------------------------
 template<class T> inline DeviceArray<T>::DeviceArray() :
-		mpData(nullptr), mpRef(nullptr), mSize(0) {
+		data(nullptr), ref(nullptr), mSize(0) {
 }
 
 template<class T> inline DeviceArray<T>::DeviceArray(size_t size, bool managed) :
-		mpData(nullptr), mpRef(nullptr), mSize(size) {
+		data(nullptr), ref(nullptr), mSize(size) {
 	if(managed)
 		create(size, true);
 	else
@@ -155,65 +155,65 @@ template<class T> inline DeviceArray<T>::DeviceArray(size_t size, bool managed) 
 }
 
 template<class T> inline DeviceArray<T>::~DeviceArray() {
-	release();
+	Release();
 }
 
 template<class T> inline void DeviceArray<T>::create(size_t size, bool managed) {
 	if (!empty())
-		release();
+		Release();
 	mSize = size;
 	if(managed)
-		SafeCall(cudaMallocManaged((void**) &mpData, sizeof(T) * mSize));
+		SafeCall(cudaMallocManaged((void**) &data, sizeof(T) * mSize));
 	else
-		SafeCall(cudaMalloc(&mpData, sizeof(T) * mSize));
-	mpRef = new std::atomic<int>(1);
+		SafeCall(cudaMalloc(&data, sizeof(T) * mSize));
+	ref = new std::atomic<int>(1);
 }
 
 template<class T> inline void DeviceArray<T>::upload(void* host_ptr, size_t size) {
 	if (size > mSize)
 		return;
-	SafeCall(cudaMemcpy(mpData, host_ptr, sizeof(T) * size, cudaMemcpyHostToDevice));
+	SafeCall(cudaMemcpy(data, host_ptr, sizeof(T) * size, cudaMemcpyHostToDevice));
 }
 
 template<class T> inline void DeviceArray<T>::download(void* host_ptr) {
-	SafeCall(cudaMemcpy(host_ptr, mpData, sizeof(T) * mSize,	cudaMemcpyDeviceToHost));
+	SafeCall(cudaMemcpy(host_ptr, data, sizeof(T) * mSize,	cudaMemcpyDeviceToHost));
 }
 
 template<class T> inline void DeviceArray<T>::download(void* host_ptr, size_t size) {
-	SafeCall(cudaMemcpy(host_ptr, mpData, sizeof(T) * size,	cudaMemcpyDeviceToHost));
+	SafeCall(cudaMemcpy(host_ptr, data, sizeof(T) * size,	cudaMemcpyDeviceToHost));
 }
 
 template<class T> inline void DeviceArray<T>::zero() {
-	SafeCall(cudaMemset(mpData, 0, sizeof(T) * mSize));
+	SafeCall(cudaMemset(data, 0, sizeof(T) * mSize));
 }
 
 template<class T> inline T* DeviceArray<T>::last() {
-	return &((T*)mpData)[mSize - 1];
+	return &((T*)data)[mSize - 1];
 }
 
 
-template<class T> inline void DeviceArray<T>::release() {
-	if (mpRef && --*mpRef == 0) {
-		delete mpRef;
+template<class T> inline void DeviceArray<T>::Release() {
+	if (ref && --*ref == 0) {
+		delete ref;
 		if (!empty()) {
-			SafeCall(cudaFree(mpData));
+			SafeCall(cudaFree(data));
 		}
 	}
 	mSize = 0;
-	mpData = mpRef = 0;
+	data = ref = 0;
 }
 
 template<class T> inline void DeviceArray<T>::copyTo(DeviceArray<T>& other) const {
 	if (empty()) {
-		other.release();
+		other.Release();
 		return;
 	}
 	other.create(mSize);
-	SafeCall(cudaMemcpy(other.mpData, mpData, sizeof(T) * mSize, cudaMemcpyDeviceToDevice));
+	SafeCall(cudaMemcpy(other.data, data, sizeof(T) * mSize, cudaMemcpyDeviceToDevice));
 }
 
 template<class T> inline bool DeviceArray<T>::empty() const {
-	return !mpData;
+	return !data;
 }
 
 template<class T> inline size_t DeviceArray<T>::size() const {
@@ -221,38 +221,38 @@ template<class T> inline size_t DeviceArray<T>::size() const {
 }
 
 template<class T> inline T DeviceArray<T>::operator[](int idx) const {
-	return ((T*)mpData)[idx];
+	return ((T*)data)[idx];
 }
 
 template<class T> inline DeviceArray<T>& DeviceArray<T>::operator=(const DeviceArray<T>& other) {
 	if(this != &other) {
-		if(other.mpRef)
-			++*other.mpRef;
-		release();
-		mpRef = other.mpRef;
+		if(other.ref)
+			++*other.ref;
+		Release();
+		ref = other.ref;
 		mSize = other.mSize;
-		mpData = other.mpData;
+		data = other.data;
 	} return *this;
 }
 
 template<class T> inline DeviceArray<T>::operator T*() {
-	return (T*)mpData;
+	return (T*)data;
 }
 
 template<class T> inline DeviceArray<T>::operator const T*() const {
-	return (T*)mpData;
+	return (T*)data;
 }
 
 template<class T> inline DeviceArray<T>::operator PtrSz<T>() {
 	PtrSz<T> ps;
-	ps.data = (T*) mpData;
+	ps.data = (T*) data;
 	ps.size = mSize;
 	return ps;
 }
 
 template<class T> inline DeviceArray<T>::operator PtrSz<T>() const {
 	PtrSz<T> ps;
-	ps.data = (T*) mpData;
+	ps.data = (T*) data;
 	ps.size = mSize;
 	return ps;
 }

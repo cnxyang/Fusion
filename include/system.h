@@ -49,9 +49,14 @@ public:
 	cudaStream_t stream;
 	std::mutex mutexReq;
 	std::atomic<bool> paused;
+	std::atomic<bool> requestMesh;
 	std::atomic<bool> requestSaveMesh;
 	std::atomic<bool> requestReboot;
 	std::atomic<bool> requestStop;
+	std::atomic<bool> imageUpdated;
+	DeviceArray2D<float4> vmap;
+	DeviceArray2D<float4> nmap;
+	DeviceArray2D<uchar4> renderedImage;
 };
 
 #endif

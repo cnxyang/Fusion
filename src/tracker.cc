@@ -145,7 +145,7 @@ bool Tracker::trackFrame(bool useKF) {
 	if(!valid) {
 		return false;
 	}
-
+	nextFrame.SetPose(lastFrame);
 	initIcp();
 	valid = computeSE3();
 	Timer::Stop("track", "trackframe");
@@ -313,13 +313,13 @@ bool Tracker::needNewKF() {
 	if(localisationOnly)
 		return false;
 
-	if(nextFrame.frameId > 5 && nextFrame.frameId - lastRelocId < 5)
-		return false;
+//	if(nextFrame.frameId > 5 && nextFrame.frameId - lastRelocId < 5)
+//		return false;
+//
+//	if(N < 100)
+//		return true;
 
-	if(N < 100)
-		return true;
-
-	if(rotationChanged() >= 0.1 || translationChanged() >= 0.1)
+	if(rotationChanged() >= 0.2 || translationChanged() >= 0.2)
 		return true;
 
 	return false;

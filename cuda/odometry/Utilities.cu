@@ -173,9 +173,9 @@ void RenderImage(const DeviceArray2D<float4> & points,
 				 const float3 light_pose,
 				 DeviceArray2D<uchar4> & image) {
 
-	dim3 block(32, 8);
+	dim3 block(8, 4);
 	dim3 grid(cv::divUp(points.cols(), block.x),
-			cv::divUp(points.rows(), block.y));
+			  cv::divUp(points.rows(), block.y));
 
 	RenderImageDevice<<<grid, block>>>(points, normals, light_pose, image);
 

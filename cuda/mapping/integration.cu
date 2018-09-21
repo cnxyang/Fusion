@@ -222,8 +222,8 @@ void checkBlockInFrustum(DeviceMap map,
 	fuse.rows = rows;
 	fuse.cols = cols;
 	fuse.noVisibleBlocks = noVisibleBlocks;
-	fuse.maxDepth = DeviceMap::DepthMax;
-	fuse.minDepth = DeviceMap::DepthMin;
+	fuse.maxDepth = depthMax;
+	fuse.minDepth = depthMin;
 
 	dim3 thread = dim3(1024);
 	dim3 block = dim3(cv::divUp((int) DeviceMap::NumEntries, thread.x));

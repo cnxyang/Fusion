@@ -3,7 +3,7 @@
 #include "cufunc.h"
 #include "keyFrame.h"
 #include <Eigen/Dense>
-
+#include <opencv2/core/cuda.hpp>
 using namespace cv;
 using namespace std;
 
@@ -115,7 +115,7 @@ Frame::Frame(const DeviceArray2D<uchar> & img, const cv::Mat & imD, KeyFrame * k
 		float dp = (float) imD.at<unsigned short>((int) (y + 0.5),
 				(int) (x + 0.5)) / mDepthScale;
 		Eigen::Vector3d pos = Eigen::Vector3d::Zero();
-		if (dp > 1e-1 && dp < mDepthCutoff) {
+		if (dp > 1e-1 && !std::isnan(dp)) {
 			pos(2) = dp;
 			pos(0) = dp * (x - cx0) * invfx;
 			pos(1) = dp * (y - cy0) * invfy;
