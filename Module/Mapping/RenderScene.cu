@@ -1,4 +1,4 @@
-#include "Render.h"
+#include "RenderScene.h"
 #include "ParallelScan.h"
 
 #define minMaxSubSample 8

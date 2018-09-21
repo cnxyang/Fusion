@@ -19,9 +19,9 @@ public:
 	Viewer();
 	void spin();
 
-	void setMap(Mapping* pMap);
-	void setSystem(System* pSystem);
-	void setTracker(Tracker* pTracker);
+	void setMap(Mapping * pMap);
+	void setSystem(System * pSystem);
+	void setTracker(Tracker * pTracker);
 	void signalQuit();
 
 private:
@@ -39,14 +39,14 @@ private:
 	void showDepthImage();
 	void topDownView();
 
-	Mapping* mpMap;
+	System * psystem;
+	Mapping * mpMap;
+	Tracker * ptracker;
+
+	std::atomic<bool> quit;
 
 	GLuint vao;
 	GLuint vao_color;
-	System* psystem;
-	Tracker* ptracker;
-	std::atomic<bool> quit;
-	unsigned char * imageArray;
 	pangolin::OpenGlRenderState sCam;
 	pangolin::GlSlProgram phongShader;
 	pangolin::GlSlProgram normalShader;

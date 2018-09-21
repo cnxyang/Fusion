@@ -1,6 +1,6 @@
 #include "Timer.h"
-#include "Solver.h"
 #include "Tracking.h"
+#include "PoseSolver.h"
 #include "sophus/se3.hpp"
 
 using namespace cv;

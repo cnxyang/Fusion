@@ -1,9 +1,8 @@
 #ifndef GPU_REDUCTION_H__
 #define GPU_REDUCTION_H__
 
-#include "Render.h"
 #include "VectorMath.h"
-#include "DeviceArray.h"
+#include "RenderScene.h"
 
 #include <opencv.hpp>
 

@@ -1,5 +1,5 @@
-#include "Render.h"
 #include "Reduction.h"
+#include "RenderScene.h"
 #include "ParallelScan.h"
 
 __global__ void CollectORBKeys(KeyMap Km, PtrSz<ORBKey> keys, PtrSz<int> index, uint* totalKeys) {

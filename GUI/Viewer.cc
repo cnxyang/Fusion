@@ -27,15 +27,15 @@ void Viewer::spin() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	phongShader.AddShaderFromFile(GlSlVertexShader, "GUI/Shaders/VertexShader.glsl");
+	phongShader.AddShaderFromFile(GlSlVertexShader, "GUI/Shaders/VertexShader.phong.glsl");
 	phongShader.AddShaderFromFile(GlSlFragmentShader, "GUI/Shaders/FragmentShader.glsl");
 	phongShader.Link();
 
-	normalShader.AddShaderFromFile(GlSlVertexShader, "GUI/Shaders/NormalShader_vertex.glsl");
+	phongShader.AddShaderFromFile(GlSlVertexShader, "GUI/Shaders/VertexShader.normal.glsl");
 	normalShader.AddShaderFromFile(GlSlFragmentShader, "GUI/Shaders/FragmentShader.glsl");
 	normalShader.Link();
 
-	colorShader.AddShaderFromFile(GlSlVertexShader, "GUI/Shaders/ColorShader_vertex.glsl");
+	phongShader.AddShaderFromFile(GlSlVertexShader, "GUI/Shaders/VertexShader.color.glsl");
 	colorShader.AddShaderFromFile(GlSlFragmentShader, "GUI/Shaders/FragmentShader.glsl");
 	colorShader.Link();
 

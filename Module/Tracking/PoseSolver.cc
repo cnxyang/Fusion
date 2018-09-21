@@ -3,8 +3,8 @@
 #include <cmath>
 
 #include "Timer.h"
-#include "Solver.h"
 #include "DeviceMap.h"
+#include "PoseSolver.h"
 #include "sophus/se3.hpp"
 
 using namespace std;

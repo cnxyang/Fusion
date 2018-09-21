@@ -1,5 +1,5 @@
 #include "Timer.h"
-#include "Render.h"
+#include "RenderScene.h"
 #include "ParallelScan.h"
 
 struct Fusion {
