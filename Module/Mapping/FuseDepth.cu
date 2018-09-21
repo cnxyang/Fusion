@@ -164,15 +164,21 @@ struct Fusion {
 
 			float thresh = DeviceMap::TruncateDist;
 			float sdf = dp - pos.z;
+
 			if (sdf >= -thresh) {
+
 				sdf = fmin(1.0f, sdf / thresh);
-				float3 color = make_float3(rgb.ptr(uv.y)[uv.x]);
+				uchar3 color = rgb.ptr(uv.y)[uv.x];
 				Voxel & prev = map.voxelBlocks[entry.ptr + locId];
-				prev.SetSdf((prev.GetSdf() * prev.sdfW + sdf) / (prev.sdfW + 1));
-				prev.sdfW += 1;
-				float3 color_prev = make_float3(prev.rgb);
-				float3 res =  0.2f * color + 0.8f * color_prev;
-				prev.rgb = make_uchar3(res);
+				if(prev.weight == 0) {
+					prev = Voxel(sdf, 1, color);
+				}
+				else {
+					float3 res = 0.2f * make_float3(color) + 0.8f * make_float3(prev.color);
+					prev.sdf = (prev.sdf * prev.weight + sdf) / (prev.weight + 1);
+					prev.weight = min(255, prev.weight + 1);
+					prev.color = make_uchar3(res);
+				}
 			}
 		}
 	}

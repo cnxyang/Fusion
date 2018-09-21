@@ -273,10 +273,15 @@ template<class T> void DeviceArray2D<T>::upload(const void * data_, size_t step_
 }
 
 template<class T> void DeviceArray2D<T>::swap(DeviceArray2D<T> & other) {
+
 	std::swap(ref, other.ref);
+
 	std::swap(data, other.data);
+
 	std::swap(cols, other.cols);
+
 	std::swap(rows, other.rows);
+
 	std::swap(step, other.step);
 }
 

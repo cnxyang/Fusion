@@ -1,6 +1,6 @@
 #include "Timer.h"
+#include "Solver.h"
 #include "Tracking.h"
-#include "PoseSolver.h"
 #include "sophus/se3.hpp"
 
 using namespace cv;
@@ -55,7 +55,7 @@ Tracker::Tracker(int w, int h, float fx, float fy, float cx, float cy)
 	lastIcpError = std::numeric_limits<float>::max();
 	lastSo3Error = std::numeric_limits<float>::max();
 
-	K = MatK(fx, fy, cx, cy);
+	K = Intrinsics(fx, fy, cx, cy);
 
 	lastRelocId = 0;
 	orbExtractor = cuda::ORB::create(1500);
@@ -359,7 +359,7 @@ void Tracker::computeSO3() {
 			Eigen::Matrix3d homography = matK * final * matK.inverse();
 			Eigen::Matrix3d Kinv = matK.inverse();
 			Eigen::Matrix3d KRlr = matK * final;
-			so3Step(nextImage[i],
+			SO3Step(nextImage[i],
 					lastImage[i],
 					eigen_to_mat3f(homography),
 					eigen_to_mat3f(Kinv),
@@ -396,7 +396,7 @@ bool Tracker::computeSE3() {
 	for(int i = NUM_PYRS - 1; i >= 0; --i) {
 		for(int j = 0; j < iteration[i]; ++j) {
 
-			icpStep(nextVMap[i],
+			ICPStep(nextVMap[i],
 					lastVMap[i],
 					nextNMap[i],
 					lastNMap[i],

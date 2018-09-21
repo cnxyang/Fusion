@@ -42,7 +42,7 @@ public:
 
 	Eigen::Matrix4f getCurrentPose() const;
 
-	MatK K;
+	Intrinsics K;
 	bool useIcp;
 	bool useSo3;
 	bool paused;

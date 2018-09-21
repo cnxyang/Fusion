@@ -6,52 +6,93 @@
 
 #define MaxThread 1024
 
-struct RenderingBlock {
+enum ENTRYTYPE { EntryAvailable = -1, EntryOccupied = -2 };
 
-	int2 upperLeft;
-	int2 lowerRight;
+struct __align__(16) RenderingBlock {
+
+	short2 upperLeft;
+
+	short2 lowerRight;
+
 	float2 zRange;
 };
 
-struct HashEntry {
+struct __align__(16) HashEntry {
+
+	__device__ __forceinline__ HashEntry() :
+			pos(make_int3(0)), ptr(-1), offset(-1) {
+	}
+
+	__device__ __forceinline__ HashEntry(int3 pos_, int ptr_, int offset_) :
+			pos(pos_), ptr(ptr_), offset(offset_) {
+	}
+
+	__device__ __forceinline__ HashEntry(const HashEntry & other) {
+		pos = other.pos;
+		ptr = other.ptr;
+		offset = other.offset;
+	}
+
+	__device__ __forceinline__ void release() {
+		ptr = -1;
+	}
+
+	__device__ __forceinline__ void operator=(const HashEntry & other) {
+		pos = other.pos;
+		ptr = other.ptr;
+		offset = other.offset;
+	}
+
+	__device__ __forceinline__ bool operator==(const int3 & pos_) const {
+		return pos == pos_;
+	}
+
+	__device__ __forceinline__ bool operator==(const HashEntry & other) const {
+		return other.pos == pos;
+	}
 
 	int3 pos;
+
 	int  ptr;
+
 	int  offset;
-
-	__device__ HashEntry();
-	__device__ HashEntry(const HashEntry& other);
-	__device__ HashEntry(int3 pos_, int ptr, int offset) ;
-	__device__ void release();
-	__device__ void operator=(const HashEntry& other);
-	__device__ bool operator==(const int3& pos_) const;
-	__device__ bool operator==(const HashEntry& other);
 };
 
-enum ENTRYTYPE { EntryAvailable = -1, EntryOccupied = -2 };
+struct __align__(8) Voxel {
 
-struct Voxel {
+	__device__ __forceinline__ Voxel() :
+			sdf(std::nanf("0x7fffffff")), weight(0), color(make_uchar3(0)) {
+	}
 
-	short sdf;
-	short sdfW;
-	uchar3 rgb;
-	static const int MaxWeight = 100;
-	static const int MaxShort = 32767;
+	__device__ __forceinline__ Voxel(float sdf_, short weight_, uchar3 color_) :
+			sdf(sdf_), weight(weight_), color(color_) {
+	}
 
-	__device__ Voxel();
-	__device__ Voxel(float, short, uchar3);
-	__device__ void release();
-	__device__ float GetSdf() const;
-	__device__ void SetSdf(float);
-	__device__ void GetSdfAndColor(float & sdf, uchar3 & color) const;
-	__device__ void operator+=(const Voxel& other);
-	__device__ void operator-=(const Voxel& other);
-	__device__ void operator=(const Voxel& other);
+	__device__ __forceinline__ void release() {
+		sdf = std::nanf("0x7fffffff");
+		weight = 0;
+		color = make_uchar3(0);
+	}
+
+	__device__ __forceinline__ void getValue(float & sdf_, uchar3 & color_) const {
+		sdf_ = sdf;
+		color_ = color;
+	}
+
+	__device__ __forceinline__ void operator=(const Voxel & other) {
+		sdf = other.sdf;
+		weight = other.weight;
+		color = other.color;
+	}
+
+	float sdf;
+
+	unsigned char weight;
+
+	uchar3 color;
 };
 
-struct HostMap {
 
-};
 
 struct DeviceMap {
 

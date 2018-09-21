@@ -43,58 +43,58 @@ struct MeshEngine {
 	__device__ inline bool readNormal(float3* n, float* sdf, int3 pos) {
 
 		float v1, v2, v3;
-		v1 = map.FindVoxel(pos + make_int3(-1, 0, 0)).GetSdf();
-		v2 = map.FindVoxel(pos + make_int3(0, -1, 0)).GetSdf();
-		v3 = map.FindVoxel(pos + make_int3(0, 0, -1)).GetSdf();
+		v1 = map.FindVoxel(pos + make_int3(-1, 0, 0)).sdf;
+		v2 = map.FindVoxel(pos + make_int3(0, -1, 0)).sdf;
+		v3 = map.FindVoxel(pos + make_int3(0, 0, -1)).sdf;
 		if(isnan(v1) || isnan(v2) || isnan(v3))
 			return false;
 		n[0] = make_float3(sdf[1] - v1, sdf[3] - v2, sdf[4] - v3);
 
-		v1 = map.FindVoxel(pos + make_int3(2, 0, 0)).GetSdf();
-		v2 = map.FindVoxel(pos + make_int3(1, -1, 0)).GetSdf();
-		v3 = map.FindVoxel(pos + make_int3(1, 0, -1)).GetSdf();
+		v1 = map.FindVoxel(pos + make_int3(2, 0, 0)).sdf;
+		v2 = map.FindVoxel(pos + make_int3(1, -1, 0)).sdf;
+		v3 = map.FindVoxel(pos + make_int3(1, 0, -1)).sdf;
 		if(isnan(v1) || isnan(v2) || isnan(v3))
 			return false;
 		n[1] = make_float3(v1 - sdf[0], sdf[2] - v2, sdf[5] - v3);
 
-		v1 = map.FindVoxel(pos + make_int3(2, 1, 0)).GetSdf();
-		v2 = map.FindVoxel(pos + make_int3(1, 2, 0)).GetSdf();
-		v3 = map.FindVoxel(pos + make_int3(1, 1, -1)).GetSdf();
+		v1 = map.FindVoxel(pos + make_int3(2, 1, 0)).sdf;
+		v2 = map.FindVoxel(pos + make_int3(1, 2, 0)).sdf;
+		v3 = map.FindVoxel(pos + make_int3(1, 1, -1)).sdf;
 		if(isnan(v1) || isnan(v2) || isnan(v3))
 			return false;
 		n[2] = make_float3(v1 - sdf[3], v2 - sdf[1], sdf[6] - v3);
 
-		v1 = map.FindVoxel(pos + make_int3(-1, 1, 0)).GetSdf();
-		v2 = map.FindVoxel(pos + make_int3(0, 2, 0)).GetSdf();
-		v3 = map.FindVoxel(pos + make_int3(0, 1, -1)).GetSdf();
+		v1 = map.FindVoxel(pos + make_int3(-1, 1, 0)).sdf;
+		v2 = map.FindVoxel(pos + make_int3(0, 2, 0)).sdf;
+		v3 = map.FindVoxel(pos + make_int3(0, 1, -1)).sdf;
 		if(isnan(v1) || isnan(v2) || isnan(v3))
 			return false;
 		n[3] = make_float3(sdf[2] - v1, v2 - sdf[0], sdf[7] - v3);
 
-		v1 = map.FindVoxel(pos + make_int3(-1, 0, 1)).GetSdf();
-		v2 = map.FindVoxel(pos + make_int3(0, -1, 1)).GetSdf();
-		v3 = map.FindVoxel(pos + make_int3(0, 0, 2)).GetSdf();
+		v1 = map.FindVoxel(pos + make_int3(-1, 0, 1)).sdf;
+		v2 = map.FindVoxel(pos + make_int3(0, -1, 1)).sdf;
+		v3 = map.FindVoxel(pos + make_int3(0, 0, 2)).sdf;
 		if(isnan(v1) || isnan(v2) || isnan(v3))
 			return false;
 		n[4] = make_float3(sdf[5] - v1, sdf[7] - v2, v3 - sdf[0]);
 
-		v1 = map.FindVoxel(pos + make_int3(2, 0, 1)).GetSdf();
-		v2 = map.FindVoxel(pos + make_int3(1, -1, 1)).GetSdf();
-		v3 = map.FindVoxel(pos + make_int3(1, 0, 2)).GetSdf();
+		v1 = map.FindVoxel(pos + make_int3(2, 0, 1)).sdf;
+		v2 = map.FindVoxel(pos + make_int3(1, -1, 1)).sdf;
+		v3 = map.FindVoxel(pos + make_int3(1, 0, 2)).sdf;
 		if(isnan(v1) || isnan(v2) || isnan(v3))
 			return false;
 		n[5] = make_float3(v1 - sdf[4], sdf[6] - v2 , v3 - sdf[1]);
 
-		v1 = map.FindVoxel(pos + make_int3(2, 1, 1)).GetSdf();
-		v2 = map.FindVoxel(pos + make_int3(1, 2, 1)).GetSdf();
-		v3 = map.FindVoxel(pos + make_int3(1, 1, 2)).GetSdf();
+		v1 = map.FindVoxel(pos + make_int3(2, 1, 1)).sdf;
+		v2 = map.FindVoxel(pos + make_int3(1, 2, 1)).sdf;
+		v3 = map.FindVoxel(pos + make_int3(1, 1, 2)).sdf;
 		if(isnan(v1) || isnan(v2) || isnan(v3))
 			return false;
 		n[6] = make_float3(v1 - sdf[7], v2 - sdf[5] , v3 - sdf[2]);
 
-		v1 = map.FindVoxel(pos + make_int3(-1, 1, 1)).GetSdf();
-		v2 = map.FindVoxel(pos + make_int3(0, 2, 1)).GetSdf();
-		v3 = map.FindVoxel(pos + make_int3(0, 1, 2)).GetSdf();
+		v1 = map.FindVoxel(pos + make_int3(-1, 1, 1)).sdf;
+		v2 = map.FindVoxel(pos + make_int3(0, 2, 1)).sdf;
+		v3 = map.FindVoxel(pos + make_int3(0, 1, 2)).sdf;
 		if(isnan(v1) || isnan(v2) || isnan(v3))
 			return false;
 		n[7] = make_float3(sdf[6] - v1, v2 - sdf[4] , v3 - sdf[3]);
@@ -104,35 +104,35 @@ struct MeshEngine {
 
 	__device__ inline bool readVertexAndColor(uchar3* c, float* sdf, int3 pos) {
 
-		map.FindVoxel(pos + make_float3(0, 0, 0)).GetSdfAndColor(sdf[0], c[0]);
+		map.FindVoxel(pos + make_float3(0, 0, 0)).getValue(sdf[0], c[0]);
 		if (sdf[0] == 1.0 || isnan(sdf[0]))
 			return false;
 
-		map.FindVoxel(pos + make_float3(1, 0, 0)).GetSdfAndColor(sdf[1], c[1]);
+		map.FindVoxel(pos + make_float3(1, 0, 0)).getValue(sdf[1], c[1]);
 		if (sdf[1] == 1.0 || isnan(sdf[1]))
 			return false;
 
-		map.FindVoxel(pos + make_float3(1, 1, 0)).GetSdfAndColor(sdf[2], c[2]);
+		map.FindVoxel(pos + make_float3(1, 1, 0)).getValue(sdf[2], c[2]);
 		if (sdf[2] == 1.0 || isnan(sdf[2]))
 			return false;
 
-		map.FindVoxel(pos + make_float3(0, 1, 0)).GetSdfAndColor(sdf[3], c[3]);
+		map.FindVoxel(pos + make_float3(0, 1, 0)).getValue(sdf[3], c[3]);
 		if (sdf[3] == 1.0 || isnan(sdf[3]))
 			return false;
 
-		map.FindVoxel(pos + make_float3(0, 0, 1)).GetSdfAndColor(sdf[4], c[4]);
+		map.FindVoxel(pos + make_float3(0, 0, 1)).getValue(sdf[4], c[4]);
 		if (sdf[4] == 1.0 || isnan(sdf[4]))
 			return false;
 
-		map.FindVoxel(pos + make_float3(1, 0, 1)).GetSdfAndColor(sdf[5], c[5]);
+		map.FindVoxel(pos + make_float3(1, 0, 1)).getValue(sdf[5], c[5]);
 		if (sdf[5] == 1.0 || isnan(sdf[5]))
 			return false;
 
-		map.FindVoxel(pos + make_float3(1, 1, 1)).GetSdfAndColor(sdf[6], c[6]);
+		map.FindVoxel(pos + make_float3(1, 1, 1)).getValue(sdf[6], c[6]);
 		if (sdf[6] == 1.0 || isnan(sdf[6]))
 			return false;
 
-		map.FindVoxel(pos + make_float3(0, 1, 1)).GetSdfAndColor(sdf[7], c[7]);
+		map.FindVoxel(pos + make_float3(0, 1, 1)).getValue(sdf[7], c[7]);
 		if (sdf[7] == 1.0 || isnan(sdf[7]))
 			return false;
 

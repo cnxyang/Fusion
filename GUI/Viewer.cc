@@ -31,11 +31,11 @@ void Viewer::spin() {
 	phongShader.AddShaderFromFile(GlSlFragmentShader, "GUI/Shaders/FragmentShader.glsl");
 	phongShader.Link();
 
-	phongShader.AddShaderFromFile(GlSlVertexShader, "GUI/Shaders/VertexShader.normal.glsl");
+	normalShader.AddShaderFromFile(GlSlVertexShader, "GUI/Shaders/VertexShader.normal.glsl");
 	normalShader.AddShaderFromFile(GlSlFragmentShader, "GUI/Shaders/FragmentShader.glsl");
 	normalShader.Link();
 
-	phongShader.AddShaderFromFile(GlSlVertexShader, "GUI/Shaders/VertexShader.color.glsl");
+	colorShader.AddShaderFromFile(GlSlVertexShader, "GUI/Shaders/VertexShader.color.glsl");
 	colorShader.AddShaderFromFile(GlSlFragmentShader, "GUI/Shaders/FragmentShader.glsl");
 	colorShader.Link();
 

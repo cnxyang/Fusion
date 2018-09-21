@@ -22,7 +22,7 @@ struct Projection {
 	mutable PtrStep<float> zRangeY;
 	mutable PtrSz<RenderingBlock> renderingBlockList;
 
-	__device__ inline float2 project(const float3 & pt3d) const {
+	__device__ __forceinline__ float2 project(const float3 & pt3d) const {
 
 		float2 pt2d;
 		pt2d.x = fx * pt3d.x / pt3d.z + cx;
@@ -30,7 +30,7 @@ struct Projection {
 		return pt2d;
 	}
 
-	__device__ inline void atomicMax(float* add, float val) const {
+	__device__ __forceinline__ void atomicMax(float* add, float val) const {
 		int* address_as_i = (int*) add;
 		int old = *address_as_i, assumed;
 		do {
@@ -40,7 +40,7 @@ struct Projection {
 		} while (assumed != old);
 	}
 
-	__device__ inline void atomicMin(float* add, float val) const {
+	__device__ __forceinline__ void atomicMin(float* add, float val) const {
 		int* address_as_i = (int*) add;
 		int old = *address_as_i, assumed;
 		do {
@@ -50,11 +50,11 @@ struct Projection {
 		} while (assumed != old);
 	}
 
-	__device__ inline bool projectBlock(const int3 & pos,
+	__device__ __forceinline__ bool projectBlock(const int3 & pos,
 										RenderingBlock & block) const {
 
-		block.upperLeft = make_int2(zRangeX.cols, zRangeX.rows);
-		block.lowerRight = make_int2(-1, -1);
+		block.upperLeft = make_short2(zRangeX.cols, zRangeX.rows);
+		block.lowerRight = make_short2(-1, -1);
 		block.zRange = make_float2(depthMax, depthMin);
 		for (int corner = 0; corner < 8; ++corner) {
 			int3 tmp = pos;
@@ -102,7 +102,7 @@ struct Projection {
 		return true;
 	}
 
-	__device__ inline void createRenderingBlockList(int & offset,
+	__device__ __forceinline__ void createRenderingBlockList(int & offset,
 			const RenderingBlock & block, int & nx, int & ny) const {
 
 		for (int y = 0; y < ny; ++y)
@@ -122,7 +122,7 @@ struct Projection {
 			}
 	}
 
-	__device__ inline void operator()() const {
+	__device__ __forceinline__ void operator()() const {
 
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -152,7 +152,7 @@ struct Projection {
 			createRenderingBlockList(offset, block, nx, ny);
 	}
 
-	__device__ inline void fillBlocks() const {
+	__device__ __forceinline__ void fillBlocks() const {
 
 		int x = threadIdx.x;
 		int y = threadIdx.y;
@@ -179,23 +179,20 @@ struct Projection {
 };
 
 __global__ void projectBlockKernel(const Projection proj) {
-
 	proj();
 }
 
 __global__ void fillBlocksKernel(const Projection proj) {
-
 	proj.fillBlocks();
 }
 
-__global__ void fillDepthRangeKernel(PtrStepSz<float> zX) {
-
+__global__ void fillDepthRangeKernel(PtrStepSz<float> range) {
 	int x = blockDim.x * blockIdx.x + threadIdx.x;
 	int y = blockDim.y * blockIdx.y + threadIdx.y;
-	if(x >= zX.cols || y >= zX.rows)
+	if(x >= range.cols || y >= range.rows)
 		return;
 
-	zX.ptr(y)[x] = 100;
+	range.ptr(y)[x] = 100;
 }
 
 bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
@@ -284,63 +281,63 @@ struct Rendering {
 	Matrix3f Rview, RviewInv;
 	float3 tview;
 
-	__device__ inline float readSdf(const float3 & pt3d, HashEntry & cache, bool & valid) {
+	__device__ __forceinline__ float readSdf(const float3 & pt3d, HashEntry & cache, bool & valid) {
 		Voxel voxel = map.FindVoxel(pt3d, cache, valid);
-		if (voxel.sdfW == 0)
+		if (voxel.weight == 0)
 			valid = false;
-		return voxel.GetSdf();
+		return voxel.sdf;
 	}
 
-	__device__ inline float readSdfInterped(const float3 & pt, HashEntry & cache, bool & valid) {
+	__device__ __forceinline__ float readSdfInterped(const float3 & pt, HashEntry & cache, bool & valid) {
 
 		float3 xyz = pt - floor(pt);
 		float sdf[2], result[4];
-		sdf[0] = map.FindVoxel(pt, cache, valid).GetSdf();
-		sdf[1] = map.FindVoxel(pt + make_float3(1, 0, 0), cache, valid).GetSdf();
+		sdf[0] = map.FindVoxel(pt, cache, valid).sdf;
+		sdf[1] = map.FindVoxel(pt + make_float3(1, 0, 0), cache, valid).sdf;
 		result[0] = (1.0f - xyz.x) * sdf[0] + xyz.x * sdf[1];
 
-		sdf[0] = map.FindVoxel(pt + make_float3(0, 1, 0), cache, valid).GetSdf();
-		sdf[1] = map.FindVoxel(pt + make_float3(1, 1, 0), cache, valid).GetSdf();
+		sdf[0] = map.FindVoxel(pt + make_float3(0, 1, 0), cache, valid).sdf;
+		sdf[1] = map.FindVoxel(pt + make_float3(1, 1, 0), cache, valid).sdf;
 		result[1] = (1.0f - xyz.x) * sdf[0] + xyz.x * sdf[1];
 		result[2] = (1.0f - xyz.y) * result[0] + xyz.y * result[1];
 
-		sdf[0] = map.FindVoxel(pt + make_float3(0, 0, 1), cache, valid).GetSdf();
-		sdf[1] = map.FindVoxel(pt + make_float3(1, 0, 1), cache, valid).GetSdf();
+		sdf[0] = map.FindVoxel(pt + make_float3(0, 0, 1), cache, valid).sdf;
+		sdf[1] = map.FindVoxel(pt + make_float3(1, 0, 1), cache, valid).sdf;
 		result[0] = (1.0f - xyz.x) * sdf[0] + xyz.x * sdf[1];
 
-		sdf[0] = map.FindVoxel(pt + make_float3(0, 1, 1), cache, valid).GetSdf();
-		sdf[1] = map.FindVoxel(pt + make_float3(1, 1, 1), cache, valid).GetSdf();
+		sdf[0] = map.FindVoxel(pt + make_float3(0, 1, 1), cache, valid).sdf;
+		sdf[1] = map.FindVoxel(pt + make_float3(1, 1, 1), cache, valid).sdf;
 		result[1] = (1.0f - xyz.x) * sdf[0] + xyz.x * sdf[1];
 		result[3] = (1.0f - xyz.y) * result[0] + xyz.y * result[1];
 		return (1.0f - xyz.z) * result[2] + xyz.z * result[3];
 	}
 
-	__device__ inline bool readNormal(const float3 & pt, HashEntry & cache, float3 & n) {
+	__device__ __forceinline__ bool readNormal(const float3 & pt, HashEntry & cache, float3 & n) {
 
 		bool valid;
 		float sdf[6];
 		sdf[0] = readSdfInterped(pt + make_float3(1, 0, 0), cache, valid);
-		if(isnan(sdf[0]) || sdf[0] == 1.0f)
+		if(isnan(sdf[0]) || sdf[0] == 1.0f || !valid)
 			return false;
 
 		sdf[1] = readSdfInterped(pt + make_float3(-1, 0, 0), cache, valid);
-		if(isnan(sdf[1]) || sdf[1] == 1.0f)
+		if(isnan(sdf[1]) || sdf[1] == 1.0f || !valid)
 			return false;
 
 		sdf[2] = readSdfInterped(pt + make_float3(0, 1, 0), cache, valid);
-		if(isnan(sdf[2]) || sdf[2] == 1.0f)
+		if(isnan(sdf[2]) || sdf[2] == 1.0f || !valid)
 			return false;
 
 		sdf[3] = readSdfInterped(pt + make_float3(0, -1, 0), cache, valid);
-		if(isnan(sdf[3]) || sdf[3] == 1.0f)
+		if(isnan(sdf[3]) || sdf[3] == 1.0f || !valid)
 			return false;
 
 		sdf[4] = readSdfInterped(pt + make_float3(0, 0, 1), cache, valid);
-		if(isnan(sdf[4]) || sdf[4] == 1.0f)
+		if(isnan(sdf[4]) || sdf[4] == 1.0f || !valid)
 			return false;
 
 		sdf[5] = readSdfInterped(pt + make_float3(0, 0, -1), cache, valid);
-		if(isnan(sdf[5]) || sdf[5] == 1.0f)
+		if(isnan(sdf[5]) || sdf[5] == 1.0f || !valid)
 			return false;
 
 		n = make_float3(sdf[0] - sdf[1], sdf[2] - sdf[3], sdf[4] - sdf[5]);
@@ -348,41 +345,7 @@ struct Rendering {
 		return true;
 	}
 
-
-	__device__ inline bool readNormalFast(const float3 & pt, HashEntry & cache, float3 & n) {
-
-		bool valid = false;
-		float sdf[6];
-		sdf[0] = readSdf(pt + make_float3(1, 0, 0), cache, valid);
-		if(isnan(sdf[0]) || sdf[0] == 1.0f)
-			return false;
-
-		sdf[1] = readSdf(pt + make_float3(-1, 0, 0), cache, valid);
-		if(isnan(sdf[1]) || sdf[1] == 1.0f)
-			return false;
-
-		sdf[2] = readSdf(pt + make_float3(0, 1, 0), cache, valid);
-		if(isnan(sdf[2]) || sdf[2] == 1.0f)
-			return false;
-
-		sdf[3] = readSdf(pt + make_float3(0, -1, 0), cache, valid);
-		if(isnan(sdf[3]) || sdf[3] == 1.0f)
-			return false;
-
-		sdf[4] = readSdf(pt + make_float3(0, 0, 1), cache, valid);
-		if(isnan(sdf[4]) || sdf[4] == 1.0f)
-			return false;
-
-		sdf[5] = readSdf(pt + make_float3(0, 0, -1), cache, valid);
-		if(isnan(sdf[5]) || sdf[5] == 1.0f)
-			return false;
-
-		n = make_float3(sdf[0] - sdf[1], sdf[2] - sdf[3], sdf[4] - sdf[5]);
-		n = normalised(RviewInv * n);
-		return true;
-	}
-
-	__device__ inline void operator()() {
+	__device__ __forceinline__ void operator()() {
 
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
 		int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -437,7 +400,10 @@ struct Rendering {
 				if (sdf <= 0.0f)
 					break;
 
-				step = max(sdf * DeviceMap::stepScale, 1.0f);
+				if (!isnan(sdf))
+					step = max(sdf * DeviceMap::stepScale, 1.0f);
+				else
+					step = DeviceMap::BlockSize;
 			}
 
 			result += step * dir;
@@ -457,8 +423,10 @@ struct Rendering {
 
 		if(found_pt) {
 			float3 normal;
-			if(readNormalFast(result, b, normal)) {
+			if(readNormal(result, b, normal)) {
+
 				result = RviewInv * (result * DeviceMap::VoxelSize - tview);
+
 				vmap.ptr(y)[x] = make_float4(result, 1.0);
 				nmap.ptr(y)[x] = make_float4(normal, 1.0);
 			}
@@ -466,9 +434,7 @@ struct Rendering {
 	}
 };
 
-__global__ void
-__launch_bounds__(32, 16)
-RayCastKernel(Rendering cast) {
+__global__ void __launch_bounds__(32, 16) RayCastKernel(Rendering cast) {
 	cast();
 }
 
@@ -511,6 +477,7 @@ void rayCast(DeviceMap map,
 	block.y = DivUp(rows, thread.y);
 
 	RayCastKernel<<<block, thread>>>(cast);
+
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
 }

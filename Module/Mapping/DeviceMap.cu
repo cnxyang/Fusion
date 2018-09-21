@@ -1,88 +1,88 @@
 #include "DeviceMap.h"
 
-__device__ HashEntry::HashEntry() :
-		pos(make_int3(0x7fffffff)), ptr(EntryAvailable), offset(0) {
-}
+//__device__ HashEntry::HashEntry() :
+//		pos(make_int3(0x7fffffff)), ptr(EntryAvailable), offset(0) {
+//}
+//
+//__device__ HashEntry::HashEntry(const HashEntry & other) {
+//	(*this) = (other);
+//}
+//
+//__device__ HashEntry::HashEntry(int3 pos_, int ptr, int offset) :
+//		pos(pos_), ptr(ptr), offset(offset) {
+//}
+//
+//__device__ void HashEntry::release() {
+//	pos = make_int3(0);
+//	offset = 0;
+//	ptr = EntryAvailable;
+//}
+//
+//__device__ void HashEntry::operator=(const HashEntry & other) {
+//	pos = other.pos;
+//	ptr = other.ptr;
+//	offset = other.offset;
+//}
+//
+//__device__ bool HashEntry::operator==(const int3 & pos_) const {
+//	return pos == pos_ && ptr != EntryAvailable;
+//}
+//
+//__device__ bool HashEntry::operator==(const HashEntry & other) {
+//	return (*this) == (other.pos);
+//}
 
-__device__ HashEntry::HashEntry(const HashEntry & other) {
-	(*this) = (other);
-}
-
-__device__ HashEntry::HashEntry(int3 pos_, int ptr, int offset) :
-		pos(pos_), ptr(ptr), offset(offset) {
-}
-
-__device__ void HashEntry::release() {
-	pos = make_int3(0);
-	offset = 0;
-	ptr = EntryAvailable;
-}
-
-__device__ void HashEntry::operator=(const HashEntry & other) {
-	pos = other.pos;
-	ptr = other.ptr;
-	offset = other.offset;
-}
-
-__device__ bool HashEntry::operator==(const int3 & pos_) const {
-	return pos == pos_ && ptr != EntryAvailable;
-}
-
-__device__ bool HashEntry::operator==(const HashEntry & other) {
-	return (*this) == (other.pos);
-}
-
-__device__ Voxel::Voxel() :
-		sdf(0x7fff), sdfW(0), rgb(make_uchar3(0x7fffffff)){
-}
-
-__device__ Voxel::Voxel(float sdf, short weight, uchar3 rgb_) :
-		sdfW(weight), rgb(rgb_){
-	SetSdf(sdf);
-}
-
-__device__ void Voxel::release() {
-	sdf = 0x7fff;
-	sdfW = 0;
-	rgb = make_uchar3(0x7fffffff);
-}
-
-__device__ float Voxel::GetSdf() const {
-	return __int2float_rn(sdf) / MaxShort;
-}
-
-__device__ void Voxel::GetSdfAndColor(float & sdf, uchar3 & color) const {
-	sdf = GetSdf();
-	color = rgb;
-}
-
-__device__ void Voxel::SetSdf(float val) {
-	sdf = fmaxf(-MaxShort, fminf(MaxShort, __float2int_rz(val * MaxShort)));
-}
-
-__device__ void Voxel::operator+=(const Voxel & other) {
-
-	float sdf = GetSdf() * sdfW + other.GetSdf() * other.sdfW;
-	sdf /= (sdfW + other.sdfW);
-	SetSdf(sdf);
-	sdfW += other.sdfW;
-
-	float3 pcolor = make_float3(rgb);
-	float3 color = make_float3(other.rgb);
-	float3 res =  0.2f * color + 0.8f * pcolor;
-	res = fmaxf(make_float3(0.0), fminf(res, make_float3(254.5f)));
-	rgb = make_uchar3(res);
-}
-
-__device__ void Voxel::operator-=(const Voxel & other) {
-	// TODO: de-fusion method
-}
-
-__device__ void Voxel::operator=(const Voxel & other) {
-	sdf = other.sdf;
-	sdfW = other.sdfW;
-	rgb = other.rgb;
-}
+//__device__ Voxel::Voxel() :
+//		sdf(0x7fff), sdfW(0), rgb(make_uchar3(0x7fffffff)){
+//}
+//
+//__device__ Voxel::Voxel(float sdf, short weight, uchar3 rgb_) :
+//		sdfW(weight), rgb(rgb_){
+//	SetSdf(sdf);
+//}
+//
+//__device__ void Voxel::release() {
+//	sdf = 0x7fff;
+//	sdfW = 0;
+//	rgb = make_uchar3(0x7fffffff);
+//}
+//
+//__device__ float Voxel::GetSdf() const {
+//	return __int2float_rn(sdf) / MaxShort;
+//}
+//
+//__device__ void Voxel::GetSdfAndColor(float & sdf, uchar3 & color) const {
+//	sdf = GetSdf();
+//	color = rgb;
+//}
+//
+//__device__ void Voxel::SetSdf(float val) {
+//	sdf = fmaxf(-MaxShort, fminf(MaxShort, __float2int_rz(val * MaxShort)));
+//}
+//
+//__device__ void Voxel::operator+=(const Voxel & other) {
+//
+//	float sdf = GetSdf() * sdfW + other.GetSdf() * other.sdfW;
+//	sdf /= (sdfW + other.sdfW);
+//	SetSdf(sdf);
+//	sdfW += other.sdfW;
+//
+//	float3 pcolor = make_float3(rgb);
+//	float3 color = make_float3(other.rgb);
+//	float3 res =  0.2f * color + 0.8f * pcolor;
+//	res = fmaxf(make_float3(0.0), fminf(res, make_float3(254.5f)));
+//	rgb = make_uchar3(res);
+//}
+//
+//__device__ void Voxel::operator-=(const Voxel & other) {
+//	// TODO: de-fusion method
+//}
+//
+//__device__ void Voxel::operator=(const Voxel & other) {
+//	sdf = other.sdf;
+//	sdfW = other.sdfW;
+//	rgb = other.rgb;
+//}
 
 __device__ uint DeviceMap::Hash(const int3 & pos) {
 	int res = ((pos.x * 73856093) ^ (pos.y * 19349669) ^ (pos.z * 83492791))

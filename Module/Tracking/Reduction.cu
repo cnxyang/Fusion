@@ -1,5 +1,8 @@
 #include "Reduction.h"
 
+#define WarpSize 32
+#define MaxThread 1024
+
 template<int rows, int cols>
 void inline createMatrix(float* host_data, double* host_a,
 		double* host_b) {
@@ -169,7 +172,7 @@ __global__ void icpStepKernel(const ICPReduce icp) {
 	icp.template operator()<float, 29>();
 }
 
-void icpStep(DeviceArray2D<float4> & nextVMap,
+void ICPStep(DeviceArray2D<float4> & nextVMap,
 		     DeviceArray2D<float4> & lastVMap,
 		     DeviceArray2D<float4> & nextNMap,
 		     DeviceArray2D<float4> & lastNMap,
@@ -178,7 +181,7 @@ void icpStep(DeviceArray2D<float4> & nextVMap,
 		     Matrix3f Rlast,
 		     Matrix3f RlastInv,
 		     float3 tlast,
-		     MatK K,
+		     Intrinsics K,
 		     DeviceArray2D<float> & sum,
 		     DeviceArray<float> & out,
 		     float * residual,
@@ -353,7 +356,7 @@ __global__ void so3StepKernel(const SO3Reduction so3) {
 	so3.template operator()<float, 11>();
 }
 
-void so3Step(const DeviceArray2D<unsigned char> & nextImage,
+void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
 			 const DeviceArray2D<unsigned char> & lastImage,
 			 Matrix3f homography,
 			 Matrix3f kinv,

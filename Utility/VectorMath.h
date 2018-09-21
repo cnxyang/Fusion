@@ -9,8 +9,16 @@ __host__ __device__ __forceinline__ uchar3 make_uchar3(int a) {
 	return make_uchar3(a, a, a);
 }
 
+__host__ __device__ __forceinline__ uchar4 make_uchar4(int a) {
+	return make_uchar4(a, a, a, a);
+}
+
 __host__ __device__ __forceinline__ uchar3 make_uchar3(float3 a) {
 	return make_uchar3((int) a.x, (int) a.y, (int) a.z);
+}
+
+__host__ __device__ __forceinline__ uchar4 make_uchar4(float4 a) {
+	return make_uchar4((int) a.x, (int) a.y, (int) a.z, (int) a.w);
 }
 
 __host__ __device__ __forceinline__ int2 make_int2(int a) {
@@ -48,6 +56,10 @@ __host__ __device__ __forceinline__ float2 make_float2(float a) {
 
 __host__ __device__ __forceinline__ float3 make_float3(uchar3 a) {
 	return make_float3(a.x, a.y, a.z);
+}
+
+__host__ __device__ __forceinline__ float4 make_float4(uchar4 a) {
+	return make_float4(a.x, a.y, a.z, a.w);
 }
 
 __host__ __device__ __forceinline__ float3 make_float3(float a) {
