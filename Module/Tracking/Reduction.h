@@ -23,12 +23,19 @@ void PyrDownGauss(const DeviceArray2D<unsigned char> & src,
 void ImageToIntensity(const DeviceArray2D<uchar3> & rgb,
 		DeviceArray2D<unsigned char> & image);
 
-void ComputeImageDerivative(const DeviceArray2D<unsigned char> & image,
-		DeviceArray2D<short> & dIdx, DeviceArray2D<short> & dIdy);
-
 void ResizeMap(const DeviceArray2D<float4> & vsrc,
 		const DeviceArray2D<float4> & nsrc, DeviceArray2D<float4> & vdst,
 		DeviceArray2D<float4> & ndst);
+
+void RenderImage(const DeviceArray2D<float4>& points,
+		const DeviceArray2D<float4>& normals, const float3 light_pose,
+		DeviceArray2D<uchar4>& image);
+
+void DepthToImage(const DeviceArray2D<float> & depth,
+		DeviceArray2D<uchar4> & image);
+
+void RgbImageToRgba(const DeviceArray2D<uchar3> & image,
+		DeviceArray2D<uchar4> & rgba);
 
 void ICPStep(DeviceArray2D<float4> & nextVMap, DeviceArray2D<float4> & lastVMap,
 		DeviceArray2D<float4> & nextNMap, DeviceArray2D<float4> & lastNMap,

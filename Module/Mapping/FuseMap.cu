@@ -1,4 +1,3 @@
-#include "Timer.h"
 #include "RenderScene.h"
 #include "ParallelScan.h"
 
@@ -196,7 +195,7 @@ __global__ void checkVisibleBlockKernel(Fusion fuse) {
 	fuse.CheckFullVisibility();
 }
 
-void checkBlockInFrustum(DeviceMap map,
+void CheckBlockVisibility(DeviceMap map,
 					     DeviceArray<uint> & noVisibleBlocks,
 						 Matrix3f Rview,
 						 Matrix3f RviewInv,
@@ -241,20 +240,20 @@ void checkBlockInFrustum(DeviceMap map,
 		return;
 }
 
-void integrateColor(const DeviceArray2D<float> & depth,
-					const DeviceArray2D<uchar3> & color,
-					DeviceArray<uint> & noVisibleBlocks,
-					Matrix3f Rview,
-					Matrix3f RviewInv,
-					float3 tview,
-					DeviceMap map,
-					float fx,
-					float fy,
-					float cx,
-					float cy,
-					float depthMax,
-					float depthMin,
-					uint * host_data) {
+void FuseMapColor(const DeviceArray2D<float> & depth,
+				  const DeviceArray2D<uchar3> & color,
+				  DeviceArray<uint> & noVisibleBlocks,
+				  Matrix3f Rview,
+				  Matrix3f RviewInv,
+				  float3 tview,
+				  DeviceMap map,
+				  float fx,
+				  float fy,
+				  float cx,
+				  float cy,
+				  float depthMax,
+				  float depthMin,
+				  uint * host_data) {
 
 	int cols = depth.cols;
 	int rows = depth.rows;
@@ -281,17 +280,19 @@ void integrateColor(const DeviceArray2D<float> & depth,
 
 	dim3 thread(16, 8);
 	dim3 block(DivUp(cols, thread.x), DivUp(rows, thread.y));
-	Timer::Start("debug", "createBlocksKernel");
+
 	createBlocksKernel<<<block, thread>>>(fuse);
+
 	SafeCall(cudaDeviceSynchronize());
-	Timer::Stop("debug", "createBlocksKernel");
+	SafeCall(cudaGetLastError());
 
 	thread = dim3(1024);
 	block = dim3(DivUp((int) DeviceMap::NumEntries, thread.x));
-	Timer::Start("debug", "checkVisibleBlockKernel");
+
 	checkVisibleBlockKernel<<<block, thread>>>(fuse);
+
 	SafeCall(cudaDeviceSynchronize());
-	Timer::Stop("debug", "checkVisibleBlockKernel");
+	SafeCall(cudaGetLastError());
 
 	host_data[0] = 0;
 	noVisibleBlocks.download((void*) host_data);
@@ -300,10 +301,11 @@ void integrateColor(const DeviceArray2D<float> & depth,
 
 	thread = dim3(8, 8);
 	block = dim3(host_data[0]);
-	Timer::Start("debug", "fuseColorKernal");
+
 	fuseColorKernal<<<block, thread>>>(fuse);
+
 	SafeCall(cudaDeviceSynchronize());
-	Timer::Stop("debug", "fuseColorKernal");
+	SafeCall(cudaGetLastError());
 }
 
 __global__ void resetHashKernel(DeviceMap map) {
@@ -337,7 +339,7 @@ __global__ void resetSdfBlockKernel(DeviceMap map) {
 	}
 }
 
-void resetDeviceMap(DeviceMap map) {
+void ResetMap(DeviceMap map) {
 
 	dim3 thread(1024);
 	dim3 block(DivUp((int) DeviceMap::NumEntries, thread.x));
@@ -362,7 +364,7 @@ __global__ void resetKeyMapKernel(KeyMap map) {
 	}
 }
 
-void resetKeyMap(KeyMap map) {
+void ResetKeyPoints(KeyMap map) {
 	dim3 thread(1024);
 	dim3 block(DivUp((int) KeyMap::maxEntries, thread.x));
 

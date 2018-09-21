@@ -1,10 +1,7 @@
-#ifndef VERTEXTABLES_HPP_
-#define VERTEXTABLES_HPP_
+#ifndef DEVICECONST_H__
+#define DEVICECONST_H__
 
-// edge table maps 8-bit flag representing which cube vertices are inside
-// the isosurface to 12-bit number indicating which edges are intersected
-int edgeTable_host[256] =
-{
+const int edgeTableHost[256] = {
 	0x0  , 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
 	0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
 	0x190, 0x99 , 0x393, 0x29a, 0x596, 0x49f, 0x795, 0x69c,
@@ -39,10 +36,7 @@ int edgeTable_host[256] =
 	0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x0
 };
 
-// triangle table maps same cube vertex index to a list of up to 5 triangles
-// which are built from the interpolated edge vertices
-int triTable_host[256][16] =
-{
+const int triangleTableHost[256][16] = {
     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 	{0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 	{0, 1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
@@ -301,9 +295,7 @@ int triTable_host[256][16] =
 	{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
 };
 
-// number of vertices for each case above
-int numVertsTable[256] =
-{
+const int vertexTableHost[256] = {
     0,
     3,
     3,
@@ -562,5 +554,4 @@ int numVertsTable[256] =
     0,
 };
 
-
-#endif /* VERTEXTABLES_HPP_ */
+#endif

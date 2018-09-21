@@ -1,79 +1,45 @@
 #include "DeviceMap.h"
 
-void rayCast(DeviceMap map,
-			 DeviceArray2D<float4> & vmap,
-			 DeviceArray2D<float4> & nmap,
-			 DeviceArray2D<float> & zRangeX,
-			 DeviceArray2D<float> & zRangeY,
-			 Matrix3f Rview,
-			 Matrix3f RviewInv,
-			 float3 tview,
-			 float invfx,
-			 float invfy,
-			 float cx,
-			 float cy);
+void ResetMap(DeviceMap map);
 
-bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
-						  DeviceArray2D<float> & zRangeX,
-						  DeviceArray2D<float> & zRangeY,
-						  const float & depthMax,
-						  const float & depthMin,
-						  DeviceArray<RenderingBlock> & renderingBlockList,
-						  DeviceArray<uint> & noRenderingBlocks,
-						  Matrix3f RviewInv,
-						  float3 tview,
-						  uint noVisibleBlocks,
-						  float fx,
-						  float fy,
-						  float cx,
-						  float cy);
+void ResetKeyPoints(KeyMap map);
 
-uint meshScene(DeviceArray<uint> & noOccupiedBlocks,
-			   DeviceArray<uint> & noTotalTriangles,
-			   DeviceMap map,
-			   const DeviceArray<int> & edgeTable,
-			   const DeviceArray<int> & noVertexTable,
-			   const DeviceArray2D<int> & triangleTable,
-			   DeviceArray<float3> & normal,
-			   DeviceArray<float3> & vertex,
-			   DeviceArray<uchar3> & color,
-			   DeviceArray<int3> & extractedBlocks);
+void Raycast(DeviceMap map, DeviceArray2D<float4> & vmap,
+		DeviceArray2D<float4> & nmap, DeviceArray2D<float> & zRangeX,
+		DeviceArray2D<float> & zRangeY, Matrix3f Rview, Matrix3f RviewInv,
+		float3 tview, float invfx, float invfy, float cx, float cy);
 
-void resetDeviceMap(DeviceMap map);
-void resetKeyMap(KeyMap map);
+bool CreateRenderingBlocks(const DeviceArray<HashEntry> & visibleBlocks,
+		DeviceArray2D<float> & zRangeX, DeviceArray2D<float> & zRangeY,
+		const float & depthMax, const float & depthMin,
+		DeviceArray<RenderingBlock> & renderingBlockList,
+		DeviceArray<uint> & noRenderingBlocks, Matrix3f RviewInv, float3 tview,
+		uint noVisibleBlocks, float fx, float fy, float cx, float cy);
 
-void checkBlockInFrustum(DeviceMap map,
-					     DeviceArray<uint> & noVisibleBlocks,
-						 Matrix3f Rview,
-						 Matrix3f RviewInv,
-						 float3 tview,
-						 int cols,
-						 int rows,
-						 float fx,
-						 float fy,
-						 float cx,
-						 float cy,
-						 float depthMax,
-						 float depthMin,
-						 uint * host_data);
+uint MeshScene(DeviceArray<uint> & noOccupiedBlocks,
+		DeviceArray<uint> & noTotalTriangles, DeviceMap map,
+		const DeviceArray<int> & edgeTable,
+		const DeviceArray<int> & vertexTable,
+		const DeviceArray2D<int> & triangleTable, DeviceArray<float3> & normal,
+		DeviceArray<float3> & vertex, DeviceArray<uchar3> & color,
+		DeviceArray<int3> & blockPoses);
 
-void integrateColor(const DeviceArray2D<float> & depth,
-					const DeviceArray2D<uchar3> & color,
-					DeviceArray<uint> & noVisibleBlocks,
-					Matrix3f Rview,
-					Matrix3f RviewInv,
-					float3 tview,
-					DeviceMap map,
-					float fx,
-					float fy,
-					float cx,
-					float cy,
-					float depthMax,
-					float depthMin,
-					uint * host_data);
+void CheckBlockVisibility(DeviceMap map, DeviceArray<uint> & noVisibleBlocks,
+		Matrix3f Rview, Matrix3f RviewInv, float3 tview, int cols, int rows,
+		float fx, float fy, float cx, float cy, float depthMax, float depthMin,
+		uint * host_data);
 
+void FuseMapColor(const DeviceArray2D<float> & depth,
+		const DeviceArray2D<uchar3> & color,
+		DeviceArray<uint> & noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
+		float3 tview, DeviceMap map, float fx, float fy, float cx, float cy,
+		float depthMax, float depthMin, uint * host_data);
+
+// TODO: refractory
 void ResetKeys(KeyMap map);
-void CollectKeys(KeyMap map, DeviceArray<ORBKey> & keys, DeviceArray<int> & index, uint& n);
-void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys, DeviceArray<int> & indices);
-void ProjectVisibleKeys(KeyMap map, Matrix3f RviewInv, float3 tview,
-		int cols, int rows, float fx, float fy, float cx, float cy);
+
+void CollectKeys(KeyMap map, DeviceArray<ORBKey> & keys,
+		DeviceArray<int> & index, uint& n);
+
+void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys,
+		DeviceArray<int> & indices);

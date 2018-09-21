@@ -59,6 +59,7 @@
 									<listOptionValue builtIn="false" value="opencv_imgcodecs"/>
 									<listOptionValue builtIn="false" value="opencv_features2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudaarithm"/>
+									<listOptionValue builtIn="false" value="opencv_xfeatures2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudafeatures2d"/>
 								</option>
 								<inputType id="nvcc.linker.input.1380585301" superClass="nvcc.linker.input">
@@ -145,6 +146,7 @@
 									<listOptionValue builtIn="false" value="opencv_imgcodecs"/>
 									<listOptionValue builtIn="false" value="opencv_features2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudaarithm"/>
+									<listOptionValue builtIn="false" value="opencv_xfeatures2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudafeatures2d"/>
 								</option>
 								<inputType id="nvcc.linker.input.4867270" superClass="nvcc.linker.input">
@@ -159,7 +161,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="live.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="Main.cc|live.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -363,16 +365,17 @@
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
 		<configuration configurationName="tum_debug"/>
-		<configuration configurationName="tum_release"/>
 		<configuration configurationName="ReleaseTum">
 			<resource resourceType="PROJECT" workspacePath="/fusion"/>
 		</configuration>
+		<configuration configurationName="tum_release"/>
+		<configuration configurationName="DebugTum"/>
 		<configuration configurationName="live_debug"/>
 		<configuration configurationName="live_release"/>
-		<configuration configurationName="Debug">
+		<configuration configurationName="Release">
 			<resource resourceType="PROJECT" workspacePath="/fusion"/>
 		</configuration>
-		<configuration configurationName="Release">
+		<configuration configurationName="Debug">
 			<resource resourceType="PROJECT" workspacePath="/fusion"/>
 		</configuration>
 	</storageModule>

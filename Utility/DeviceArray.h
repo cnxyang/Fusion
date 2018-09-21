@@ -85,6 +85,10 @@ template<class T> struct DeviceArray2D {
 
 	void create(int cols_, int rows_);
 
+	void upload(const void * data_);
+
+	void upload(const void * data_, size_t step_);
+
 	void upload(const void * data_, size_t step_, int cols_, int rows_);
 
 	void download(void * data_, size_t step_) const;
@@ -263,6 +267,14 @@ template<class T> void DeviceArray2D<T>::create(int cols_, int rows_) {
 
 		ref = new std::atomic<int>(1);
 	}
+}
+
+template<class T> void DeviceArray2D<T>::upload(const void * data_) {
+	upload(data_, sizeof(T) * cols, cols, rows);
+}
+
+template<class T> void DeviceArray2D<T>::upload(const void * data_, size_t step_) {
+	upload(data_, step_, cols, rows);
 }
 
 template<class T> void DeviceArray2D<T>::upload(const void * data_, size_t step_, int cols_, int rows_) {

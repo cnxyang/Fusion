@@ -1,7 +1,6 @@
 #ifndef MAPPING_HPP__
 #define MAPPING_HPP__
 
-#include "cufunc.h"
 #include "System.h"
 #include "Tracking.h"
 #include "KeyFrame.h"
@@ -35,16 +34,9 @@ public:
 	void GetORBKeys(DeviceArray<ORBKey>& keys, uint& n);
 	void GetKeysHost(std::vector<ORBKey>& vkeys);
 
-	std::vector<Eigen::Vector3d> GetCamTrace() { return mCamTrace; }
-
 	void rayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 			float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float4> & nmap,
 			float depthMin, float depthMax, float fx, float fy, float cx, float cy);
-
-
-
-
-	std::vector<Eigen::Vector3d> mCamTrace;
 
 public:
 
@@ -76,6 +68,7 @@ public:
 	Tracker * ptracker;
 	System * psystem;
 
+	std::mutex mutexMesh;
 	// general control
 	bool lost;
 	bool useDefaultStream;
@@ -98,16 +91,15 @@ public:
 	std::set<KeyFrame *> keyFrames;
 
 	// Extraction
-	std::mutex mutexMesh;
 	DeviceArray<uint> nBlocks;
 	DeviceArray<float3> modelVertex;
 	DeviceArray<float3> modelNormal;
 	DeviceArray<uchar3> modelColor;
+	DeviceArray<int3> blockPoses;
+	DeviceArray<uint> noTriangles;
 	DeviceArray<int> edgeTable;
 	DeviceArray<int> vertexTable;
 	DeviceArray2D<int> triangleTable;
-	DeviceArray<int3> blockPoses;
-	DeviceArray<uint> noTriangles;
 	uint noTrianglesHost;
 
 	// Rendering

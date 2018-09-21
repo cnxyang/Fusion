@@ -1,6 +1,5 @@
-#include "Timer.h"
 #include "Mapping.h"
-#include "ConstVar.h"
+#include "Constant.h"
 #include "Reduction.h"
 #include "RenderScene.h"
 
@@ -12,7 +11,7 @@ Mapping::Mapping(bool default_stream, cudaStream_t * stream_) :
 
 void Mapping::create() {
 
-	// reconstruction
+	// Reconstruction
 	heapCounter.create(1);
 	hashCounter.create(1);
 	noVisibleEntries.create(1);
@@ -22,27 +21,29 @@ void Mapping::create() {
 	hashEntries.create(DeviceMap::NumEntries);
 	visibleEntries.create(DeviceMap::NumEntries);
 
-	// extraction
+	// Mesh Scene
 	nBlocks.create(1);
 	noTriangles.create(1);
 	modelVertex.create(DeviceMap::MaxVertices);
 	modelNormal.create(DeviceMap::MaxVertices);
 	modelColor.create(DeviceMap::MaxVertices);
 	blockPoses.create(DeviceMap::NumEntries);
+
 	edgeTable.create(256);
 	vertexTable.create(256);
 	triangleTable.create(16, 256);
-	edgeTable.upload(edgeTable_host, 256);
-	vertexTable.upload(numVertsTable, 256);
-	triangleTable.upload(triTable_host, sizeof(int) * 16, 16, 256);
+	edgeTable.upload(edgeTableHost);
+	vertexTable.upload(vertexTableHost);
+	triangleTable.upload(triangleTableHost);
 
-	// rendering
+
+	// Rendering
 	zRangeMin.create(80, 60);
 	zRangeMax.create(80, 60);
 	noRenderingBlocks.create(1);
 	renderingBlockList.create(DeviceMap::MaxRenderingBlocks);
 
-	// key point
+	// Key Point
 	mKeyMutex.create(KeyMap::MaxKeys);
 	mORBKeys.create(KeyMap::maxEntries);
 	tmpKeys.create(KeyMap::maxEntries);
@@ -54,15 +55,15 @@ void Mapping::create() {
 
 void Mapping::createModel() {
 
-	meshScene(nBlocks, noTriangles, *this, edgeTable, vertexTable,
+	mutexMesh.lock();
+	MeshScene(nBlocks, noTriangles, *this, edgeTable, vertexTable,
 			triangleTable, modelNormal, modelVertex, modelColor, blockPoses);
 
 	noTriangles.download(&noTrianglesHost);
 	if (noTrianglesHost > 0) {
-		mutexMesh.lock();
 		meshUpdated = true;
-		mutexMesh.unlock();
 	}
+	mutexMesh.unlock();
 }
 
 void Mapping::fuseKeys(Frame & f, std::vector<bool> & outliers) {
@@ -117,7 +118,7 @@ void Mapping::updateVisibility(Matrix3f Rview,
 	    					   float cy,
 	    					   uint & no) {
 
-	checkBlockInFrustum(*this, noVisibleEntries, Rview, RviewInv, tview, 640,
+	CheckBlockVisibility(*this, noVisibleEntries, Rview, RviewInv, tview, 640,
 			480, fx, fy, cx, cy, depthMax, depthMin, &no);
 }
 
@@ -128,7 +129,7 @@ void Mapping::fuseColor(const DeviceArray2D<float> & depth,
 					    float3 tview,
 					    uint & no) {
 
-	integrateColor(depth, color, noVisibleEntries, Rview, RviewInv, tview, *this,
+	FuseMapColor(depth, color, noVisibleEntries, Rview, RviewInv, tview, *this,
 			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0),
 			DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
 
@@ -138,18 +139,18 @@ void Mapping::rayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float4> & nmap,
 		float depthMin, float depthMax, float fx, float fy, float cx, float cy) {
 
-	if (createRenderingBlock(visibleEntries, zRangeMin, zRangeMax, depthMax, depthMin,
+	if (CreateRenderingBlocks(visibleEntries, zRangeMin, zRangeMax, depthMax, depthMin,
 			renderingBlockList, noRenderingBlocks, RviewInv, tview,
 			noVisibleBlocks, fx, fy, cx, cy)) {
 
-		rayCast(*this, vmap, nmap, zRangeMin, zRangeMax, Rview, RviewInv, tview,
+		Raycast(*this, vmap, nmap, zRangeMin, zRangeMax, Rview, RviewInv, tview,
 				1.0 / fx, 1.0 / fy, cx, cy);
 	}
 }
 
 void Mapping::reset() {
-	resetDeviceMap(*this);
-	resetKeyMap(*this);
+	ResetMap(*this);
+	ResetKeyPoints(*this);
 }
 
 Mapping::operator KeyMap() {

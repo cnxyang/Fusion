@@ -303,7 +303,7 @@ __global__ void __launch_bounds__(64, 16) MeshSceneKernel(MeshEngine me) {
 	me.MarchingCube();
 }
 
-uint meshScene(DeviceArray<uint> & noOccupiedBlocks,
+uint MeshScene(DeviceArray<uint> & noOccupiedBlocks,
 			   DeviceArray<uint> & noTotalTriangles,
 			   DeviceMap map,
 			   const DeviceArray<int> & edgeTable,

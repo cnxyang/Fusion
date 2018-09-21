@@ -195,7 +195,7 @@ __global__ void fillDepthRangeKernel(PtrStepSz<float> range) {
 	range.ptr(y)[x] = 100;
 }
 
-bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
+bool CreateRenderingBlocks(const DeviceArray<HashEntry> & visibleBlocks,
 						  DeviceArray2D<float> & zRangeX,
 						  DeviceArray2D<float> & zRangeY,
 						  const float & depthMax,
@@ -438,7 +438,7 @@ __global__ void __launch_bounds__(32, 16) RayCastKernel(Rendering cast) {
 	cast();
 }
 
-void rayCast(DeviceMap map,
+void Raycast(DeviceMap map,
 			 DeviceArray2D<float4> & vmap,
 			 DeviceArray2D<float4> & nmap,
 			 DeviceArray2D<float> & zRangeX,

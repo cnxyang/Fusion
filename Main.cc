@@ -7,7 +7,6 @@
 #include <opencv.hpp>
 #include <highgui.hpp>
 
-#include "Timer.h"
 #include "Camera.h"
 #include "Tracking.h"
 

@@ -152,6 +152,10 @@ __host__ __device__ __forceinline__ int2 operator-(int2 a, int2 b) {
 	return make_int2(a.x - b.x, a.y - b.y);
 }
 
+__host__ __device__ __forceinline__ float2 operator-(float2 lhs, float2 rhs) {
+	return make_float2(lhs.x - rhs.x, lhs.y - rhs.y);
+}
+
 __host__ __device__ __forceinline__ float3 operator-(float3 b) {
 	return make_float3(-b.x, -b.y, -b.z);
 }

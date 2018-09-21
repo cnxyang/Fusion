@@ -310,9 +310,7 @@ void Viewer::drawMesh(bool bNormal) {
 	if (mpMap->meshUpdated) {
 		cudaMemcpy((void*) **vertexMaped, (void*) mpMap->modelVertex, sizeof(float3) * mpMap->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
 		cudaMemcpy((void*) **normalMaped, (void*) mpMap->modelNormal, sizeof(float3) * mpMap->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
-		mpMap->mutexMesh.lock();
 		mpMap->meshUpdated = false;
-		mpMap->mutexMesh.unlock();
 	}
 
 	pangolin::GlSlProgram * program;

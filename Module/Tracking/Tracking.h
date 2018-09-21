@@ -101,13 +101,16 @@ public:
 	cv::Ptr<cv::cuda::DescriptorMatcher> orbMatcher;
 	cv::Ptr<cv::cuda::ORB> orbExtractor;
 
-	Frame lastFrame;
-	Frame nextFrame;
+//	Frame lastFrame;
+//	Frame nextFrame;
 	Mapping * mpMap;
 	Viewer * mpViewer;
 
 	std::atomic<bool> imageUpdated;
 	std::atomic<bool> needImages;
+
+	Frame * NextFrame;
+	Frame * LastFrame;
 };
 
 #endif

@@ -1,6 +1,5 @@
-#include "Timer.h"
 #include "System.h"
-#include "cufunc.h"
+
 #include <fstream>
 
 using namespace cv;
@@ -79,7 +78,6 @@ System::System(SysDesc* pParam) :
 
 	Frame::mDepthScale = param->DepthScale;
 	Frame::mDepthCutoff = param->DepthCutoff;
-	Timer::Enable();
 
 	vmap.create(640, 480);
 	nmap.create(640, 480);
@@ -105,7 +103,6 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 		return false;
 	}
 
-	Timer::Start("all", "all");
 	if(!paused) {
 		state = mpTracker->grabFrame(image, depth);
 	}
@@ -113,33 +110,28 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 	if (state) {
 		uint no;
 		if(!mpTracker->localisationOnly && mpTracker->state != -1) {
-			Timer::Start("fuse", "fuse");
 			mpMap->fuseColor(
-					mpTracker->lastDepth[0],
-					mpTracker->color,
-					mpTracker->lastFrame.Rot_gpu(),
-					mpTracker->lastFrame.RotInv_gpu(),
-					mpTracker->lastFrame.Trans_gpu(),
+					mpTracker->LastFrame->depth[0],
+					mpTracker->LastFrame->color,
+					mpTracker->LastFrame->Rot_gpu(),
+					mpTracker->LastFrame->RotInv_gpu(),
+					mpTracker->LastFrame->Trans_gpu(),
 					no);
 			SafeCall(cudaDeviceSynchronize());
-			Timer::Stop("fuse", "fuse");
 		}
 
 		if(!mpTracker->localisationOnly) {
-			Timer::Start("raytracing", "raytracing");
 			mpMap->rayTrace(no,
-					mpTracker->lastFrame.Rot_gpu(),
-					mpTracker->lastFrame.RotInv_gpu(),
-					mpTracker->lastFrame.Trans_gpu(),
-					mpTracker->lastVMap[0],
-					mpTracker->lastNMap[0], 0.3, 3.0, Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0));
-			Timer::Stop("raytracing", "raytracing");
+					mpTracker->LastFrame->Rot_gpu(),
+					mpTracker->LastFrame->RotInv_gpu(),
+					mpTracker->LastFrame->Trans_gpu(),
+					mpTracker->LastFrame->vmap[0],
+					mpTracker->LastFrame->nmap[0], 0.3, 3.0, Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0));
 		}
 		else {
-			Timer::Start("raytracing", "raytracing");
-			mpMap->updateVisibility(mpTracker->lastFrame.Rot_gpu(),
-									mpTracker->lastFrame.RotInv_gpu(),
-									mpTracker->lastFrame.Trans_gpu(),
+			mpMap->updateVisibility(mpTracker->LastFrame->Rot_gpu(),
+									mpTracker->LastFrame->RotInv_gpu(),
+									mpTracker->LastFrame->Trans_gpu(),
 									0.3,
 									3.0,
 									Frame::fx(0),
@@ -148,26 +140,23 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 									Frame::cy(0),
 									no);
 			mpMap->rayTrace(no,
-					mpTracker->lastFrame.Rot_gpu(),
-					mpTracker->lastFrame.RotInv_gpu(),
-					mpTracker->lastFrame.Trans_gpu(),
-					mpTracker->lastVMap[0],
-					mpTracker->lastNMap[0], 0.3, 3.0, Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0));
-			Timer::Stop("raytracing", "raytracing");
+					mpTracker->LastFrame->Rot_gpu(),
+					mpTracker->LastFrame->RotInv_gpu(),
+					mpTracker->LastFrame->Trans_gpu(),
+					mpTracker->LastFrame->vmap[0],
+					mpTracker->LastFrame->nmap[0], 0.3, 3.0, Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0));
 		}
-		Timer::Start("raytracing", "raytracing2");
 
-		Eigen::AngleAxisd angle(M_PI / 2, -Eigen::Vector3d::UnitX());
-		Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
-		Matrix3f curot = eigen_to_mat3f(angle.toRotationMatrix());
-		Matrix3f curotinv = eigen_to_mat3f(angle.toRotationMatrix().transpose());
-		float3 trans = make_float3(0, -8, 0);
-		mpMap->updateVisibility(curot, curotinv, trans, 8.0, 11.0, Frame::fx(0),
-				Frame::fy(0), vmap.cols / 2, vmap.rows / 2, no);
-		mpMap->rayTrace(no, curot, curotinv, trans, vmap, nmap, 8.0, 11.0,
-				Frame::fx(0), Frame::fy(0), vmap.cols / 2, vmap.rows / 2);
-		RenderImage(vmap, nmap, make_float3(0, 0, 0), renderedImage);
-		Timer::Stop("raytracing", "raytracing2");
+//		Eigen::AngleAxisd angle(M_PI / 2, -Eigen::Vector3d::UnitX());
+//		Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
+//		Matrix3f curot = eigen_to_mat3f(angle.toRotationMatrix());
+//		Matrix3f curotinv = eigen_to_mat3f(angle.toRotationMatrix().transpose());
+//		float3 trans = make_float3(0, -8, 0);
+//		mpMap->updateVisibility(curot, curotinv, trans, 8.0, 11.0, Frame::fx(0),
+//				Frame::fy(0), vmap.cols / 2, vmap.rows / 2, no);
+//		mpMap->rayTrace(no, curot, curotinv, trans, vmap, nmap, 8.0, 11.0,
+//				Frame::fx(0), Frame::fy(0), vmap.cols / 2, vmap.rows / 2);
+//		RenderImage(vmap, nmap, make_float3(0, 0, 0), renderedImage);
 
 //		cv::Mat img(480, 640, CV_8UC4);
 //		image.download(img.data, img.step);
@@ -181,15 +170,13 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 		if(nFrames % 25 == 0 && requestMesh) {
 			if(!mpTracker->localisationOnly) {
 				mpMap->createModel();
-				mpMap->updateMapKeys();
+//				mpMap->updateMapKeys();
 			}
 		}
 
 		nFrames++;
 	}
 
-	Timer::Stop("all", "all");
-	Timer::Print();
 	return true;
 }
 
@@ -260,9 +247,7 @@ void System::joinViewer() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 		if(requestSaveMesh) {
 			saveMesh();
-			mutexReq.lock();
 			requestSaveMesh = false;
-			mutexReq.unlock();
 		}
 
 		if(requestStop) {

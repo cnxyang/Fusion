@@ -1,4 +1,3 @@
-#include "cufunc.h"
 #include "Reduction.h"
 
 __constant__ float sigSpace = 0.5 / (4 * 4);
@@ -45,6 +44,9 @@ void FilterDepth(const DeviceArray2D<unsigned short> & depth,
 	dim3 block(DivUp(depth.cols, thread.x), DivUp(depth.rows, thread.y));
 
 	FilterDepthKernel<<<block, thread>>>(depth, filteredDepth, 1.0 / depthScale);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
 }
 
 __global__ void ComputeVMapKernel(const PtrStepSz<float> depth,
@@ -77,6 +79,9 @@ void ComputeVMap(const DeviceArray2D<float> & depth,
 	dim3 block(DivUp(depth.cols, thread.x), DivUp(depth.rows, thread.y));
 
 	ComputeVMapKernel<<<block, thread>>>(depth, vmap, 1.0 / fx, 1.0 / fy, cx, cy, depthCutoff);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
 }
 
 __global__ void ComputeNMapKernel(const PtrStepSz<float4> vmap,
@@ -108,56 +113,20 @@ void ComputeNMap(const DeviceArray2D<float4> & vmap, DeviceArray2D<float4> & nma
 	dim3 grid(DivUp(vmap.cols, block.x), DivUp(vmap.rows, block.y));
 
 	ComputeNMapKernel<<<grid, block>>>(vmap, nmap);
-}
-
-template<class T, class U, int size> __global__
-void BilateralFiltering_device(const PtrStepSz<T> src, PtrStep<U> dst, float s,
-		float r, float scale) {
-	const int x = blockIdx.x * blockDim.x + threadIdx.x;
-	const int y = blockIdx.y * blockDim.y + threadIdx.y;
-	if (x >= src.cols || y >= src.rows)
-		return;
-
-	int minX = max(0, x - size / 2);
-	int maxX = min(x + size / 2 + 1, src.cols);
-	int minY = max(0, y - size / 2);
-	int maxY = min(y + size / 2 + 1, src.rows);
-
-	float val = 0, weight = 0;
-	float valc = src.ptr(y)[x] * scale;
-	for (int i = minX; i < maxX; ++i) {
-		for (int j = minY; j < maxY; ++j) {
-			float valp = src.ptr(j)[i] * scale;
-			float gs2 = (x - i) * (x - i) + (y - j) * (y - j);
-			float gr2 = (valc - valp) * (valc - valp);
-			float wp = __expf(-gs2 * s - gr2 * r);
-			val += wp * valp;
-			weight += wp;
-		}
-	}
-	if (weight < 1e-6)
-		dst.ptr(y)[x] = (U) valc;
-	else
-		dst.ptr(y)[x] = (U) (val / weight);
-}
-
-void BilateralFiltering(const DeviceArray2D<ushort>& src,
-		DeviceArray2D<float>& dst, float scale) {
-	dim3 block(8, 8);
-	dim3 grid(cv::divUp(src.cols, block.x), cv::divUp(src.rows, block.y));
-
-	float SigmaSpace = 0.5 / (4 * 4);
-	float SigmaRange = 0.5 / (0.5 * 0.5);
-	BilateralFiltering_device<ushort, float, 5> <<<grid, block>>>(src, dst,
-			SigmaSpace, SigmaRange, 1.0 / scale);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 }
 
+__constant__ float gaussKernel[25] = {
+		1, 4, 6, 4, 1, 4,
+		16, 24, 16, 4, 6,
+		24, 36, 24, 6, 4,
+		16, 24, 16, 4, 1,
+		4, 6, 4, 1
+};
 template<class T, class U> __global__
-void PyrDownGaussian_device(const PtrStepSz<T> src, PtrStepSz<U> dst,
-		float* kernel) {
+void PyrDownGaussKernel(const PtrStepSz<T> src, PtrStepSz<U> dst) {
 	const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	const int y = blockIdx.y * blockDim.y + threadIdx.y;
 	if (x >= dst.cols || y >= dst.rows)
@@ -173,9 +142,8 @@ void PyrDownGaussian_device(const PtrStepSz<T> src, PtrStepSz<U> dst,
 	for (; cy < ty; ++cy) {
 		for (int cx = max(0, 2 * x - D / 2); cx < tx; ++cx) {
 			if (!isnan((float) src.ptr(cy)[cx])) {
-				sum += src.ptr(cy)[cx]
-						* kernel[(ty - cy - 1) * 5 + (tx - cx - 1)];
-				count += kernel[(ty - cy - 1) * 5 + (tx - cx - 1)];
+				sum += src.ptr(cy)[cx] * gaussKernel[(ty - cy - 1) * 5 + (tx - cx - 1)];
+				count += gaussKernel[(ty - cy - 1) * 5 + (tx - cx - 1)];
 			}
 		}
 	}
@@ -183,108 +151,54 @@ void PyrDownGaussian_device(const PtrStepSz<T> src, PtrStepSz<U> dst,
 	dst.ptr(y)[x] = (U) (sum / (float) count);
 }
 
-void PyrDownGaussian(const DeviceArray2D<float>& src,
-		DeviceArray2D<float>& dst) {
-	dim3 block(8, 8);
-	dim3 grid(cv::divUp(dst.cols, block.x), cv::divUp(dst.rows, block.y));
+void PyrDownGauss(const DeviceArray2D<float> & src, DeviceArray2D<float> & dst) {
 
-	const float gaussKernel[25] = { 1, 4, 6, 4, 1, 4, 16, 24, 16, 4, 6, 24, 36,
-			24, 6, 4, 16, 24, 16, 4, 1, 4, 6, 4, 1 };
+	dim3 thread(8, 8);
+	dim3 block(DivUp(dst.cols, thread.x), DivUp(dst.rows, thread.y));
 
-	DeviceArray<float> kernel(25);
-	kernel.upload((void*) gaussKernel, 25);
-
-	PyrDownGaussian_device<float, float> <<<grid, block>>>(src, dst, kernel);
+	PyrDownGaussKernel<float, float> <<<block, thread>>>(src, dst);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 }
 
-void PyrDownGaussian(const DeviceArray2D<uchar>& src,
-		DeviceArray2D<uchar>& dst) {
-	dim3 block(8, 8);
-	dim3 grid(cv::divUp(src.cols, block.x), cv::divUp(src.rows, block.y));
+void PyrDownGauss(const DeviceArray2D<unsigned char> & src,
+		DeviceArray2D<unsigned char> & dst) {
 
-	const float gaussKernel[25] = { 1, 4, 6, 4, 1, 4, 16, 24, 16, 4, 6, 24, 36,
-			24, 6, 4, 16, 24, 16, 4, 1, 4, 6, 4, 1 };
+	dim3 thread(8, 8);
+	dim3 block(DivUp(src.cols, thread.x), DivUp(src.rows, thread.y));
 
-	DeviceArray<float> kernel(25);
-	kernel.upload((void*) gaussKernel, 25);
-
-	PyrDownGaussian_device<uchar, uchar> <<<grid, block>>>(src, dst, kernel);
+	PyrDownGaussKernel<uchar, uchar> <<<block, thread>>>(src, dst);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 }
 
-__global__ void ColourImageToIntensity_device(PtrStepSz<uchar3> src,
-		PtrStep<uchar> dst) {
+__global__ void ImageToIntensityKernel(PtrStepSz<uchar3> src, PtrStep<unsigned char> dst) {
+
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 	if (x >= src.cols || y >= src.rows)
 		return;
 
 	uchar3 val = src.ptr(y)[x];
-	int value = (float) val.x * 0.2126f + (float) val.y * 0.7152f
-			+ (float) val.z * 0.0722f;
+	int value = (float) val.x * 0.2126f + (float) val.y * 0.7152f + (float) val.z * 0.0722f;
 	dst.ptr(y)[x] = value;
 }
 
-void ColourImageToIntensity(const DeviceArray2D<uchar3>& src,
-		DeviceArray2D<uchar>& dst) {
-	dim3 block(8, 8);
-	dim3 grid(cv::divUp(src.cols, block.x), cv::divUp(src.rows, block.y));
+void ImageToIntensity(const DeviceArray2D<uchar3> & rgb, DeviceArray2D<unsigned char> & image) {
 
-	ColourImageToIntensity_device<<<grid, block>>>(src, dst);
+	dim3 thread(8, 8);
+	dim3 block(DivUp(image.cols, thread.x), DivUp(image.rows, thread.y));
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-}
-
-__constant__ int sobely[9] = { 1, 2, 1, 0, 0, 0, -1, -2, -1 };
-__constant__ int sobelx[9] = { 1, 0, -1, 2, 0, -2, 1, 0, -1 };
-
-__global__ void ComputeDerivativeImage_device(PtrStepSz<uchar> src,
-		PtrStep<float> dIx, PtrStep<float> dIy) {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
-	if (x >= src.cols || y >= src.rows)
-		return;
-
-	if (x > 0 && y > 0 && x < src.cols - 1 && y < src.rows - 1) {
-
-		int dx = 0;
-		int dy = 0;
-		int id = 8;
-		for (int i = -1; i < 2; ++i)
-			for (int j = -1; j < 2; ++j) {
-				int val = src.ptr(y + i)[x + j];
-				dx += val * sobelx[id];
-				dy += val * sobely[id];
-				--id;
-			}
-		dIx.ptr(y)[x] = (float) dx / 8;
-		dIy.ptr(y)[x] = (float) dy / 8;
-	} else {
-		dIx.ptr(y)[x] = 0;
-		dIy.ptr(y)[x] = 0;
-	}
-}
-
-void ComputeDerivativeImage(const DeviceArray2D<uchar>& src,
-		DeviceArray2D<float>& dx, DeviceArray2D<float>& dy) {
-	dim3 block(8, 8);
-	dim3 grid(cv::divUp(src.cols, block.x), cv::divUp(src.rows, block.y));
-
-	ComputeDerivativeImage_device<<<grid, block>>>(src, dx, dy);
+	ImageToIntensityKernel<<<block, thread>>>(rgb, image);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 }
 
-__global__ void ResizeMap_device(const PtrStepSz<float4> vsrc,
-		const PtrStep<float4> nsrc, PtrStepSz<float4> vdst,
-		PtrStep<float4> ndst) {
+__global__ void ResizeMapKernel(const PtrStepSz<float4> vsrc, const PtrStep<float4> nsrc,
+								PtrStepSz<float4> vdst,	PtrStep<float4> ndst) {
 
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -313,87 +227,13 @@ __global__ void ResizeMap_device(const PtrStepSz<float4> vsrc,
 	}
 }
 
-void ResizeMap(const DeviceArray2D<float4>& vsrc,
-		const DeviceArray2D<float4>& nsrc, DeviceArray2D<float4>& vdst,
-		DeviceArray2D<float4>& ndst) {
+void ResizeMap(const DeviceArray2D<float4>& vsrc, const DeviceArray2D<float4>& nsrc,
+			   DeviceArray2D<float4>& vdst, DeviceArray2D<float4>& ndst) {
 
-	dim3 block(8, 8);
-	dim3 grid(cv::divUp(vdst.cols, block.x), cv::divUp(vdst.rows, block.y));
+	dim3 thread(8, 8);
+	dim3 block(DivUp(vdst.cols, thread.x), DivUp(vdst.rows, thread.y));
 
-	ResizeMap_device<<<grid, block>>>(vsrc, nsrc, vdst, ndst);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-}
-
-__global__ void BackProjectPointsDevice(const PtrStepSz<float> src,
-		PtrStepSz<float4> dst, float depthCutoff, float invfx, float invfy,
-		float cx, float cy) {
-
-	const int x = blockDim.x * blockIdx.x + threadIdx.x;
-	const int y = blockDim.y * blockIdx.y + threadIdx.y;
-	if (x >= src.cols || y >= src.rows)
-		return;
-
-	float4 point;
-
-	point.z = src.ptr(y)[x];
-	if (!isnan(point.z) && point.z > 1e-3) {
-		point.x = point.z * (x - cx) * invfx;
-		point.y = point.z * (y - cy) * invfy;
-		point.w = 1.0;
-	}
-	else {
-		dst.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
-	}
-
-	dst.ptr(y)[x] = point;
-}
-
-void BackProjectPoints(const DeviceArray2D<float>& src,
-		DeviceArray2D<float4>& dst, float depthCutoff, float fx, float fy,
-		float cx, float cy) {
-
-	dim3 block(8, 8);
-	dim3 grid(cv::divUp(src.cols, block.x), cv::divUp(src.rows, block.y));
-
-	BackProjectPointsDevice<<<grid, block>>>(src, dst, depthCutoff, 1.0 / fx,
-			1.0 / fy, cx, cy);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-}
-
-__global__ void ComputeNormalMapDevice(const PtrStepSz<float4> src,
-		PtrStepSz<float4> dst) {
-
-	const int x = blockDim.x * blockIdx.x + threadIdx.x;
-	const int y = blockDim.y * blockIdx.y + threadIdx.y;
-	if (x >= src.cols || y >= src.rows)
-		return;
-
-	if (x == src.cols - 1 || y == src.rows - 1) {
-		dst.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
-		return;
-	}
-
-	float4 vcentre = src.ptr(y)[x];
-	float4 vright = src.ptr(y)[x + 1];
-	float4 vdown = src.ptr(y + 1)[x];
-
-	if (!isnan(vcentre.x) && !isnan(vright.x) && !isnan(vdown.x)) {
-		dst.ptr(y)[x] = normalised(cross(vright - vcentre, vdown - vcentre));
-	} else
-		dst.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
-}
-
-void ComputeNormalMap(const DeviceArray2D<float4>& src,
-		DeviceArray2D<float4>& dst) {
-
-	dim3 block(8, 8);
-	dim3 grid(cv::divUp(src.cols, block.x), cv::divUp(src.rows, block.y));
-
-	ComputeNormalMapDevice<<<grid, block>>>(src, dst);
+	ResizeMapKernel<<<block, thread>>>(vsrc, nsrc, vdst, ndst);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
@@ -427,20 +267,6 @@ __global__ void forwardProjectKernel(PtrStepSz<float4> src_vmap,
 	dst_nmap.ptr(y)[x] = src_nmap.ptr(v)[u];
 }
 
-void forwardProjection(const DeviceArray2D<float4> & vsrc,
-					   const DeviceArray2D<float4> & nsrc,
-					   DeviceArray2D<float4> & vdst,
-					   DeviceArray2D<float4> & ndst,
-					   Matrix3f KRKinv, float3 Kt,
-					   float fx, float fy,
-					   float cx, float cy) {
-
-	dim3 thread(16, 8);
-	dim3 block(cv::divUp(vsrc.cols, thread.x), cv::divUp(vsrc.rows, thread.y));
-
-//	forwardProjectKernel<<<block, thread>>>(vsrc, nsrc, vdst, ndst, Rcurr,
-//			tcurr, RlastInv, tlast, fx, fy, cx, cy);
-}
 
 __global__ void RenderImageDevice(const PtrStep<float4> vmap,
 								  const PtrStep<float4> nmap,
@@ -520,7 +346,7 @@ __global__ void depthToImageKernel(PtrStepSz<float> depth, PtrStepSz<uchar4> ima
 	image.ptr(y)[x] = make_uchar4(intdp, intdp, intdp, 255);
 }
 
-void depthToImage(const DeviceArray2D<float> & depth,
+void DepthToImage(const DeviceArray2D<float> & depth,
 				  DeviceArray2D<uchar4> & image) {
 	dim3 block(32, 8);
 	dim3 grid(cv::divUp(image.cols, block.x),
@@ -543,7 +369,7 @@ __global__ void rgbImageToRgbaKernel(PtrStepSz<uchar3> image, PtrStepSz<uchar4> 
 	rgba.ptr(y)[x] = make_uchar4(rgb.x, rgb.y, rgb.z, 255);
 }
 
-void rgbImageToRgba(const DeviceArray2D<uchar3> & image,
+void RgbImageToRgba(const DeviceArray2D<uchar3> & image,
 				    DeviceArray2D<uchar4> & rgba) {
 	dim3 block(32, 8);
 	dim3 grid(cv::divUp(image.cols, block.x),
