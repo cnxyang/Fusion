@@ -1,7 +1,7 @@
 #ifndef FRAME_HPP__
 #define FRAME_HPP__
 
-#include "Map.h"
+#include "DeviceMap.h"
 #include "DeviceArray.h"
 #include "KeyFrame.h"
 

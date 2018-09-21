@@ -1,4 +1,4 @@
-#include "Map.h"
+#include "DeviceMap.h"
 
 void rayCast(DeviceMap map,
 			 DeviceArray2D<float4> & vmap,

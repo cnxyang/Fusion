@@ -20,4 +20,24 @@ static inline void ___SafeCall(cudaError_t err, const char *file, const int line
         error(cudaGetErrorString(err), file, line, func);
 }
 
+static inline int DivUp(int a, unsigned int b) {
+	return (a + b - 1) / b;
+}
+
+static inline int DivUp(int a, int b) {
+	return (a + b - 1) / b;
+}
+
+static inline int DivUp(unsigned int a, int b) {
+	return (a + b - 1) / b;
+}
+
+static inline int DivUp(unsigned int a, unsigned int b) {
+	return (a + b - 1) / b;
+}
+
+static inline int DivUp(size_t a, unsigned int b) {
+	return (a + b - 1) / b;
+}
+
 #endif

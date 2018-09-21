@@ -1,6 +1,5 @@
-#include "Scan.h"
 #include "Render.h"
-#include "opencv.hpp"
+#include "ParallelScan.h"
 
 struct MeshEngine {
 
@@ -331,7 +330,7 @@ uint meshScene(DeviceArray<uint> & noOccupiedBlocks,
 	engine.noVertexTable = vertexTable;
 
 	dim3 thread(1024);
-	dim3 block = dim3(cv::divUp((int) DeviceMap::NumEntries, thread.x));
+	dim3 block = dim3(DivUp(DeviceMap::NumEntries, thread.x));
 
 	CheckBlockKernel<<<block, thread>>>(engine);
 	SafeCall(cudaGetLastError());
@@ -343,7 +342,7 @@ uint meshScene(DeviceArray<uint> & noOccupiedBlocks,
 		return 0;
 
 	thread = dim3(8, 8, 1);
-	block = dim3(cv::divUp((int) host_data, 16), 16, 1);
+	block = dim3(DivUp(host_data, 16), 16, 1);
 
 	MeshSceneKernel<<<block, thread>>>(engine);
 	SafeCall(cudaGetLastError());

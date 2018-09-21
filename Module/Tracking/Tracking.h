@@ -3,8 +3,8 @@
 
 #include "Frame.h"
 #include "Viewer.h"
-#include "Reduce.h"
 #include "Mapping.h"
+#include "Reduction.h"
 
 class Viewer;
 class Mapping;

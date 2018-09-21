@@ -1,7 +1,7 @@
 #ifndef DEVICE_FUNCTION_HPP__
 #define DEVICE_FUNCTION_HPP__
 
-#include "Map.h"
+#include "DeviceMap.h"
 
 #include <opencv.hpp>
 #include <cuda_runtime.h>

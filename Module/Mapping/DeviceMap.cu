@@ -1,4 +1,4 @@
-#include "Map.h"
+#include "DeviceMap.h"
 
 __device__ HashEntry::HashEntry() :
 		pos(make_int3(0x7fffffff)), ptr(EntryAvailable), offset(0) {

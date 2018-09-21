@@ -1,4 +1,4 @@
-#include "Reduce.h"
+#include "Reduction.h"
 
 template<int rows, int cols>
 void inline createMatrix(float* host_data, double* host_a,

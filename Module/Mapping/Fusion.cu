@@ -1,7 +1,6 @@
-#include "Scan.h"
 #include "Timer.h"
 #include "Render.h"
-#include "opencv.hpp"
+#include "ParallelScan.h"
 
 struct Fusion {
 
@@ -226,7 +225,7 @@ void checkBlockInFrustum(DeviceMap map,
 	fuse.minDepth = depthMin;
 
 	dim3 thread = dim3(1024);
-	dim3 block = dim3(cv::divUp((int) DeviceMap::NumEntries, thread.x));
+	dim3 block = dim3(DivUp((int) DeviceMap::NumEntries, thread.x));
 	checkVisibleBlockKernel<<<block, thread>>>(fuse);
 	SafeCall(cudaDeviceSynchronize());
 
@@ -275,14 +274,14 @@ void integrateColor(const DeviceArray2D<float> & depth,
 	fuse.minDepth = DeviceMap::DepthMin;
 
 	dim3 thread(16, 8);
-	dim3 block(cv::divUp(cols, thread.x), cv::divUp(rows, thread.y));
+	dim3 block(DivUp(cols, thread.x), DivUp(rows, thread.y));
 	Timer::Start("debug", "createBlocksKernel");
 	createBlocksKernel<<<block, thread>>>(fuse);
 	SafeCall(cudaDeviceSynchronize());
 	Timer::Stop("debug", "createBlocksKernel");
 
 	thread = dim3(1024);
-	block = dim3(cv::divUp((int) DeviceMap::NumEntries, thread.x));
+	block = dim3(DivUp((int) DeviceMap::NumEntries, thread.x));
 	Timer::Start("debug", "checkVisibleBlockKernel");
 	checkVisibleBlockKernel<<<block, thread>>>(fuse);
 	SafeCall(cudaDeviceSynchronize());
@@ -335,11 +334,11 @@ __global__ void resetSdfBlockKernel(DeviceMap map) {
 void resetDeviceMap(DeviceMap map) {
 
 	dim3 thread(1024);
-	dim3 block(cv::divUp((int) DeviceMap::NumEntries, thread.x));
+	dim3 block(DivUp((int) DeviceMap::NumEntries, thread.x));
 
 	resetHashKernel<<<block, thread>>>(map);
 
-	block.x = cv::divUp((int) DeviceMap::NumSdfBlocks, thread.x);
+	block.x = DivUp((int) DeviceMap::NumSdfBlocks, thread.x);
 	resetSdfBlockKernel<<<block, thread>>>(map);
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
@@ -359,7 +358,7 @@ __global__ void resetKeyMapKernel(KeyMap map) {
 
 void resetKeyMap(KeyMap map) {
 	dim3 thread(1024);
-	dim3 block(cv::divUp((int) KeyMap::maxEntries, thread.x));
+	dim3 block(DivUp((int) KeyMap::maxEntries, thread.x));
 
 	resetKeyMapKernel<<<block, thread>>>(map);
 	SafeCall(cudaDeviceSynchronize());

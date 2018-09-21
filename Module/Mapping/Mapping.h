@@ -1,11 +1,11 @@
 #ifndef MAPPING_HPP__
 #define MAPPING_HPP__
 
-#include "Map.h"
 #include "cufunc.h"
 #include "System.h"
 #include "Tracking.h"
 #include "KeyFrame.h"
+#include "DeviceMap.h"
 
 #include <mutex>
 #include <vector>

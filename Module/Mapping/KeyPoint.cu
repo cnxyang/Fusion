@@ -1,6 +1,6 @@
 #include "Render.h"
-#include "Reduce.h"
-#include "Scan.h"
+#include "Reduction.h"
+#include "ParallelScan.h"
 
 __global__ void CollectORBKeys(KeyMap Km, PtrSz<ORBKey> keys, PtrSz<int> index, uint* totalKeys) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -31,7 +31,7 @@ void CollectKeys(KeyMap Km, DeviceArray<ORBKey>& keys, DeviceArray<int> & index,
 	keys.create(Km.Keys.size);
 
 	dim3 block(MaxThread);
-	dim3 grid(cv::divUp(Km.Keys.size, block.x));
+	dim3 grid(DivUp(Km.Keys.size, block.x));
 
 	DeviceArray<uint> totalKeys(1);
 	totalKeys.clear();
@@ -56,7 +56,7 @@ void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys, DeviceArray<int> & indice
 		return;
 
 	dim3 block(MaxThread);
-	dim3 grid(cv::divUp(keys.size, block.x));
+	dim3 grid(DivUp(keys.size, block.x));
 
 	InsertKeysKernel<<<grid, block>>>(map, keys, indices);
 
@@ -133,7 +133,7 @@ void BuildAdjecencyMatrix(cv::cuda::GpuMat& AM,	DeviceArray<ORBKey>& TrainKeys,
 		DeviceArray<int>& QueryIdx, DeviceArray<int>& SelectedIdx) {
 
 	dim3 block(32, 8);
-	dim3 grid(cv::divUp(AM.cols, block.x), cv::divUp(AM.rows, block.y));
+	dim3 grid(DivUp(AM.cols, block.x), DivUp(AM.rows, block.y));
 
 	BuildAdjecencyMatrixKernel<<<grid, block>>>(AM, TrainKeys, QueryKeys, MatchDist);
 
@@ -154,7 +154,7 @@ void BuildAdjecencyMatrix(cv::cuda::GpuMat& AM,	DeviceArray<ORBKey>& TrainKeys,
 	SelectedIdx.create(selection);
 
 	dim3 block2(MaxThread);
-	dim3 grid2(cv::divUp(selection, block2.x));
+	dim3 grid2(DivUp(selection, block2.x));
 
 	SelectMatches<<<grid2, block2>>>(TrainKeys, QueryKeys, train_select,
 			query_select, SelectedMatches, QueryIdx, SelectedIdx);
@@ -189,7 +189,7 @@ void ProjectVisibleKeys(KeyMap map, Matrix3f RviewInv, float3 tview, int cols,
 		int rows, float fx, float fy, float cx, float cy) {
 
 	dim3 block(MaxThread);
-	dim3 grid(cv::divUp(map.Keys.size, block.x));
+	dim3 grid(DivUp(map.Keys.size, block.x));
 
 	ProjectVisibleKeysKernel<<<grid, block>>>(map, RviewInv, tview, cols, rows,
 			DeviceMap::DepthMax, DeviceMap::DepthMin, fx, fy, cx, cy);

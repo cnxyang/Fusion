@@ -1,8 +1,8 @@
 #include "Timer.h"
 #include "Render.h"
-#include "Reduce.h"
 #include "Mapping.h"
 #include "ConstVar.h"
+#include "Reduction.h"
 
 Mapping::Mapping(bool default_stream, cudaStream_t * stream_) :
 		meshUpdated(false), mapKeyUpdated(false), noKeysInMap(0),

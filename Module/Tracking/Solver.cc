@@ -2,9 +2,9 @@
 #include <iostream>
 #include <cmath>
 
-#include "Map.h"
 #include "Timer.h"
 #include "Solver.h"
+#include "DeviceMap.h"
 #include "sophus/se3.hpp"
 
 using namespace std;

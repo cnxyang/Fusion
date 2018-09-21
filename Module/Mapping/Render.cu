@@ -1,6 +1,5 @@
-#include "Scan.h"
 #include "Render.h"
-#include "opencv.hpp"
+#include "ParallelScan.h"
 
 #define minMaxSubSample 8
 #define renderingBlockSizeX 16
@@ -241,8 +240,8 @@ bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
 
 	dim3 block, thread;
 	thread = dim3(16, 4);
-	block.x = cv::divUp(cols, thread.x);
-	block.y = cv::divUp(rows, thread.y);
+	block.x = DivUp(cols, thread.x);
+	block.y = DivUp(rows, thread.y);
 
 	zRangeY.clear();
 	fillDepthRangeKernel<<<block, thread>>>(zRangeX);
@@ -250,7 +249,7 @@ bool createRenderingBlock(const DeviceArray<HashEntry> & visibleBlocks,
 	SafeCall(cudaDeviceSynchronize());
 
 	thread = dim3(1024);
-	block = dim3(cv::divUp((int) noVisibleBlocks, block.x));
+	block = dim3(DivUp((int) noVisibleBlocks, block.x));
 
 	projectBlockKernel<<<block, thread>>>(proj);
 	SafeCall(cudaGetLastError());
@@ -508,8 +507,8 @@ void rayCast(DeviceMap map,
 
 	dim3 block;
 	dim3 thread(4, 8);
-	block.x = cv::divUp(cols, thread.x);
-	block.y = cv::divUp(rows, thread.y);
+	block.x = DivUp(cols, thread.x);
+	block.y = DivUp(rows, thread.y);
 
 	RayCastKernel<<<block, thread>>>(cast);
 	SafeCall(cudaGetLastError());

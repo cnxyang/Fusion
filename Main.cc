@@ -7,9 +7,9 @@
 #include <opencv.hpp>
 #include <highgui.hpp>
 
-#include "camera.h"
-#include "tracker.h"
-#include "timer.h"
+#include "Timer.h"
+#include "Camera.h"
+#include "Tracking.h"
 
 int main(int argc, char** argv) {
 
