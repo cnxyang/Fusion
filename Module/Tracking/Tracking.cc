@@ -21,23 +21,6 @@ Tracker::Tracker(int w, int h, float fx, float fy, float cx, float cy)
 	 useIcp(true), useSo3(true), state(1), needImages(false),
 	 lastState(1), lastReloc(0), imageUpdated(false), localisationOnly(false) {
 
-//	for(int i = 0; i < NUM_PYRS; ++i) {
-//		int cols = w / (1 << i);
-//		int rows = h / (1 << i);
-//		lastDepth[i].create(cols, rows);
-//		lastImage[i].create(cols, rows);
-//		lastVMap[i].create(cols, rows);
-//		lastNMap[i].create(cols, rows);
-//		nextDepth[i].create(cols, rows);
-//		nextImage[i].create(cols, rows);
-//		nextVMap[i].create(cols, rows);
-//		nextNMap[i].create(cols, rows);
-//		nextIdx[i].create(cols, rows);
-//		nextIdy[i].create(cols, rows);
-//	}
-
-//	depth.create(w, h);
-//	color.create(w, h);
 	renderedImage.create(w, h);
 	renderedDepth.create(w, h);
 	rgbaImage.create(w, h);
@@ -57,8 +40,7 @@ Tracker::Tracker(int w, int h, float fx, float fy, float cx, float cy)
 	K = Intrinsics(fx, fy, cx, cy);
 
 	lastRelocId = 0;
-//	orbExtractor = cuda::ORB::create(1500);
-	orbMatcher = cuda::DescriptorMatcher::createBFMatcher(NORM_HAMMING);
+	bfMatcher = cuda::DescriptorMatcher::createBFMatcher(NORM_L2);
 
 	NextFrame = new Frame();
 	LastFrame = new Frame();
@@ -82,11 +64,11 @@ bool Tracker::track() {
 	std::swap(state, lastState);
 
 	if(needImages) {
-//		if(state != -1)
-//			RenderImage(lastVMap[0], lastNMap[0], make_float3(0, 0, 0), renderedImage);
-//		DepthToImage(nextDepth[0], renderedDepth);
-//		RgbImageToRgba(color, rgbaImage);
-//		imageUpdated = true;
+		if(state != -1)
+			RenderImage(LastFrame->vmap[0], LastFrame->nmap[0], make_float3(0, 0, 0), renderedImage);
+		DepthToImage(LastFrame->depth[0], renderedDepth);
+		RgbImageToRgba(LastFrame->color, rgbaImage);
+		imageUpdated = true;
 	}
 
 	switch(state) {
@@ -199,16 +181,7 @@ bool Tracker::trackLastFrame() {
 
 	std::vector<cv::DMatch> refined;
 	std::vector<std::vector<cv::DMatch>> rawMatches;
-	orbMatcher->knnMatch(NextFrame->descriptors, LastFrame->descriptors, rawMatches, 2);
-
-//	cv::Mat img1(480, 640, CV_8UC1);
-//	cv::Mat img2(480, 640, CV_8UC1);
-//	NextFrame->image[0].download(img1.data, img1.step);
-//	LastFrame->image[0].download(img2.data, img2.step);
-//	cv::Mat out;
-//	cv::drawMatches(img1, NextFrame->keys, img2, LastFrame->keys, refined, out);
-//	cv::imshow("out", out);
-//	cv::waitKey(0);
+	bfMatcher->knnMatch(NextFrame->descriptors, LastFrame->descriptors, rawMatches, 2);
 
 	for (int i = 0; i < rawMatches.size(); ++i) {
 		if (rawMatches[i][0].distance < 0.80 * rawMatches[i][1].distance) {
@@ -229,8 +202,6 @@ bool Tracker::trackLastFrame() {
 		p1 << p3.x, p3.y, p3.z;
 		src.push_back(p0);
 		ref.push_back(p1);
-//		src.push_back(nextFrame.mPoints[refined[i].queryIdx]);
-//		ref.push_back(lastFrame.mPoints[refined[i].trainIdx]);
 	}
 
 
@@ -243,15 +214,6 @@ bool Tracker::trackLastFrame() {
 	if (result) {
 		nextPose = delta.inverse() * LastFrame->pose;
 		NextFrame->pose = nextPose;
-//		NextFrame.deltaPose = delta.inverse() * LastFrame.deltaPose;
-
-//		nextFrame.index.resize(nextFrame.N);
-//		fill(nextFrame.index.begin(), nextFrame.index.end(), -1);
-//		for(int i = 0; i < outliers.size(); ++i) {
-//			if(!outliers[i]) {
-//				nextFrame.index[refined[i].queryIdx] = lastFrame.index[refined[i].trainIdx];
-//			}
-//		}
 	}
 
 	return result;
@@ -267,9 +229,6 @@ void Tracker::initTracking() {
 
 bool Tracker::grabFrame(const cv::Mat & image, const cv::Mat & depth) {
 
-//	color.upload((void*) image.data, image.step, image.cols, image.rows);
-//	ImageToIntensity(color, nextImage[0]);
-//	nextFrame = Frame(nextImage[0], depth, referenceKF);
 	LastFrame->ResizeVNMap();
 	NextFrame->FillImages(depth, image);
 	NextFrame->ExtractKeyPoints();
@@ -277,37 +236,10 @@ bool Tracker::grabFrame(const cv::Mat & image, const cv::Mat & depth) {
 }
 
 void Tracker::initIcp() {
-
-//	depth.upload((void*)nextFrame.rawDepth.data,
-//					    nextFrame.rawDepth.step,
-//					    nextFrame.rawDepth.cols,
-//					    nextFrame.rawDepth.rows);
-//
-//	FilterDepth(depth, nextDepth[0], Frame::mDepthScale);
-//
-//	for(int i = 1; i < NUM_PYRS; ++i) {
-//		PyrDownGauss(nextDepth[i - 1], nextDepth[i]);
-//		PyrDownGauss(nextImage[i - 1], nextImage[i]);
-//		ResizeMap(lastVMap[i - 1], lastNMap[i - 1], lastVMap[i], lastNMap[i]);
-//	}
-//
-//	for(int i = 0; i < NUM_PYRS; ++i) {
-//		ComputeVMap(nextDepth[i], nextVMap[i], Frame::fx(i), Frame::fy(i),
-//				Frame::cx(i), Frame::cy(i), Frame::mDepthCutoff);
-//		ComputeNMap(nextVMap[i], nextNMap[i]);
-//	}
 }
 
 void Tracker::swapFrame() {
-
-//	lastFrame = nextFrame;
 	std::swap(NextFrame, LastFrame);
-//	for (int i = 0; i < NUM_PYRS; ++i) {
-//		nextImage[i].swap(lastImage[i]);
-//		nextDepth[i].swap(lastDepth[i]);
-//		nextVMap[i].swap(lastVMap[i]);
-//		nextNMap[i].swap(lastNMap[i]);
-//	}
 }
 
 float Tracker::rotationChanged() const {
@@ -443,7 +375,6 @@ bool Tracker::computeSE3() {
 		}
 	}
 
-//	std::cout << NextFrame->pose << std::endl;
 	return true;
 }
 

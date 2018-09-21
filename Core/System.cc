@@ -1,5 +1,4 @@
 #include "System.h"
-
 #include <fstream>
 
 using namespace cv;
@@ -117,7 +116,6 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 					mpTracker->LastFrame->RotInv_gpu(),
 					mpTracker->LastFrame->Trans_gpu(),
 					no);
-			SafeCall(cudaDeviceSynchronize());
 		}
 
 		if(!mpTracker->localisationOnly) {

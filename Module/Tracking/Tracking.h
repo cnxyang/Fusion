@@ -53,17 +53,17 @@ public:
 	DeviceArray2D<uchar4> renderedDepth;
 	DeviceArray2D<uchar4> rgbaImage;
 
-	DeviceArray2D<float> lastDepth[NUM_PYRS];
-	DeviceArray2D<unsigned char> lastImage[NUM_PYRS];
-	DeviceArray2D<float4> lastVMap[NUM_PYRS];
-	DeviceArray2D<float4> lastNMap[NUM_PYRS];
-
-	DeviceArray2D<float> nextDepth[NUM_PYRS];
-	DeviceArray2D<unsigned char> nextImage[NUM_PYRS];
-	DeviceArray2D<float4> nextVMap[NUM_PYRS];
-	DeviceArray2D<float4> nextNMap[NUM_PYRS];
-	DeviceArray2D<short> nextIdx[NUM_PYRS];
-	DeviceArray2D<short> nextIdy[NUM_PYRS];
+//	DeviceArray2D<float> lastDepth[NUM_PYRS];
+//	DeviceArray2D<unsigned char> lastImage[NUM_PYRS];
+//	DeviceArray2D<float4> lastVMap[NUM_PYRS];
+//	DeviceArray2D<float4> lastNMap[NUM_PYRS];
+//
+//	DeviceArray2D<float> nextDepth[NUM_PYRS];
+//	DeviceArray2D<unsigned char> nextImage[NUM_PYRS];
+//	DeviceArray2D<float4> nextVMap[NUM_PYRS];
+//	DeviceArray2D<float4> nextNMap[NUM_PYRS];
+//	DeviceArray2D<short> nextIdx[NUM_PYRS];
+//	DeviceArray2D<short> nextIdy[NUM_PYRS];
 
 	DeviceArray2D<float> sumSE3;
 	DeviceArray<float> outSE3;
@@ -98,8 +98,8 @@ public:
 	std::vector<bool> outliers;
 	cv::cuda::GpuMat keyDescriptors;
 	std::vector<Eigen::Vector3d> mapPoints;
-	cv::Ptr<cv::cuda::DescriptorMatcher> orbMatcher;
-	cv::Ptr<cv::cuda::ORB> orbExtractor;
+	cv::Ptr<cv::cuda::DescriptorMatcher> bfMatcher;
+//	cv::Ptr<cv::cuda::ORB> orbExtractor;
 
 //	Frame lastFrame;
 //	Frame nextFrame;

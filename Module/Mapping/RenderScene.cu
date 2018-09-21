@@ -1,3 +1,4 @@
+#include "Constant.h"
 #include "RenderScene.h"
 #include "ParallelScan.h"
 
@@ -241,14 +242,19 @@ bool CreateRenderingBlocks(const DeviceArray<HashEntry> & visibleBlocks,
 	block.y = DivUp(rows, thread.y);
 
 	zRangeY.clear();
-	fillDepthRangeKernel<<<block, thread>>>(zRangeX);
-	SafeCall(cudaGetLastError());
-	SafeCall(cudaDeviceSynchronize());
+	float zRangeMax[60][80];
+	for(int i = 0; i < 80; ++i) {
+		for(int j = 0; j < 60; ++j) {
+			zRangeMax[j][i] = 100.f;
+		}
+	}
+	zRangeX.upload(zRangeMax);
 
 	thread = dim3(1024);
 	block = dim3(DivUp((int) noVisibleBlocks, block.x));
 
 	projectBlockKernel<<<block, thread>>>(proj);
+
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
 
