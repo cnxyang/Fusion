@@ -2,83 +2,6 @@
 #include "RenderScene.h"
 #include "ParallelScan.h"
 
-__global__ void CollectORBKeys(KeyMap Km, PtrSz<ORBKey> keys, PtrSz<int> index, uint* totalKeys) {
-	int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	__shared__ bool scan;
-	if(idx == 0)
-		scan = false;
-	__syncthreads();
-	uint val = 0;
-	if (idx < Km.Keys.size) {
-		ORBKey* key = &Km.Keys[idx];
-		if (key->valid && key->obs > 0) {
-			scan = true;
-			val = 1;
-		}
-	}
-	__syncthreads();
-	if(scan) {
-		int offset = ComputeOffset<1024>(val, totalKeys);
-		if(offset >= 0) {
-			memcpy((void*) &keys[offset], (void*) &Km.Keys[idx], sizeof(ORBKey));
-			index[offset] = idx;
-		}
-	}
-}
-
-void CollectKeys(KeyMap Km, DeviceArray<ORBKey>& keys, DeviceArray<int> & index, uint& n) {
-
-	keys.create(Km.Keys.size);
-
-	dim3 block(MaxThread);
-	dim3 grid(DivUp(Km.Keys.size, block.x));
-
-	DeviceArray<uint> totalKeys(1);
-	totalKeys.clear();
-
-	CollectORBKeys<<<grid, block>>>(Km, keys, index, totalKeys);
-
-	totalKeys.download(&n);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-}
-
-__global__ void InsertKeysKernel(KeyMap map, PtrSz<ORBKey> key, PtrSz<int> indices) {
-	int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	if (idx < key.size) {
-		map.InsertKey(&key[idx], indices[idx]);
-	}
-}
-
-void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys, DeviceArray<int> & indices) {
-	if (keys.size == 0)
-		return;
-
-	dim3 block(MaxThread);
-	dim3 grid(DivUp(keys.size, block.x));
-
-	InsertKeysKernel<<<grid, block>>>(map, keys, indices);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-}
-
-__global__ void ResetKeysKernel(KeyMap map) {
-	int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	map.ResetKeys(idx);
-}
-
-void ResetKeys(KeyMap map) {
-	dim3 block(MaxThread);
-	dim3 grid(cv::divUp(map.MaxKeys * map.nBuckets, block.x));
-
-	ResetKeysKernel<<<grid, block>>>(map);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-}
-
 __global__ void BuildAdjecencyMatrixKernel(cv::cuda::PtrStepSz<float> AM,
 		PtrSz<ORBKey> TrainKeys, PtrSz<ORBKey> QueryKeys,
 		PtrSz<float> MatchDist) {
@@ -163,37 +86,37 @@ void BuildAdjecencyMatrix(cv::cuda::GpuMat& AM,	DeviceArray<ORBKey>& TrainKeys,
 	SafeCall(cudaGetLastError());
 }
 
-__global__ void ProjectVisibleKeysKernel(KeyMap map, Matrix3f invRot, float3 trans,
-		int cols, int rows, float maxd, float mind, float fx, float fy,
-		float cx, float cy) {
-
-	int x = blockDim.x * blockIdx.x + threadIdx.x;
-	if(x < KeyMap::MaxKeys * KeyMap::nBuckets) {
-		ORBKey& key = map.Keys[x];
-		if(key.valid && key.obs <= 8) {
-			float3 pos = invRot * (key.pos - trans);
-			float u = fx * pos.x / pos.z + cx;
-			float v = fy * pos.y / pos.z + cy;
-			if(u >= 0 && v >= 0 && u < cols && v < rows
-					&& pos.z < maxd && pos.z > mind) {
-				key.obs -= 1;
-				if(key.obs <= KeyMap::MinObsThresh) {
-					key.valid = false;
-				}
-			}
-		}
-	}
-}
-
-void ProjectVisibleKeys(KeyMap map, Matrix3f RviewInv, float3 tview, int cols,
-		int rows, float fx, float fy, float cx, float cy) {
-
-	dim3 block(MaxThread);
-	dim3 grid(DivUp(map.Keys.size, block.x));
-
-	ProjectVisibleKeysKernel<<<grid, block>>>(map, RviewInv, tview, cols, rows,
-			DeviceMap::DepthMax, DeviceMap::DepthMin, fx, fy, cx, cy);
-
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
-}
+//__global__ void ProjectVisibleKeysKernel(KeyMap map, Matrix3f invRot, float3 trans,
+//		int cols, int rows, float maxd, float mind, float fx, float fy,
+//		float cx, float cy) {
+//
+//	int x = blockDim.x * blockIdx.x + threadIdx.x;
+//	if(x < KeyMap::MaxKeys * KeyMap::nBuckets) {
+//		ORBKey& key = map.Keys[x];
+//		if(key.valid && key.obs <= 8) {
+//			float3 pos = invRot * (key.pos - trans);
+//			float u = fx * pos.x / pos.z + cx;
+//			float v = fy * pos.y / pos.z + cy;
+//			if(u >= 0 && v >= 0 && u < cols && v < rows
+//					&& pos.z < maxd && pos.z > mind) {
+//				key.obs -= 1;
+//				if(key.obs <= KeyMap::MinObsThresh) {
+//					key.valid = false;
+//				}
+//			}
+//		}
+//	}
+//}
+//
+//void ProjectVisibleKeys(KeyMap map, Matrix3f RviewInv, float3 tview, int cols,
+//		int rows, float fx, float fy, float cx, float cy) {
+//
+//	dim3 block(MaxThread);
+//	dim3 grid(DivUp(map.Keys.size, block.x));
+//
+//	ProjectVisibleKeysKernel<<<grid, block>>>(map, RviewInv, tview, cols, rows,
+//			DeviceMap::DepthMax, DeviceMap::DepthMin, fx, fy, cx, cy);
+//
+//	SafeCall(cudaDeviceSynchronize());
+//	SafeCall(cudaGetLastError());
+//}

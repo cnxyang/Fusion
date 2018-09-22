@@ -183,15 +183,15 @@ struct Fusion {
 	}
 };
 
-__global__ void createBlocksKernel(Fusion fuse) {
+__global__ void CreateBlocksKernel(Fusion fuse) {
 	fuse.CreateBlocks();
 }
 
-__global__ void fuseColorKernal(Fusion fuse) {
+__global__ void FuseColorKernal(Fusion fuse) {
 	fuse.integrateColor();
 }
 
-__global__ void checkVisibleBlockKernel(Fusion fuse) {
+__global__ void CheckVisibleBlockKernel(Fusion fuse) {
 	fuse.CheckFullVisibility();
 }
 
@@ -231,8 +231,8 @@ void CheckBlockVisibility(DeviceMap map,
 
 	dim3 thread = dim3(1024);
 	dim3 block = dim3(DivUp((int) DeviceMap::NumEntries, thread.x));
-	checkVisibleBlockKernel<<<block, thread>>>(fuse);
-	SafeCall(cudaDeviceSynchronize());
+
+	CheckVisibleBlockKernel<<<block, thread>>>(fuse);
 
 	host_data[0] = 0;
 	noVisibleBlocks.download((void*) host_data);
@@ -281,7 +281,7 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 	dim3 thread(16, 8);
 	dim3 block(DivUp(cols, thread.x), DivUp(rows, thread.y));
 
-	createBlocksKernel<<<block, thread>>>(fuse);
+	CreateBlocksKernel<<<block, thread>>>(fuse);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
@@ -289,7 +289,7 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 	thread = dim3(1024);
 	block = dim3(DivUp((int) DeviceMap::NumEntries, thread.x));
 
-	checkVisibleBlockKernel<<<block, thread>>>(fuse);
+	CheckVisibleBlockKernel<<<block, thread>>>(fuse);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
@@ -302,13 +302,13 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 	thread = dim3(8, 8);
 	block = dim3(host_data[0]);
 
-	fuseColorKernal<<<block, thread>>>(fuse);
+	FuseColorKernal<<<block, thread>>>(fuse);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 }
 
-__global__ void resetHashKernel(DeviceMap map) {
+__global__ void ResetHashKernel(DeviceMap map) {
 
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	if(x < map.hashEntries.size) {
@@ -321,7 +321,7 @@ __global__ void resetHashKernel(DeviceMap map) {
 	}
 }
 
-__global__ void resetSdfBlockKernel(DeviceMap map) {
+__global__ void ResetSdfBlockKernel(DeviceMap map) {
 
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	if(x < DeviceMap::NumSdfBlocks) {
@@ -344,19 +344,19 @@ void ResetMap(DeviceMap map) {
 	dim3 thread(1024);
 	dim3 block(DivUp((int) DeviceMap::NumEntries, thread.x));
 
-	resetHashKernel<<<block, thread>>>(map);
+	ResetHashKernel<<<block, thread>>>(map);
 
-	block.x = DivUp((int) DeviceMap::NumSdfBlocks, thread.x);
-	resetSdfBlockKernel<<<block, thread>>>(map);
+	block = dim3(DivUp((int) DeviceMap::NumSdfBlocks, thread.x));
+	ResetSdfBlockKernel<<<block, thread>>>(map);
+
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 }
 
-__global__ void resetKeyMapKernel(KeyMap map) {
+__global__ void ResetKeyPointsKernel(KeyMap map) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	if(x < KeyMap::maxEntries) {
 		map.Keys[x].valid = false;
-		map.Keys[x].obs = 0;
 	}
 
 	if(x < KeyMap::nBuckets) {
@@ -365,10 +365,111 @@ __global__ void resetKeyMapKernel(KeyMap map) {
 }
 
 void ResetKeyPoints(KeyMap map) {
+
 	dim3 thread(1024);
 	dim3 block(DivUp((int) KeyMap::maxEntries, thread.x));
 
-	resetKeyMapKernel<<<block, thread>>>(map);
+	ResetKeyPointsKernel<<<block, thread>>>(map);
+
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 }
+
+struct KeyFusion {
+
+	KeyMap map;
+	uint * nokeys;
+	PtrSz<SurfKey> keys;
+
+	__device__ __forceinline__ void CollectKeys() {
+		__shared__ bool scan;
+		if(threadIdx.x == 0)
+			scan = false;
+		__syncthreads();
+		uint val = 0;
+		int x = blockDim.x * blockIdx.x + threadIdx.x;
+		if(x < map.Keys.size) {
+			SurfKey * key = &map.Keys[x];
+			if(key->valid) {
+				scan = true;
+				val = 1;
+			}
+		}
+		__syncthreads();
+		if(scan) {
+			int offset = ComputeOffset<1024>(val, nokeys);
+			if(offset > 0 && x < map.Keys.size) {
+				memcpy(&keys[offset], &map.Keys[x], sizeof(SurfKey));
+			}
+		}
+	}
+
+	__device__ __forceinline__ void InsertKeys() {
+		int x = blockDim.x * blockIdx.x + threadIdx.x;
+		if (x < keys.size) {
+			SurfKey * oldkey = map.FindKey(keys[x].pos);
+		}
+	}
+};
+
+//__global__ void CollectORBKeys(KeyMap Km, PtrSz<ORBKey> keys, PtrSz<int> index, uint* totalKeys) {
+//	int idx = blockDim.x * blockIdx.x + threadIdx.x;
+//	__shared__ bool scan;
+//	if(idx == 0)
+//		scan = false;
+//	__syncthreads();
+//	uint val = 0;
+//	if (idx < Km.Keys.size) {
+//		ORBKey* key = &Km.Keys[idx];
+//		if (key->valid && key->obs > 0) {
+//			scan = true;
+//			val = 1;
+//		}
+//	}
+//	__syncthreads();
+//	if(scan) {
+//		int offset = ComputeOffset<1024>(val, totalKeys);
+//		if(offset >= 0) {
+//			memcpy((void*) &keys[offset], (void*) &Km.Keys[idx], sizeof(ORBKey));
+//			index[offset] = idx;
+//		}
+//	}
+//}
+//
+//void CollectKeys(KeyMap Km, DeviceArray<ORBKey>& keys, DeviceArray<int> & index, uint& n) {
+//
+//	keys.create(Km.Keys.size);
+//
+//	dim3 block(MaxThread);
+//	dim3 grid(DivUp(Km.Keys.size, block.x));
+//
+//	DeviceArray<uint> totalKeys(1);
+//	totalKeys.clear();
+//
+//	CollectORBKeys<<<grid, block>>>(Km, keys, index, totalKeys);
+//
+//	totalKeys.download(&n);
+//
+//	SafeCall(cudaDeviceSynchronize());
+//	SafeCall(cudaGetLastError());
+//}
+//
+//__global__ void InsertKeysKernel(KeyMap map, PtrSz<ORBKey> key, PtrSz<int> indices) {
+//	int idx = blockDim.x * blockIdx.x + threadIdx.x;
+//	if (idx < key.size) {
+//		map.InsertKey(&key[idx], indices[idx]);
+//	}
+//}
+//
+//void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys, DeviceArray<int> & indices) {
+//	if (keys.size == 0)
+//		return;
+//
+//	dim3 block(MaxThread);
+//	dim3 grid(DivUp(keys.size, block.x));
+//
+//	InsertKeysKernel<<<grid, block>>>(map, keys, indices);
+//
+//	SafeCall(cudaDeviceSynchronize());
+//	SafeCall(cudaGetLastError());
+//}

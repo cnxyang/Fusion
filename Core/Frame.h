@@ -61,11 +61,6 @@ public:
 
 	void setPose(Frame * other);
 	void setPose(Eigen::Matrix4d & pose);
-	Matrix3f absRotationCuda() const;
-	Matrix3f absRotationInvCuda() const;
-	float3 absTranslationCuda() const;
-	Eigen::Matrix3d absRotation() const;
-	Eigen::Vector3d absTranslation() const;
 
 	Eigen::Matrix4d deltaPose;
 
@@ -78,7 +73,11 @@ public:
 	void Create(int cols_, int rows_);
 	void FillImages(const cv::Mat & range_, const cv::Mat & color_);
 	void ExtractKeyPoints();
-	void ResizeVNMap();
+	void ResizeImages();
+	void ClearKeyPoints();
+
+	float InterpDepth(cv::Mat & map, float & x, float & y);
+	float4 InterpNormal(cv::Mat & map, float & x, float & y);
 
 	DeviceArray2D<unsigned short> range;
 	DeviceArray2D<uchar3> color;

@@ -15,26 +15,10 @@ float Frame::mDepthScale = 1000.0f;
 int Frame::mCols[NUM_PYRS];
 int Frame::mRows[NUM_PYRS];
 unsigned long Frame::nextId = 0;
-Ptr<cuda::ORB> Frame::mORB;
 cv::cuda::SURF_CUDA Frame::surfExt;
 cv::Ptr<cv::BRISK> Frame::briskExt;
 
 Frame::Frame():N(0) {}
-
-Frame::Frame(Frame & other) {
-
-	N = other.N;
-	mPoints = other.mPoints;
-	keys = other.keys;
-	other.descriptors.copyTo(descriptors);
-
-	frameId = other.frameId;
-	Eigen::Matrix4d tmp = other.pose;
-	other.pose = pose;
-	pose = tmp;
-
-	index = other.index;
-}
 
 void Frame::Create(int cols_, int rows_) {
 
@@ -78,13 +62,20 @@ void Frame::FillImages(const cv::Mat & range_, const cv::Mat & color_) {
 	}
 }
 
-void Frame::ResizeVNMap() {
+void Frame::ResizeImages() {
 	for(int i = 1; i < NUM_PYRS; ++i) {
 		ResizeMap(vmap[i - 1], nmap[i - 1], vmap[i], nmap[i]);
 	}
 }
 
-float interpDepth(cv::Mat & map, float & x, float & y) {
+void Frame::ClearKeyPoints() {
+	N = 0;
+	keys.clear();
+	pt3d.clear();
+	descriptors.release();
+}
+
+float Frame::InterpDepth(cv::Mat & map, float & x, float & y) {
 
 	float2 coeff = make_float2(x, y) - make_float2(floor(x), floor(y));
 
@@ -103,7 +94,7 @@ float interpDepth(cv::Mat & map, float & x, float & y) {
 	return (1 - coeff.y) * d0 + coeff.y * d1;
 }
 
-float4 interpNormal(cv::Mat & map, float & x, float & y) {
+float4 Frame::InterpNormal(cv::Mat & map, float & x, float & y) {
 
 	float2 coeff = make_float2(x, y) - make_float2(floor(x), floor(y));
 
@@ -137,13 +128,6 @@ void Frame::ExtractKeyPoints() {
 	nmap[0].download(sNormal.data, sNormal.step);
 
 	cv::cuda::GpuMat img(image[0].rows, image[0].cols, CV_8UC1, image[0].data, image[0].step);
-	cv::Mat rawImage;
-	img.download(rawImage);
-
-	N = 0;
-	keys.clear();
-	pt3d.clear();
-	descriptors.release();
 	surfExt(img, cv::cuda::GpuMat(), rawKeyPoints, descriptors);
 	descriptors.download(rawDescriptors);
 
@@ -158,9 +142,9 @@ void Frame::ExtractKeyPoints() {
 		cv::KeyPoint & kp = rawKeyPoints[i];
 		float & x = kp.pt.x;
 		float & y = kp.pt.y;
-		float dp = interpDepth(sDepth, x, y);
+		float dp = InterpDepth(sDepth, x, y);
 		if(!std::isnan(dp) && dp > 1e-3 && dp < mDepthCutoff) {
-			float4 n = interpNormal(sNormal, x, y);
+			float4 n = InterpNormal(sNormal, x, y);
 			if(!std::isnan(n.x)) {
 				float3 v;
 				v.z = dp;
@@ -178,6 +162,18 @@ void Frame::ExtractKeyPoints() {
 	N = pt3d.size();
 	descriptors.upload(desc);
 	SetPose(Eigen::Matrix4d::Identity());
+
+//	cv::Mat rawImage(480, 640, CV_8UC3);
+//	color.download(rawImage.data, rawImage.step);
+//	for(int i = 0; i < N; ++i) {
+//		cv::Point2f upperLeft = keys[i].pt - cv::Point2f(5, 5);
+//		cv::Point2f lowerRight = keys[i].pt + cv::Point2f(5, 5);
+//		cv::drawMarker(rawImage, keys[i].pt, cv::Scalar(0, 125, 0), cv::MARKER_CROSS, 5);
+//		cv::rectangle(rawImage, upperLeft, lowerRight, cv::Scalar(0, 125, 0));
+//	}
+//
+//	cv::imshow("img", rawImage);
+//	cv::waitKey(10);
 }
 
 void Frame::SetPose(const Frame& frame) {
@@ -265,39 +261,4 @@ void Frame::setPose(Frame * other) {
 
 void Frame::setPose(Eigen::Matrix4d & newPose) {
 	pose = newPose;
-}
-
-Matrix3f Frame::absRotationCuda() const {
-	Eigen::Matrix3d rot = absRotation();
-	Matrix3f mat3f;
-	mat3f.rowx = make_float3(rot(0, 0), rot(0, 1), rot(0, 2));
-	mat3f.rowy = make_float3(rot(1, 0), rot(1, 1), rot(1, 2));
-	mat3f.rowz = make_float3(rot(2, 0), rot(2, 1), rot(2, 2));
-	return mat3f;
-}
-
-Matrix3f Frame::absRotationInvCuda() const {
-	Eigen::Matrix3d rot = absRotation().transpose();
-	Matrix3f mat3f;
-	mat3f.rowx = make_float3(rot(0, 0), rot(0, 1), rot(0, 2));
-	mat3f.rowy = make_float3(rot(1, 0), rot(1, 1), rot(1, 2));
-	mat3f.rowz = make_float3(rot(2, 0), rot(2, 1), rot(2, 2));
-	return mat3f;
-}
-
-float3 Frame::absTranslationCuda() const {
-	Eigen::Vector3d trans = absTranslation();
-	return make_float3(trans(0, 3), trans(1, 3), trans(2, 3));
-}
-
-Eigen::Matrix3d Frame::absRotation() const {
-	Eigen::Matrix4d absPose;
-	absPose = pose * referenceKF->pose;
-	return absPose.topLeftCorner(3, 3);
-}
-
-Eigen::Vector3d Frame::absTranslation() const {
-	Eigen::Matrix4d absPose;
-	absPose = pose * referenceKF->pose;
-	return absPose.topRightCorner(3, 1);
 }

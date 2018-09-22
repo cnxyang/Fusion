@@ -70,7 +70,7 @@ System::System(SysDesc* pParam) :
 	mpViewer->setSystem(this);
 	mpViewer->setTracker(mpTracker);
 
-	mpTracker->setMap(mpMap);
+	mpTracker->SetMap(mpMap);
 
 	mptViewer = new thread(&Viewer::spin, mpViewer);
 	mptViewer->detach();
@@ -103,12 +103,12 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 	}
 
 	if(!paused) {
-		state = mpTracker->grabFrame(image, depth);
+		state = mpTracker->GrabFrame(image, depth);
 	}
 
 	if (state) {
 		uint no;
-		if(!mpTracker->localisationOnly && mpTracker->state != -1) {
+		if(!mpTracker->mappingDisabled && mpTracker->state != -1) {
 			mpMap->fuseColor(
 					mpTracker->LastFrame->depth[0],
 					mpTracker->LastFrame->color,
@@ -118,7 +118,7 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 					no);
 		}
 
-		if(!mpTracker->localisationOnly) {
+		if(!mpTracker->mappingDisabled) {
 			mpMap->rayTrace(no,
 					mpTracker->LastFrame->Rot_gpu(),
 					mpTracker->LastFrame->RotInv_gpu(),
@@ -166,7 +166,7 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 		imageUpdated = true;
 
 		if(nFrames % 25 == 0 && requestMesh) {
-			if(!mpTracker->localisationOnly) {
+			if(!mpTracker->mappingDisabled) {
 				mpMap->createModel();
 //				mpMap->updateMapKeys();
 			}
@@ -235,7 +235,7 @@ void System::saveMesh() {
 
 void System::reboot() {
 	mpMap->reset();
-	mpTracker->reset();
+	mpTracker->ResetTracking();
 }
 
 void System::joinViewer() {

@@ -11,8 +11,6 @@ public:
 	static bool PoseEstimate(std::vector<Eigen::Vector3d> & src,
 			std::vector<Eigen::Vector3d> & ref, std::vector<bool> & outliers,
 			Eigen::Matrix4d& T, int iteration);
-
-	static void PoseRefine(Frame & next, Frame & last);
 };
 
 #endif

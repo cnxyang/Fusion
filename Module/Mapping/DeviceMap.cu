@@ -210,14 +210,14 @@ __device__ int KeyMap::Hash(const int3& pos) {
 	return res;
 }
 
-__device__ ORBKey* KeyMap::FindKey(const float3& pos) {
+__device__ SurfKey * KeyMap::FindKey(const float3& pos) {
 
 	float3 gridPos = pos / GridSize;
 	int idx = Hash(make_int3(gridPos.x, gridPos.y, gridPos.z));
 	int bucketIdx = idx * nBuckets;
 	const float radius = 10.0f;
 	for (int i = 0; i < nBuckets; ++i, ++bucketIdx) {
-		ORBKey* key = &Keys[bucketIdx];
+		SurfKey * key = &Keys[bucketIdx];
 		if (key->valid && norm(key->pos - pos) <= radius) {
 			return key;
 		}
@@ -225,7 +225,7 @@ __device__ ORBKey* KeyMap::FindKey(const float3& pos) {
 	return nullptr;
 }
 
-__device__ ORBKey* KeyMap::FindKey(const float3& pos, int & first, int & buck, int & hashIndex) {
+__device__ SurfKey * KeyMap::FindKey(const float3& pos, int & first, int & buck, int & hashIndex) {
 
 	first = -1;
 	int3 p = make_int3(pos / GridSize);
@@ -233,7 +233,7 @@ __device__ ORBKey* KeyMap::FindKey(const float3& pos, int & first, int & buck, i
 	buck = idx;
 	int bucketIdx = idx * nBuckets;
 	for (int i = 0; i < nBuckets; ++i, ++bucketIdx) {
-		ORBKey* key = &Keys[bucketIdx];
+		SurfKey * key = &Keys[bucketIdx];
 		if (!key->valid && first == -1)
 			first = bucketIdx;
 
@@ -251,9 +251,9 @@ __device__ ORBKey* KeyMap::FindKey(const float3& pos, int & first, int & buck, i
 	return nullptr;
 }
 
-__device__ void KeyMap::InsertKey(ORBKey* key, int & hashIndex) {
+__device__ void KeyMap::InsertKey(SurfKey * key, int & hashIndex) {
 
-	ORBKey* oldKey = nullptr;
+	SurfKey * oldKey = nullptr;
 	if(hashIndex > 0 && hashIndex < Keys.size) {
 		oldKey = &Keys[(int)hashIndex];
 		if(oldKey && oldKey->valid) {
@@ -270,10 +270,10 @@ __device__ void KeyMap::InsertKey(ORBKey* key, int & hashIndex) {
 	else if (first != -1) {
 		int lock = atomicExch(&Mutex[buck], 1);
 		if (lock < 0) {
-			key->obs = 1;
+//			key->obs = 1;
 			hashIndex = first;
-			ORBKey* oldkey = &Keys[first];
-			memcpy((void*) oldkey, (void*) key, sizeof(ORBKey));
+			SurfKey * oldkey = &Keys[first];
+			memcpy((void*) oldkey, (void*) key, sizeof(SurfKey));
 		}
 		atomicExch(&Mutex[buck], -1);
 		return;
@@ -287,6 +287,6 @@ __device__ void KeyMap::ResetKeys(int index) {
 
 	if (index < Keys.size) {
 		Keys[index].valid = false;
-		Keys[index].obs = 0;
+//		Keys[index].obs = 0;
 	}
 }

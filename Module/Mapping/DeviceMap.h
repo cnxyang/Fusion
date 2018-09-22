@@ -155,6 +155,13 @@ struct ORBKey {
 	char descriptor[32];
 };
 
+struct SurfKey {
+	bool valid;
+	float3 pos;
+	float3 normal;
+	float descriptor[64];
+};
+
 struct KeyMap {
 
 	static constexpr float GridSize = 0.03;
@@ -166,13 +173,13 @@ struct KeyMap {
 
 public:
 	__device__ int Hash(const int3& pos);
-	__device__ ORBKey* FindKey(const float3 & pos);
-	__device__ ORBKey* FindKey(const float3 & pos, int & first, int & buck, int & hashIndex);
-	__device__ void InsertKey(ORBKey* key, int & hashIndex);
+	__device__ SurfKey * FindKey(const float3 & pos);
+	__device__ SurfKey * FindKey(const float3 & pos, int & first, int & buck, int & hashIndex);
+	__device__ void InsertKey(SurfKey* key, int & hashIndex);
 	__device__ void ResetKeys(int index);
 
 public:
-	PtrSz<ORBKey> Keys;
+	PtrSz<SurfKey> Keys;
 	PtrSz<int> Mutex;
 };
 

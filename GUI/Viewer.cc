@@ -121,21 +121,21 @@ void Viewer::spin() {
 			psystem->requestSaveMesh = true;
 
 		if (btnUseGraphMatching) {
-			if(!ptracker->graphMatching)
-				ptracker->graphMatching = true;
+			if(!ptracker->useGraphMatching)
+				ptracker->useGraphMatching = true;
 		}
 		else {
-			if(ptracker->graphMatching)
-				ptracker->graphMatching = false;
+			if(ptracker->useGraphMatching)
+				ptracker->useGraphMatching = false;
 		}
 
 		if (btnLocalisationMode) {
-			if(!ptracker->localisationOnly)
-				ptracker->localisationOnly = true;
+			if(!ptracker->mappingDisabled)
+				ptracker->mappingDisabled = true;
 		}
 		else {
-			if(ptracker->localisationOnly)
-				ptracker->localisationOnly = false;
+			if(ptracker->mappingDisabled)
+				ptracker->mappingDisabled = false;
 		}
 
 		dCam.Activate(sCam);
@@ -290,7 +290,7 @@ void Viewer::drawColor() {
 
 void Viewer::followCam() {
 
-	Eigen::Matrix4f pose = ptracker->getCurrentPose();
+	Eigen::Matrix4f pose = ptracker->GetCurrentPose();
 	Eigen::Matrix3f rotation = pose.topLeftCorner(3, 3);
 	Eigen::Vector3f translation = pose.topRightCorner(3, 1);
 	Eigen::Vector3f up = { 0, -1, 0 };
@@ -376,7 +376,7 @@ void Viewer::drawCamera() {
 	p[3] << -0.1, -0.08, 0;
 	p[4] << 0, 0, -0.08;
 
-	Eigen::Matrix4f pose = ptracker->getCurrentPose();
+	Eigen::Matrix4f pose = ptracker->GetCurrentPose();
 	Eigen::Matrix3f rotation = pose.topLeftCorner(3, 3);
 	Eigen::Vector3f translation = pose.topRightCorner(3, 1);
 	for (int i = 0; i < 5; ++i) {
@@ -416,21 +416,21 @@ void Viewer::drawCamera() {
 }
 
 void Viewer::drawKeys() {
-	std::vector<ORBKey> allKeys = mpMap->getAllKeys();
-	if(allKeys.size() == 0)
-		return;
-
-	vector<GLfloat> points;
-	for(int i = 0; i < allKeys.size(); ++i) {
-		points.push_back(allKeys[i].pos.x);
-		points.push_back(allKeys[i].pos.y);
-		points.push_back(allKeys[i].pos.z);
-	}
-
-	glColor3f(1.0, 0.0, 0.0);
-	glPointSize(3.0);
-	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_POINTS, 3);
-	glPointSize(1.0);
+//	std::vector<ORBKey> allKeys = mpMap->getAllKeys();
+//	if(allKeys.size() == 0)
+//		return;
+//
+//	vector<GLfloat> points;
+//	for(int i = 0; i < allKeys.size(); ++i) {
+//		points.push_back(allKeys[i].pos.x);
+//		points.push_back(allKeys[i].pos.y);
+//		points.push_back(allKeys[i].pos.z);
+//	}
+//
+//	glColor3f(1.0, 0.0, 0.0);
+//	glPointSize(3.0);
+//	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_POINTS, 3);
+//	glPointSize(1.0);
 }
 
 void Viewer::setMap(Mapping* pMap) {

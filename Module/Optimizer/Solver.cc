@@ -1,10 +1,7 @@
 #include <chrono>
 #include <iostream>
-#include <cmath>
 
 #include "Solver.h"
-#include "DeviceMap.h"
-#include "sophus/se3.hpp"
 
 bool Solver::PoseEstimate(std::vector<Eigen::Vector3d>& src, std::vector<Eigen::Vector3d>& ref,
 				          std::vector<bool>& outlier, Eigen::Matrix4d& Tlastcurr, int iteration) {
@@ -135,6 +132,12 @@ bool Solver::PoseEstimate(std::vector<Eigen::Vector3d>& src, std::vector<Eigen::
 
 	Tlastcurr.topLeftCorner(3, 3) = R_best;
 	Tlastcurr.topRightCorner(3, 1) = t_best;
+
+	if(confidence < 0.8) {
+		Eigen::Vector3d angles = R_best.eulerAngles(0, 1, 2).array().sin();
+		if (angles.norm() >= 0.2 || t_best.norm() >= 0.1)
+			return false;
+	}
 
 	return true;
 }

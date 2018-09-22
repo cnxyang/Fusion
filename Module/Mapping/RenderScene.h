@@ -34,12 +34,3 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 		DeviceArray<uint> & noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, DeviceMap map, float fx, float fy, float cx, float cy,
 		float depthMax, float depthMin, uint * host_data);
-
-// TODO: refractory
-void ResetKeys(KeyMap map);
-
-void CollectKeys(KeyMap map, DeviceArray<ORBKey> & keys,
-		DeviceArray<int> & index, uint& n);
-
-void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys,
-		DeviceArray<int> & indices);

@@ -233,6 +233,7 @@
 									<listOptionValue builtIn="false" value="opencv_imgcodecs"/>
 									<listOptionValue builtIn="false" value="opencv_features2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudaarithm"/>
+									<listOptionValue builtIn="false" value="opencv_xfeatures2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudafeatures2d"/>
 								</option>
 								<inputType id="nvcc.linker.input.1080903313" superClass="nvcc.linker.input">
