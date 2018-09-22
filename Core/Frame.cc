@@ -18,12 +18,16 @@ unsigned long Frame::nextId = 0;
 cv::cuda::SURF_CUDA Frame::surfExt;
 cv::Ptr<cv::BRISK> Frame::briskExt;
 
-Frame::Frame():N(0) {}
+Frame::Frame():frameId(0), N(0) {}
+
+Frame::Frame(const Frame * other):frameId(other->frameId), N(0) {
+
+}
 
 void Frame::Create(int cols_, int rows_) {
 
 	if(mbFirstCall) {
-		surfExt = cv::cuda::SURF_CUDA(10, 4, 2, false, 0.005);
+		surfExt = cv::cuda::SURF_CUDA(20, 4, 2, false, 0.005);
 		briskExt = cv::BRISK::create(30, 4);
 		for(int i = 0; i < NUM_PYRS; ++i) {
 			mCols[i] = cols_ / (1 << i);
@@ -60,6 +64,8 @@ void Frame::FillImages(const cv::Mat & range_, const cv::Mat & color_) {
 		ComputeVMap(depth[i], vmap[i], fx(i), fy(i), cx(i), cy(i), mDepthCutoff);
 		ComputeNMap(vmap[i], nmap[i]);
 	}
+
+	frameId = nextId++;
 }
 
 void Frame::ResizeImages() {
@@ -70,12 +76,16 @@ void Frame::ResizeImages() {
 
 void Frame::ClearKeyPoints() {
 	N = 0;
-	keys.clear();
-	pt3d.clear();
+	keyPoints.clear();
+	mapPoints.clear();
 	descriptors.release();
 }
 
 float Frame::InterpDepth(cv::Mat & map, float & x, float & y) {
+
+	float dp = std::nanf("0x7fffffff");
+	if(x <= 1 || y <= 1 || y >= map.cols - 1 || x >= map.rows - 1)
+		return dp;
 
 	float2 coeff = make_float2(x, y) - make_float2(floor(x), floor(y));
 
@@ -85,9 +95,20 @@ float Frame::InterpDepth(cv::Mat & map, float & x, float & y) {
 	int2 lowerRight = make_int2((int) ceil(x), (int) ceil(y));
 
 	float d00 = map.at<float>(upperLeft.y, upperLeft.x);
+	if(std::isnan(d00) || d00 < 0.3 || d00 > mDepthCutoff)
+		return dp;
+
 	float d10 = map.at<float>(lowerLeft.y, lowerLeft.x);
+	if(std::isnan(d10) || d10 < 0.3 || d10 > mDepthCutoff)
+		return dp;
+
 	float d01 = map.at<float>(upperRight.y, upperRight.x);
+	if(std::isnan(d01) || d01 < 0.3 || d01 > mDepthCutoff)
+		return dp;
+
 	float d11 = map.at<float>(lowerRight.y, lowerRight.x);
+	if(std::isnan(d11) || d11 < 0.3 || d11 > mDepthCutoff)
+		return dp;
 
 	float d0 = d01 * coeff.x + d00 * (1 - coeff.x);
 	float d1 = d11 * coeff.x + d10 * (1 - coeff.x);
@@ -96,19 +117,26 @@ float Frame::InterpDepth(cv::Mat & map, float & x, float & y) {
 
 float4 Frame::InterpNormal(cv::Mat & map, float & x, float & y) {
 
+	if(x <= 1 || y <= 1 || y >= map.cols - 1 || x >= map.rows - 1)
+		return make_float4(std::nanf("0x7fffffff"));
+
 	float2 coeff = make_float2(x, y) - make_float2(floor(x), floor(y));
 
 	int2 upperLeft = make_int2((int) floor(x), (int) floor(y));
 	int2 lowerLeft = make_int2((int) floor(x), (int) ceil(y));
 	int2 upperRight = make_int2((int) ceil(x), (int) floor(y));
 	int2 lowerRight = make_int2((int) ceil(x), (int) ceil(y));
+	cv::Vec4f n;
 
-	cv::Vec4f n = map.at<cv::Vec4f>(upperLeft.y, upperLeft.x);
+	n = map.at<cv::Vec4f>(upperLeft.y, upperLeft.x);
 	float4 d00 = make_float4(n(0), n(1), n(2), n(3));
+
 	n = map.at<cv::Vec4f>(lowerLeft.y, lowerLeft.x);
 	float4 d10 = make_float4(n(0), n(1), n(2), n(3));
+
 	n = map.at<cv::Vec4f>(upperRight.y, upperRight.x);
 	float4 d01 = make_float4(n(0), n(1), n(2), n(3));
+
 	n = map.at<cv::Vec4f>(lowerRight.y, lowerRight.x);
 	float4 d11 = make_float4(n(0), n(1), n(2), n(3));
 
@@ -138,79 +166,43 @@ void Frame::ExtractKeyPoints() {
 	float cx0 = cx(0);
 	float cy0 = cy(0);
 
-	for(int i = 0; i < rawKeyPoints.size(); ++i) {
+	N = rawKeyPoints.size();
+	for(int i = 0; i < N; ++i) {
 		cv::KeyPoint & kp = rawKeyPoints[i];
 		float & x = kp.pt.x;
 		float & y = kp.pt.y;
 		float dp = InterpDepth(sDepth, x, y);
-		if(!std::isnan(dp) && dp > 1e-3 && dp < mDepthCutoff) {
+//		float dp = sDepth.at<float>(y, x);
+		if(!std::isnan(dp) && dp > 0.3 && dp < mDepthCutoff) {
 			float4 n = InterpNormal(sNormal, x, y);
 			if(!std::isnan(n.x)) {
-				float3 v;
-				v.z = dp;
-				v.x = dp * (x - cx0) * invfx;
-				v.y = dp * (y - cy0) * invfy;
-
-				pt3d.push_back(v);
-				normal.push_back(n);
-				keys.push_back(kp);
+				Eigen::Vector3f v;
+				v(2) = dp;
+				v(0) = dp * (x - cx0) * invfx;
+				v(1) = dp * (y - cy0) * invfy;
+				mapPoints.push_back(v);
+				keyPoints.push_back(kp);
+				pointNormal.push_back(n);
 				desc.push_back(rawDescriptors.row(i));
 			}
 		}
 	}
 
-	N = pt3d.size();
+	N = mapPoints.size();
 	descriptors.upload(desc);
-	SetPose(Eigen::Matrix4d::Identity());
+	pose = Eigen::Matrix4d::Identity();
 
 //	cv::Mat rawImage(480, 640, CV_8UC3);
 //	color.download(rawImage.data, rawImage.step);
 //	for(int i = 0; i < N; ++i) {
-//		cv::Point2f upperLeft = keys[i].pt - cv::Point2f(5, 5);
-//		cv::Point2f lowerRight = keys[i].pt + cv::Point2f(5, 5);
-//		cv::drawMarker(rawImage, keys[i].pt, cv::Scalar(0, 125, 0), cv::MARKER_CROSS, 5);
+//		cv::Point2f upperLeft = keyPoints[i].pt - cv::Point2f(5, 5);
+//		cv::Point2f lowerRight = keyPoints[i].pt + cv::Point2f(5, 5);
+//		cv::drawMarker(rawImage, keyPoints[i].pt, cv::Scalar(0, 125, 0), cv::MARKER_CROSS, 5);
 //		cv::rectangle(rawImage, upperLeft, lowerRight, cv::Scalar(0, 125, 0));
 //	}
 //
 //	cv::imshow("img", rawImage);
 //	cv::waitKey(10);
-}
-
-void Frame::SetPose(const Frame& frame) {
-	pose = frame.pose;
-}
-
-Matrix3f Frame::Rot_gpu() const {
-	Matrix3f Rot;
-	Rot.rowx = make_float3(pose(0, 0), pose(0, 1), pose(0, 2));
-	Rot.rowy = make_float3(pose(1, 0), pose(1, 1), pose(1, 2));
-	Rot.rowz = make_float3(pose(2, 0), pose(2, 1), pose(2, 2));
-	return Rot;
-}
-
-Matrix3f Frame::RotInv_gpu() const {
-	Matrix3f Rot;
-	const Eigen::Matrix3d mPoseInv = Rotation().transpose();
-	Rot.rowx = make_float3(mPoseInv(0, 0), mPoseInv(0, 1), mPoseInv(0, 2));
-	Rot.rowy = make_float3(mPoseInv(1, 0), mPoseInv(1, 1), mPoseInv(1, 2));
-	Rot.rowz = make_float3(mPoseInv(2, 0), mPoseInv(2, 1), mPoseInv(2, 2));
-	return Rot;
-}
-
-float3 Frame::Trans_gpu() const {
-	return make_float3(pose(0, 3), pose(1, 3), pose(2, 3));
-}
-
-void Frame::SetPose(const Eigen::Matrix4d T) {
-	pose = T;
-}
-
-Eigen::Matrix3d Frame::Rotation() const {
-	return pose.topLeftCorner(3, 3);
-}
-
-Eigen::Vector3d Frame::Translation() {
-	return pose.topRightCorner(3, 1);
 }
 
 void Frame::SetK(cv::Mat& K) {
@@ -253,12 +245,37 @@ int Frame::rows(int pyr) {
 	return mRows[pyr];
 }
 
-// refactorying
-
-void Frame::setPose(Frame * other) {
-	pose = other->pose;
+Eigen::Vector3f Frame::GetWorldPoint(int i) const {
+	Eigen::Matrix3f r = Rotation().cast<float>();
+	Eigen::Vector3f t = Translation().cast<float>();
+	return r * mapPoints[i] + t;
 }
 
-void Frame::setPose(Eigen::Matrix4d & newPose) {
-	pose = newPose;
+Matrix3f Frame::GpuRotation() const {
+	Matrix3f Rot;
+	Rot.rowx = make_float3(pose(0, 0), pose(0, 1), pose(0, 2));
+	Rot.rowy = make_float3(pose(1, 0), pose(1, 1), pose(1, 2));
+	Rot.rowz = make_float3(pose(2, 0), pose(2, 1), pose(2, 2));
+	return Rot;
+}
+
+Matrix3f Frame::GpuInvRotation() const {
+	Matrix3f Rot;
+	const Eigen::Matrix3d mPoseInv = Rotation().transpose();
+	Rot.rowx = make_float3(mPoseInv(0, 0), mPoseInv(0, 1), mPoseInv(0, 2));
+	Rot.rowy = make_float3(mPoseInv(1, 0), mPoseInv(1, 1), mPoseInv(1, 2));
+	Rot.rowz = make_float3(mPoseInv(2, 0), mPoseInv(2, 1), mPoseInv(2, 2));
+	return Rot;
+}
+
+float3 Frame::GpuTranslation() const {
+	return make_float3(pose(0, 3), pose(1, 3), pose(2, 3));
+}
+
+Eigen::Matrix3d Frame::Rotation() const {
+	return pose.topLeftCorner(3, 3);
+}
+
+Eigen::Vector3d Frame::Translation() const {
+	return pose.topRightCorner(3, 1);
 }

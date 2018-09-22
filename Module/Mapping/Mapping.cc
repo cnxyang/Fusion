@@ -4,13 +4,12 @@
 #include "RenderScene.h"
 
 Mapping::Mapping() :
-		meshUpdated(false), mapKeyUpdated(false), noKeysInMap(0) {
-	create();
+		meshUpdated(false) {
+	Create();
 }
 
-void Mapping::create() {
+void Mapping::Create() {
 
-	// Reconstruction
 	heapCounter.create(1);
 	hashCounter.create(1);
 	noVisibleEntries.create(1);
@@ -20,7 +19,6 @@ void Mapping::create() {
 	hashEntries.create(DeviceMap::NumEntries);
 	visibleEntries.create(DeviceMap::NumEntries);
 
-	// Mesh Scene
 	nBlocks.create(1);
 	noTriangles.create(1);
 	modelVertex.create(DeviceMap::MaxVertices);
@@ -35,35 +33,29 @@ void Mapping::create() {
 	vertexTable.upload(vertexTableHost);
 	triangleTable.upload(triangleTableHost);
 
-
-	// Rendering
 	zRangeMin.create(80, 60);
 	zRangeMax.create(80, 60);
 	noRenderingBlocks.create(1);
 	renderingBlockList.create(DeviceMap::MaxRenderingBlocks);
 
-	// Key Point
-	mKeyMutex.create(KeyMap::MaxKeys);
-	mORBKeys.create(KeyMap::maxEntries);
+	noKeys.create(1);
+	mutexKeys.create(KeyMap::MaxKeys);
+	mapKeys.create(KeyMap::maxEntries);
 	tmpKeys.create(KeyMap::maxEntries);
-	mapIndices.create(KeyMap::maxEntries);
-	keyIndices.create(1500);
+	surfKeys.create(2000);
 
-	reset();
+	Reset();
 }
 
-void Mapping::createModel() {
+void Mapping::UpdateVisibility(const Frame * f, uint & no) {
 
-	MeshScene(nBlocks, noTriangles, *this, edgeTable, vertexTable,
-			triangleTable, modelNormal, modelVertex, modelColor, blockPoses);
-
-	noTriangles.download(&noTrianglesHost);
-	if (noTrianglesHost > 0) {
-		meshUpdated = true;
-	}
+	CheckBlockVisibility(*this, noVisibleEntries, f->GpuRotation(), f->GpuInvRotation(),
+			f->GpuTranslation(), Frame::cols(0), Frame::rows(0), Frame::fx(0),
+			Frame::fy(0), Frame::cx(0), Frame::cy(0), DeviceMap::DepthMax,
+			DeviceMap::DepthMin, &no);
 }
 
-void Mapping::updateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
+void Mapping::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 		float depthMin, float depthMax, float fx, float fy, float cx, float cy,
 		uint & no) {
 
@@ -71,7 +63,11 @@ void Mapping::updateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 			480, fx, fy, cx, cy, depthMax, depthMin, &no);
 }
 
-void Mapping::fuseColor(const DeviceArray2D<float> & depth,
+void Mapping::FuseColor(const Frame * f, uint & no) {
+	FuseColor(f->depth[0], f->color, f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
+}
+
+void Mapping::FuseColor(const DeviceArray2D<float> & depth,
 		const DeviceArray2D<uchar3> & color, Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, uint & no) {
 
@@ -81,7 +77,13 @@ void Mapping::fuseColor(const DeviceArray2D<float> & depth,
 
 }
 
-void Mapping::rayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
+void Mapping::RayTrace(uint noVisibleBlocks, Frame * f) {
+	RayTrace(noVisibleBlocks, f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(),
+			f->vmap[0], f->nmap[0], DeviceMap::DepthMin, DeviceMap::DepthMax,
+			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0));
+}
+
+void Mapping::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float4> & nmap,
 		float depthMin, float depthMax, float fx, float fy, float cx, float cy) {
 
@@ -94,44 +96,74 @@ void Mapping::rayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 	}
 }
 
-void Mapping::reset() {
-	ResetMap(*this);
-	ResetKeyPoints(*this);
+void Mapping::CreateModel() {
+
+	MeshScene(nBlocks, noTriangles, *this, edgeTable, vertexTable,
+			triangleTable, modelNormal, modelVertex, modelColor, blockPoses);
+
+	noTriangles.download(&noTrianglesHost);
+	if (noTrianglesHost > 0) {
+		meshUpdated = true;
+	}
 }
 
-//Mapping::operator KeyMap() {
-//
-//	KeyMap map;
-//	map.Keys = mORBKeys;
-//	map.Mutex = mKeyMutex;
-//	return map;
-//}
+void Mapping::UpdateMapKeys() {
+	noKeys.clear();
+	CollectKeyPoints(*this, tmpKeys, noKeys);
+
+	noKeys.download(&noKeysHost);
+	if(noKeysHost != 0) {
+		hostKeys.resize(noKeysHost);
+		tmpKeys.download(hostKeys.data(), noKeysHost);
+	}
+}
+
+void Mapping::FuseKeyPoints(const Frame * f) {
+
+	cv::Mat desc;
+	std::vector<SurfKey> keyChain;
+	f->descriptors.download(desc);
+	int noK = std::min(f->N, (int)surfKeys.size);
+
+	for(int i = 0; i < noK; ++i) {
+		if(!f->outliers[i]) {
+			SurfKey key;
+			Eigen::Vector3f pt = f->GetWorldPoint(i);
+			key.pos = { pt(0), pt(1), pt(2) };
+			key.normal = f->pointNormal[i];
+			key.valid = true;
+			for(int j = 0; j < 64; ++j) {
+				key.descriptor[j] = desc.at<float>(i, j);
+			}
+			keyChain.push_back(key);
+		}
+	}
+
+	surfKeys.upload(keyChain.data(), keyChain.size());
+	InsertKeyPoints(*this, surfKeys);
+}
+
+void Mapping::Reset() {
+
+	ResetMap(*this);
+
+	ResetKeyPoints(*this);
+}
 
 Mapping::operator KeyMap() const {
 
 	KeyMap map;
-	map.Keys = mORBKeys;
-	map.Mutex = mKeyMutex;
+
+	map.Keys = mapKeys;
+	map.Mutex = mutexKeys;
+
 	return map;
 }
-
-//Mapping::operator DeviceMap() {
-//
-//	DeviceMap map;
-//	map.heapMem = heap;
-//	map.heapCounter = heapCounter;
-//	map.noVisibleBlocks = noVisibleEntries;
-//	map.bucketMutex = bucketMutex;
-//	map.hashEntries = hashEntries;
-//	map.visibleEntries = visibleEntries;
-//	map.voxelBlocks = sdfBlock;
-//	map.entryPtr = hashCounter;
-//	return map;
-//}
 
 Mapping::operator DeviceMap() const {
 
 	DeviceMap map;
+
 	map.heapMem = heap;
 	map.heapCounter = heapCounter;
 	map.noVisibleBlocks = noVisibleEntries;
@@ -140,5 +172,6 @@ Mapping::operator DeviceMap() const {
 	map.visibleEntries = visibleEntries;
 	map.voxelBlocks = sdfBlock;
 	map.entryPtr = hashCounter;
+
 	return map;
 }

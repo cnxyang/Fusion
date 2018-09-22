@@ -377,15 +377,13 @@ void ResetKeyPoints(KeyMap map) {
 
 struct KeyFusion {
 
-	KeyMap map;
-	uint * nokeys;
-	PtrSz<SurfKey> keys;
-
 	__device__ __forceinline__ void CollectKeys() {
+
 		__shared__ bool scan;
 		if(threadIdx.x == 0)
 			scan = false;
 		__syncthreads();
+
 		uint val = 0;
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
 		if(x < map.Keys.size) {
@@ -396,6 +394,7 @@ struct KeyFusion {
 			}
 		}
 		__syncthreads();
+
 		if(scan) {
 			int offset = ComputeOffset<1024>(val, nokeys);
 			if(offset > 0 && x < map.Keys.size) {
@@ -405,71 +404,55 @@ struct KeyFusion {
 	}
 
 	__device__ __forceinline__ void InsertKeys() {
+
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
 		if (x < keys.size) {
-			SurfKey * oldkey = map.FindKey(keys[x].pos);
+			map.InsertKey(&keys[x]);
 		}
 	}
+
+	KeyMap map;
+
+	uint * nokeys;
+
+	PtrSz<SurfKey> keys;
 };
 
-//__global__ void CollectORBKeys(KeyMap Km, PtrSz<ORBKey> keys, PtrSz<int> index, uint* totalKeys) {
-//	int idx = blockDim.x * blockIdx.x + threadIdx.x;
-//	__shared__ bool scan;
-//	if(idx == 0)
-//		scan = false;
-//	__syncthreads();
-//	uint val = 0;
-//	if (idx < Km.Keys.size) {
-//		ORBKey* key = &Km.Keys[idx];
-//		if (key->valid && key->obs > 0) {
-//			scan = true;
-//			val = 1;
-//		}
-//	}
-//	__syncthreads();
-//	if(scan) {
-//		int offset = ComputeOffset<1024>(val, totalKeys);
-//		if(offset >= 0) {
-//			memcpy((void*) &keys[offset], (void*) &Km.Keys[idx], sizeof(ORBKey));
-//			index[offset] = idx;
-//		}
-//	}
-//}
-//
-//void CollectKeys(KeyMap Km, DeviceArray<ORBKey>& keys, DeviceArray<int> & index, uint& n) {
-//
-//	keys.create(Km.Keys.size);
-//
-//	dim3 block(MaxThread);
-//	dim3 grid(DivUp(Km.Keys.size, block.x));
-//
-//	DeviceArray<uint> totalKeys(1);
-//	totalKeys.clear();
-//
-//	CollectORBKeys<<<grid, block>>>(Km, keys, index, totalKeys);
-//
-//	totalKeys.download(&n);
-//
-//	SafeCall(cudaDeviceSynchronize());
-//	SafeCall(cudaGetLastError());
-//}
-//
-//__global__ void InsertKeysKernel(KeyMap map, PtrSz<ORBKey> key, PtrSz<int> indices) {
-//	int idx = blockDim.x * blockIdx.x + threadIdx.x;
-//	if (idx < key.size) {
-//		map.InsertKey(&key[idx], indices[idx]);
-//	}
-//}
-//
-//void InsertKeys(KeyMap map, DeviceArray<ORBKey>& keys, DeviceArray<int> & indices) {
-//	if (keys.size == 0)
-//		return;
-//
-//	dim3 block(MaxThread);
-//	dim3 grid(DivUp(keys.size, block.x));
-//
-//	InsertKeysKernel<<<grid, block>>>(map, keys, indices);
-//
-//	SafeCall(cudaDeviceSynchronize());
-//	SafeCall(cudaGetLastError());
-//}
+__global__ void CollectKeyPointsKernel(KeyFusion fuse) {
+	fuse.CollectKeys();
+}
+
+__global__ void InsertKeyPointsKernel(KeyFusion fuse) {
+	fuse.InsertKeys();
+}
+
+void CollectKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys, DeviceArray<uint> & noKeys) {
+
+	KeyFusion fuse;
+	fuse.map = map;
+	fuse.keys = keys;
+	fuse.nokeys = noKeys;
+
+	dim3 thread(1024);
+	dim3 block(DivUp(map.Keys.size, thread.x));
+
+	CollectKeyPointsKernel<<<block, thread>>>(fuse);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
+}
+
+void InsertKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys) {
+
+	KeyFusion fuse;
+	fuse.map = map;
+	fuse.keys = keys;
+
+	dim3 thread(1024);
+	dim3 block(DivUp(keys.size, thread.x));
+
+	InsertKeyPointsKernel<<<block, thread>>>(fuse);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
+}

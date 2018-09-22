@@ -1,13 +1,11 @@
-#ifndef SYSTEM_HPP__
-#define SYSTEM_HPP__
+#ifndef SYSTEM_H__
+#define SYSTEM_H__
 
 #include "Viewer.h"
 #include "Mapping.h"
 #include "Tracking.h"
 
-#include <mutex>
 #include <thread>
-#include <future>
 
 class Viewer;
 class Mapping;
@@ -27,27 +25,19 @@ struct SysDesc {
 };
 
 class System {
-public:
-	System(const char* str);
-	System(SysDesc* pParam);
-	bool grabImage(const cv::Mat& image, const cv::Mat& depth);
-	void joinViewer();
-	void saveMesh();
-	void reboot();
 
 public:
-	Mapping * mpMap;
-	Viewer * mpViewer;
-	SysDesc * param;
-	Tracker * mpTracker;
 
-	cv::Mat mK;
-	int nFrames;
-	std::thread * mptViewer;
+	System(SysDesc * pParam);
 
-	bool state;
-	cudaStream_t stream;
-	std::mutex mutexReq;
+	bool GrabImage(const cv::Mat & image, const cv::Mat & depth);
+
+	void JoinViewer();
+
+	void SaveMesh();
+
+	void Reboot();
+
 	std::atomic<bool> paused;
 	std::atomic<bool> requestMesh;
 	std::atomic<bool> requestSaveMesh;
@@ -57,6 +47,20 @@ public:
 	DeviceArray2D<float4> vmap;
 	DeviceArray2D<float4> nmap;
 	DeviceArray2D<uchar4> renderedImage;
+
+	cv::Mat mK;
+	int nFrames;
+	bool state;
+
+protected:
+
+	Mapping * map;
+	SysDesc * param;
+	Viewer  * viewer;
+	Tracker * tracker;
+	std::thread * viewerThread;
+	int num_frames_after_reloc;
+
 };
 
 #endif

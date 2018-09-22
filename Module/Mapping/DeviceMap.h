@@ -8,7 +8,7 @@
 
 enum ENTRYTYPE { EntryAvailable = -1, EntryOccupied = -2 };
 
-struct __align__(16) RenderingBlock {
+struct __align__(8) RenderingBlock {
 
 	short2 upperLeft;
 
@@ -92,7 +92,16 @@ struct __align__(8) Voxel {
 	uchar3 color;
 };
 
+struct SurfKey {
 
+	int valid;
+
+	float3 pos;
+
+	float4 normal;
+
+	float descriptor[64];
+};
 
 struct DeviceMap {
 
@@ -108,15 +117,15 @@ struct DeviceMap {
 	__device__ HashEntry CreateEntry(const int3 & pos, const int & offset);
 
 	__device__ int3 worldPosToVoxelPos(float3 pos) const;
-	__device__ float3 worldPosToVoxelPosF(float3 pos) const;
-	__device__ float3 voxelPosToWorldPos(int3 pos) const;
 	__device__ int3 voxelPosToBlockPos(const int3 & pos) const;
 	__device__ int3 blockPosToVoxelPos(const int3 & pos) const;
 	__device__ int3 voxelPosToLocalPos(const int3 & pos) const;
-	__device__ int localPosToLocalIdx(const int3 & pos) const;
 	__device__ int3 localIdxToLocalPos(const int & idx) const;
 	__device__ int3 worldPosToBlockPos(const float3 & pos) const;
+	__device__ float3 worldPosToVoxelPosF(float3 pos) const;
+	__device__ float3 voxelPosToWorldPos(int3 pos) const;
 	__device__ float3 blockPosToWorldPos(const int3 & pos) const;
+	__device__ int localPosToLocalIdx(const int3 & pos) const;
 	__device__ int voxelPosToLocalIdx(const int3 & pos) const;
 
 	static constexpr uint BlockSize = 8;
@@ -155,13 +164,6 @@ struct ORBKey {
 	char descriptor[32];
 };
 
-struct SurfKey {
-	bool valid;
-	float3 pos;
-	float3 normal;
-	float descriptor[64];
-};
-
 struct KeyMap {
 
 	static constexpr float GridSize = 0.03;
@@ -175,7 +177,7 @@ public:
 	__device__ int Hash(const int3& pos);
 	__device__ SurfKey * FindKey(const float3 & pos);
 	__device__ SurfKey * FindKey(const float3 & pos, int & first, int & buck, int & hashIndex);
-	__device__ void InsertKey(SurfKey* key, int & hashIndex);
+	__device__ void InsertKey(SurfKey* key);
 	__device__ void ResetKeys(int index);
 
 public:

@@ -16,24 +16,14 @@ float3 eigen_to_float3(Eigen::Vector3d vec) {
 	return make_float3((float) vec(0), (float) vec(1), (float) vec(2));
 }
 
-System::System(const char* str):
-mpMap(nullptr), mpViewer(nullptr),
-mpTracker(nullptr), param(nullptr),
-mptViewer(nullptr), requestStop(false),
-nFrames(0), requestReboot(false) {
-	if(!str)
-		System(static_cast<SysDesc*>(nullptr));
-}
-
 System::System(SysDesc* pParam) :
-		mpMap(nullptr), mpViewer(nullptr), mpTracker(nullptr),
-		requestStop(false),	nFrames(0), requestSaveMesh(false),
-		requestReboot(false), paused(false), state(true),
-		requestMesh(false) {
+		map(0), viewer(0), tracker(0), requestStop(false), nFrames(0),
+		requestSaveMesh(false), requestReboot(false), paused(false),
+		state(true), requestMesh(false) {
 
 	if(pParam) {
 		param = new SysDesc();
-		memcpy((void*)param, (void*)pParam, sizeof(SysDesc));
+		memcpy((void*) param, (void*) pParam, sizeof(SysDesc));
 	}
 	else {
 		param = new SysDesc();
@@ -55,94 +45,74 @@ System::System(SysDesc* pParam) :
 	mK.at<float>(1, 2) = param->cy;
 	Frame::SetK(mK);
 
-	mpMap = new Mapping();
-	mpMap->create();
+	map = new Mapping();
+	map->Create();
 
-	mpViewer = new Viewer();
-	mpTracker = new Tracker(param->cols,
-							 param->rows,
-							 param->fx,
-							 param->fy,
-							 param->cx,
-							 param->cy);
+	viewer = new Viewer();
+	tracker = new Tracker(param->cols, param->rows,
+			param->fx, param->fy, param->cx, param->cy);
 
-	mpViewer->setMap(mpMap);
-	mpViewer->setSystem(this);
-	mpViewer->setTracker(mpTracker);
+	viewer->setMap(map);
+	viewer->setSystem(this);
+	viewer->setTracker(tracker);
 
-	mpTracker->SetMap(mpMap);
+	tracker->SetMap(map);
 
-	mptViewer = new thread(&Viewer::spin, mpViewer);
-	mptViewer->detach();
+	viewerThread = new thread(&Viewer::spin, viewer);
+	viewerThread->detach();
 
 	Frame::mDepthScale = param->DepthScale;
 	Frame::mDepthCutoff = param->DepthCutoff;
 
-	vmap.create(640, 480);
-	nmap.create(640, 480);
-	renderedImage.create(640, 480);
+	vmap.create(param->cols, param->rows);
+	nmap.create(param->cols, param->rows);
+	renderedImage.create(param->cols, param->rows);
+	num_frames_after_reloc = 10;
 }
 
-bool System::grabImage(const Mat & image, const Mat & depth) {
+bool System::GrabImage(const Mat & image, const Mat & depth) {
 
 	if(requestSaveMesh) {
-		saveMesh();
+		SaveMesh();
 		requestSaveMesh = false;
 	}
 
 	if(requestReboot) {
-		reboot();
+		Reboot();
 		requestReboot = false;
 	}
 
 	if(requestStop) {
-		mpViewer->signalQuit();
+		viewer->signalQuit();
 		SafeCall(cudaDeviceSynchronize());
 		SafeCall(cudaGetLastError());
 		return false;
 	}
 
 	if(!paused) {
-		state = mpTracker->GrabFrame(image, depth);
+		state = tracker->GrabFrame(image, depth);
+	}
+
+	switch(tracker->lastState) {
+	case 0:
+		num_frames_after_reloc++;
+		break;
+
+	case -1:
+		num_frames_after_reloc = 0;
+		break;
 	}
 
 	if (state) {
-		uint no;
-		if(!mpTracker->mappingDisabled && mpTracker->state != -1) {
-			mpMap->fuseColor(
-					mpTracker->LastFrame->depth[0],
-					mpTracker->LastFrame->color,
-					mpTracker->LastFrame->Rot_gpu(),
-					mpTracker->LastFrame->RotInv_gpu(),
-					mpTracker->LastFrame->Trans_gpu(),
-					no);
-		}
+		uint noBlocks;
+		if (!tracker->mappingDisabled && tracker->state != -1 && num_frames_after_reloc >= 10)
+			map->FuseColor(tracker->LastFrame, noBlocks);
 
-		if(!mpTracker->mappingDisabled) {
-			mpMap->rayTrace(no,
-					mpTracker->LastFrame->Rot_gpu(),
-					mpTracker->LastFrame->RotInv_gpu(),
-					mpTracker->LastFrame->Trans_gpu(),
-					mpTracker->LastFrame->vmap[0],
-					mpTracker->LastFrame->nmap[0], 0.3, 3.0, Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0));
-		}
-		else {
-			mpMap->updateVisibility(mpTracker->LastFrame->Rot_gpu(),
-									mpTracker->LastFrame->RotInv_gpu(),
-									mpTracker->LastFrame->Trans_gpu(),
-									0.3,
-									3.0,
-									Frame::fx(0),
-									Frame::fy(0),
-									Frame::cx(0),
-									Frame::cy(0),
-									no);
-			mpMap->rayTrace(no,
-					mpTracker->LastFrame->Rot_gpu(),
-					mpTracker->LastFrame->RotInv_gpu(),
-					mpTracker->LastFrame->Trans_gpu(),
-					mpTracker->LastFrame->vmap[0],
-					mpTracker->LastFrame->nmap[0], 0.3, 3.0, Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0));
+		if (!tracker->mappingDisabled) {
+			map->RayTrace(noBlocks, tracker->LastFrame);
+		} else {
+			map->UpdateVisibility(tracker->LastFrame, noBlocks);
+			map->RayTrace(noBlocks, tracker->LastFrame);
 		}
 
 //		Eigen::AngleAxisd angle(M_PI / 2, -Eigen::Vector3d::UnitX());
@@ -166,9 +136,9 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 		imageUpdated = true;
 
 		if(nFrames % 25 == 0 && requestMesh) {
-			if(!mpTracker->mappingDisabled) {
-				mpMap->createModel();
-//				mpMap->updateMapKeys();
+			if(!tracker->mappingDisabled) {
+				map->CreateModel();
+				map->UpdateMapKeys();
 			}
 		}
 
@@ -178,22 +148,22 @@ bool System::grabImage(const Mat & image, const Mat & depth) {
 	return true;
 }
 
-void System::saveMesh() {
+void System::SaveMesh() {
 
-	mpMap->createModel();
+	map->CreateModel();
 
-	float3 * host_vertex = (float3*) malloc(sizeof(float3) * mpMap->noTrianglesHost * 3);
-	float3 * host_normal = (float3*) malloc(sizeof(float3) * mpMap->noTrianglesHost * 3);
-	uchar3 * host_color = (uchar3*) malloc(sizeof(uchar3) * mpMap->noTrianglesHost * 3);
-	mpMap->modelVertex.download(host_vertex, mpMap->noTrianglesHost * 3);
-	mpMap->modelNormal.download(host_normal, mpMap->noTrianglesHost * 3);
-	mpMap->modelColor.download(host_color, mpMap->noTrianglesHost * 3);
+	float3 * host_vertex = (float3*) malloc(sizeof(float3) * map->noTrianglesHost * 3);
+	float3 * host_normal = (float3*) malloc(sizeof(float3) * map->noTrianglesHost * 3);
+	uchar3 * host_color = (uchar3*) malloc(sizeof(uchar3) * map->noTrianglesHost * 3);
+	map->modelVertex.download(host_vertex, map->noTrianglesHost * 3);
+	map->modelNormal.download(host_normal, map->noTrianglesHost * 3);
+	map->modelColor.download(host_color, map->noTrianglesHost * 3);
 
 	std::ofstream file;
 	file.open("/home/xyang/scene.ply");
 		file << "ply\n";
 		file << "format ascii 1.0\n";
-		file << "element vertex " << mpMap->noTrianglesHost * 3 << "\n";
+		file << "element vertex " << map->noTrianglesHost * 3 << "\n";
 		file << "property float x\n";
 		file << "property float y\n";
 		file << "property float z\n";
@@ -203,11 +173,11 @@ void System::saveMesh() {
 		file << "property uchar red\n";
 		file << "property uchar green\n";
 		file << "property uchar blue\n";
-		file << "element face " << mpMap->noTrianglesHost << "\n";
+		file << "element face " << map->noTrianglesHost << "\n";
 		file << "property list uchar uint vertex_indices\n";
 		file << "end_header" << std::endl;
 
-	for (uint i = 0; i <  mpMap->noTrianglesHost * 3; ++i) {
+	for (uint i = 0; i <  map->noTrianglesHost * 3; ++i) {
 		file << host_vertex[i].x << " "
 			 << host_vertex[i].y << " "
 			 << host_vertex[i].z << " "
@@ -220,7 +190,7 @@ void System::saveMesh() {
 	}
 
 	uchar numFaces = 3;
-	for (uint i = 0; i <  mpMap->noTrianglesHost; ++i) {
+	for (uint i = 0; i <  map->noTrianglesHost; ++i) {
 		file << (static_cast<int>(numFaces) & 0xFF) << " "
 			 << (int) i * 3 + 0 << " "
 			 << (int) i * 3 + 1 << " "
@@ -233,18 +203,18 @@ void System::saveMesh() {
 	delete host_color;
 }
 
-void System::reboot() {
-	mpMap->reset();
-	mpTracker->ResetTracking();
+void System::Reboot() {
+	map->Reset();
+	tracker->ResetTracking();
 }
 
-void System::joinViewer() {
+void System::JoinViewer() {
 
 	while(true) {
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 		if(requestSaveMesh) {
-			saveMesh();
+			SaveMesh();
 			requestSaveMesh = false;
 		}
 

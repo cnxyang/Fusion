@@ -416,21 +416,27 @@ void Viewer::drawCamera() {
 }
 
 void Viewer::drawKeys() {
-//	std::vector<ORBKey> allKeys = mpMap->getAllKeys();
-//	if(allKeys.size() == 0)
-//		return;
-//
-//	vector<GLfloat> points;
-//	for(int i = 0; i < allKeys.size(); ++i) {
-//		points.push_back(allKeys[i].pos.x);
-//		points.push_back(allKeys[i].pos.y);
-//		points.push_back(allKeys[i].pos.z);
+
+	if(mpMap->noKeysHost == 0)
+		return;
+
+	vector<GLfloat> points;
+	for(int i = 0; i < mpMap->noKeysHost; ++i) {
+		points.push_back(mpMap->hostKeys[i].pos.x);
+		points.push_back(mpMap->hostKeys[i].pos.y);
+		points.push_back(mpMap->hostKeys[i].pos.z);
+	}
+
+//	for(int i = 0; i < ptracker->NextFrame->mapPoints.size(); ++i) {
+//		points.push_back(ptracker->NextFrame->mapPoints[i](0));
+//		points.push_back(ptracker->NextFrame->mapPoints[i](1));
+//		points.push_back(ptracker->NextFrame->mapPoints[i](2));
 //	}
-//
-//	glColor3f(1.0, 0.0, 0.0);
-//	glPointSize(3.0);
-//	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_POINTS, 3);
-//	glPointSize(1.0);
+
+	glColor3f(1.0, 0.0, 0.0);
+	glPointSize(3.0);
+	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_POINTS, 3);
+	glPointSize(1.0);
 }
 
 void Viewer::setMap(Mapping* pMap) {

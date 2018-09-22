@@ -16,8 +16,13 @@ float3 eigen_to_float3(Eigen::Vector3d & vec) {
 	return make_float3((float) vec(0), (float) vec(1), (float) vec(2));
 }
 
-Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) :
-		useGraphMatching(false), state(1), needImages(false), lastState(1), imageUpdated(false), mappingDisabled(false) {
+Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) {
+
+	state = lastState = 1;
+	useGraphMatching = false;
+	imageUpdated = false;
+	mappingDisabled = false;
+	needImages = false;
 
 	renderedImage.create(cols_, rows_);
 	renderedDepth.create(cols_, rows_);
@@ -77,7 +82,8 @@ bool Tracker::Track() {
 
 		if(valid) {
 			noMissedFrames = 0;
-			if(state != -1) {
+			if(lastState != -1) {
+				map->FuseKeyPoints(NextFrame);
 				SwapFrame();
 				return true;
 			}
@@ -134,19 +140,15 @@ bool Tracker::TrackLastFrame() {
 
 	std::vector<Eigen::Vector3d> src, ref;
 	for (int i = 0; i < noInliers; ++i) {
-		Eigen::Vector3d p0, p1;
-		float3 p2 = NextFrame->pt3d[refined[i].queryIdx];
-		float3 p3 = LastFrame->pt3d[refined[i].trainIdx];
-		p0 << p2.x, p2.y, p2.z;
-		p1 << p3.x, p3.y, p3.z;
-		src.push_back(p0);
-		ref.push_back(p1);
+		src.push_back(NextFrame->mapPoints[refined[i].queryIdx].cast<double>());
+		ref.push_back(LastFrame->mapPoints[refined[i].trainIdx].cast<double>());
 	}
 
 	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
-	bool result = Solver::PoseEstimate(src, ref, outliers, delta, maxIter);
+	NextFrame->outliers.resize(refined.size());
+	std::fill(NextFrame->outliers.begin(), NextFrame->outliers.end(), true);
 
-	outliers.resize(refined.size());
+	bool result = Solver::PoseEstimate(src, ref, NextFrame->outliers, delta, maxIter);
 	noInliers = std::count(outliers.begin(), outliers.end(), false);
 
 	if (result) {
@@ -194,11 +196,11 @@ bool Tracker::ComputeSE3() {
 					LastFrame->vmap[i],
 					NextFrame->nmap[i],
 					LastFrame->nmap[i],
-					NextFrame->Rot_gpu(),
-					NextFrame->Trans_gpu(),
-					LastFrame->Rot_gpu(),
-					LastFrame->RotInv_gpu(),
-					LastFrame->Trans_gpu(),
+					NextFrame->GpuRotation(),
+					NextFrame->GpuTranslation(),
+					LastFrame->GpuRotation(),
+					LastFrame->GpuInvRotation(),
+					LastFrame->GpuTranslation(),
 					K(i),
 					sumSE3,
 					outSE3,
@@ -210,7 +212,7 @@ bool Tracker::ComputeSE3() {
 			int icpCount = (int) icpResidual[1];
 
 			if (std::isnan(icpError)) {
-				NextFrame->SetPose(lastPose);
+				NextFrame->pose = lastPose;
 				return false;
 			}
 
@@ -379,9 +381,9 @@ Eigen::Matrix4f Tracker::GetCurrentPose() const {
 }
 
 void Tracker::SetMap(Mapping* pMap) {
-	mpMap = pMap;
+	map = pMap;
 }
 
 void Tracker::SetViewer(Viewer* pViewer) {
-	mpViewer = pViewer;
+	viewer = pViewer;
 }

@@ -27,7 +27,6 @@ __global__ void BuildAdjecencyMatrixKernel(cv::cuda::PtrStepSz<float> AM,
 				float gamma_0 = acosf(match_0_query->normal * (match_1_query->pos - match_0_query->pos) / d_1);
 				float gamma_1 = acosf(match_1_query->normal * (match_1_query->pos - match_0_query->pos) / d_1);
 				score = expf(-(fabs(d_0 - d_1) + fabs(alpha_0 - alpha_1) + fabs(beta_0 - beta_1) + fabs(gamma_0 - gamma_1)));
-//				score = expf(-(fabs(d_0 - d_1) + fabs(alpha_0 - alpha_1)));
 			}
 		}
 		if(isnan(score))
@@ -85,38 +84,3 @@ void BuildAdjecencyMatrix(cv::cuda::GpuMat& AM,	DeviceArray<ORBKey>& TrainKeys,
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 }
-
-//__global__ void ProjectVisibleKeysKernel(KeyMap map, Matrix3f invRot, float3 trans,
-//		int cols, int rows, float maxd, float mind, float fx, float fy,
-//		float cx, float cy) {
-//
-//	int x = blockDim.x * blockIdx.x + threadIdx.x;
-//	if(x < KeyMap::MaxKeys * KeyMap::nBuckets) {
-//		ORBKey& key = map.Keys[x];
-//		if(key.valid && key.obs <= 8) {
-//			float3 pos = invRot * (key.pos - trans);
-//			float u = fx * pos.x / pos.z + cx;
-//			float v = fy * pos.y / pos.z + cy;
-//			if(u >= 0 && v >= 0 && u < cols && v < rows
-//					&& pos.z < maxd && pos.z > mind) {
-//				key.obs -= 1;
-//				if(key.obs <= KeyMap::MinObsThresh) {
-//					key.valid = false;
-//				}
-//			}
-//		}
-//	}
-//}
-//
-//void ProjectVisibleKeys(KeyMap map, Matrix3f RviewInv, float3 tview, int cols,
-//		int rows, float fx, float fy, float cx, float cy) {
-//
-//	dim3 block(MaxThread);
-//	dim3 grid(DivUp(map.Keys.size, block.x));
-//
-//	ProjectVisibleKeysKernel<<<grid, block>>>(map, RviewInv, tview, cols, rows,
-//			DeviceMap::DepthMax, DeviceMap::DepthMin, fx, fy, cx, cy);
-//
-//	SafeCall(cudaDeviceSynchronize());
-//	SafeCall(cudaGetLastError());
-//}

@@ -21,9 +21,9 @@ public:
 
 	void ResetTracking();
 
-	void SetMap(Mapping * pMap);
+	void SetMap(Mapping * map_);
 
-	void SetViewer(Viewer * pViewer);
+	void SetViewer(Viewer * viewer_);
 
 	Eigen::Matrix4f GetCurrentPose() const;
 
@@ -63,8 +63,8 @@ protected:
 
 	void InitTracking();
 
-	Mapping * mpMap;
-	Viewer * mpViewer;
+	Mapping * map;
+	Viewer * viewer;
 
 	DeviceArray2D<float> sumSE3;
 	DeviceArray2D<float> sumSO3;

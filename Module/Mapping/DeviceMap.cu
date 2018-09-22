@@ -200,26 +200,30 @@ __device__ int DeviceMap::voxelPosToLocalIdx(const int3 & pos) const {
 	return localPosToLocalIdx(voxelPosToLocalPos(pos));
 }
 
-__device__ int KeyMap::Hash(const int3& pos) {
+///////////////////////////////////////////////////////
+// Implementation - Key Maps
+///////////////////////////////////////////////////////
 
-	int res = ((pos.x * 73856093) ^ (pos.y * 19349669) ^ (pos.z * 83492791));
-	res %= KeyMap::MaxKeys;
+__device__ int KeyMap::Hash(const int3 & pos) {
+
+	int res = ((pos.x * 73856093) ^ (pos.y * 19349669) ^ (pos.z * 83492791)) % KeyMap::MaxKeys;
+
 	if (res < 0)
 		res += KeyMap::MaxKeys;
 
 	return res;
 }
 
-__device__ SurfKey * KeyMap::FindKey(const float3& pos) {
+__device__ SurfKey * KeyMap::FindKey(const float3 & pos) {
 
-	float3 gridPos = pos / GridSize;
-	int idx = Hash(make_int3(gridPos.x, gridPos.y, gridPos.z));
+	int3 blockPos = make_int3(pos / GridSize);
+	int idx = Hash(blockPos);
 	int bucketIdx = idx * nBuckets;
-	const float radius = 10.0f;
 	for (int i = 0; i < nBuckets; ++i, ++bucketIdx) {
 		SurfKey * key = &Keys[bucketIdx];
-		if (key->valid && norm(key->pos - pos) <= radius) {
-			return key;
+		if (key->valid) {
+			if(make_int3(key->pos / GridSize) == blockPos)
+				return key;
 		}
 	}
 	return nullptr;
@@ -251,26 +255,18 @@ __device__ SurfKey * KeyMap::FindKey(const float3& pos, int & first, int & buck,
 	return nullptr;
 }
 
-__device__ void KeyMap::InsertKey(SurfKey * key, int & hashIndex) {
-
-	SurfKey * oldKey = nullptr;
-	if(hashIndex > 0 && hashIndex < Keys.size) {
-		oldKey = &Keys[(int)hashIndex];
-		if(oldKey && oldKey->valid) {
-			return;
-		}
-	}
+__device__ void KeyMap::InsertKey(SurfKey * key) {
 
 	int first = -1;
 	int buck = 0;
-	oldKey = FindKey(key->pos, first, buck, hashIndex);
+	int hashIndex;
+	SurfKey * oldKey = FindKey(key->pos, first, buck, hashIndex);
 	if (oldKey && oldKey->valid) {
 		return;
 	}
 	else if (first != -1) {
 		int lock = atomicExch(&Mutex[buck], 1);
 		if (lock < 0) {
-//			key->obs = 1;
 			hashIndex = first;
 			SurfKey * oldkey = &Keys[first];
 			memcpy((void*) oldkey, (void*) key, sizeof(SurfKey));

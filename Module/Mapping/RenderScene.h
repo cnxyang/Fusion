@@ -4,6 +4,11 @@ void ResetMap(DeviceMap map);
 
 void ResetKeyPoints(KeyMap map);
 
+void InsertKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys);
+
+void CollectKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys,
+		DeviceArray<uint> & noKeys);
+
 void Raycast(DeviceMap map, DeviceArray2D<float4> & vmap,
 		DeviceArray2D<float4> & nmap, DeviceArray2D<float> & zRangeX,
 		DeviceArray2D<float> & zRangeY, Matrix3f Rview, Matrix3f RviewInv,
