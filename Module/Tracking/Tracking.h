@@ -65,6 +65,8 @@ protected:
 
 	bool Relocalise();
 
+	void FilterMatching();
+
 	void InitTracking();
 
 	bool NeedKeyFrame();
@@ -77,10 +79,10 @@ protected:
 	KeyFrame * ReferenceKF;
 	KeyFrame * LastKeyFrame;
 
-	DeviceArray2D<float> sumSE3;
-	DeviceArray2D<float> sumSO3;
 	DeviceArray<float> outSE3;
 	DeviceArray<float> outSO3;
+	DeviceArray2D<float> sumSE3;
+	DeviceArray2D<float> sumSO3;
 
 	const int maxIter = 35;
 	const int maxIterReloc = 100;
@@ -99,6 +101,14 @@ protected:
 	float lastSo3Error;
 
 	std::vector<bool> outliers;
+
+	std::vector<cv::DMatch> refined;
+//	std::vector<SurfKey> frameKeySelected;
+//	std::vector<SurfKey> mapKeySelected;
+//	std::vector<float> keyDistance;
+//	std::vector<int> vQueryIdx;
+//	std::vector<Eigen::Vector3d> trainKeyPoints;
+//	std::vector<Eigen::Vector3d> queryKeyPoints;
 };
 
 #endif

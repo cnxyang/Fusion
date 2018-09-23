@@ -178,8 +178,8 @@ void Frame::ExtractKeyPoints() {
 		cv::KeyPoint & kp = rawKeyPoints[i];
 		float x = kp.pt.x;
 		float y = kp.pt.y;
-//		float dp = InterpDepth(sDepth, x, y);
-		float dp = sDepth.at<float>((int)(y + 0.5), (int)(x + 0.5));
+		float dp = InterpDepth(sDepth, x, y);
+//		float dp = sDepth.at<float>((int)(y + 0.5), (int)(x + 0.5));
 		if(!std::isnan(dp) && dp > 0.3 && dp < mDepthCutoff) {
 			float4 n = InterpNormal(sNormal, x, y);
 			if(!std::isnan(n.x)) {

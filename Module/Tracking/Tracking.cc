@@ -18,6 +18,10 @@ float3 eigen_to_float3(Eigen::Vector3d & vec) {
 
 Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) {
 
+	map = NULL;
+	viewer = NULL;
+	noInliers = 0;
+	noMissedFrames = 0;
 	state = lastState = 1;
 	useGraphMatching = false;
 	imageUpdated = false;
@@ -70,7 +74,6 @@ bool Tracker::Track() {
 				RenderImage(LastFrame->vmap[0], LastFrame->nmap[0], make_float3(0), renderedImage);
 			DepthToImage(LastFrame->depth[0], renderedDepth);
 			RgbImageToRgba(LastFrame->color, rgbaImage);
-			std::cout << state << std::endl;
 			imageUpdated = true;
 			updateImageMutex.unlock();
 		}
@@ -125,7 +128,8 @@ bool Tracker::Track() {
 bool Tracker::TrackFrame() {
 
 	bool valid = false;
-	valid = TrackReferenceKF();
+	valid = TrackLastFrame();
+
 	if(!valid) {
 		return false;
 	}
@@ -136,7 +140,7 @@ bool Tracker::TrackFrame() {
 
 bool Tracker::TrackReferenceKF() {
 
-	std::vector<cv::DMatch> refined;
+	refined.clear();
 	std::vector<std::vector<cv::DMatch>> rawMatches;
 	matcher->knnMatch(NextFrame->descriptors, ReferenceKF->descriptors, rawMatches, 2);
 	for (int i = 0; i < rawMatches.size(); ++i) {
@@ -159,7 +163,7 @@ bool Tracker::TrackReferenceKF() {
 	NextFrame->outliers.resize(refined.size());
 	std::fill(NextFrame->outliers.begin(), NextFrame->outliers.end(), true);
 
-	bool result = Solver::PoseEstimate(src, ref, NextFrame->outliers, delta, maxIter);
+	bool result = Solver::PoseEstimate(src, ref, NextFrame->outliers, delta, maxIter, true );
 	noInliers = std::count(outliers.begin(), outliers.end(), false);
 
 	if (result) {
@@ -176,7 +180,7 @@ bool Tracker::TrackReferenceKF() {
 
 bool Tracker::TrackLastFrame() {
 
-	std::vector<cv::DMatch> refined;
+	refined.clear();
 	std::vector<std::vector<cv::DMatch>> rawMatches;
 	matcher->knnMatch(NextFrame->descriptors, LastFrame->descriptors, rawMatches, 2);
 	for (int i = 0; i < rawMatches.size(); ++i) {
@@ -199,7 +203,7 @@ bool Tracker::TrackLastFrame() {
 	NextFrame->outliers.resize(refined.size());
 	std::fill(NextFrame->outliers.begin(), NextFrame->outliers.end(), true);
 
-	bool result = Solver::PoseEstimate(src, ref, NextFrame->outliers, delta, maxIter);
+	bool result = Solver::PoseEstimate(src, ref, NextFrame->outliers, delta, maxIter, true);
 	noInliers = std::count(outliers.begin(), outliers.end(), false);
 
 	if (result) {
@@ -302,7 +306,7 @@ bool Tracker::ComputeSE3() {
 	Eigen::Matrix3d r = p.topLeftCorner(3, 3);
 	Eigen::Vector3d t = p.topRightCorner(3, 1);
 	Eigen::Vector3d a = r.eulerAngles(0, 1, 2).array().sin();
-	if(icpError >= 5e-4 || a.norm() >= 0.2 || t.norm() >= 0.2) {
+	if(icpError >= 1e-4 || a.norm() >= 0.1 || t.norm() >= 0.1) {
 		std::cout << icpError << " " << t.norm() << " " << a.norm() << std::endl;
 		NextFrame->pose = lastPose;
 		return false;
@@ -334,7 +338,7 @@ bool Tracker::Relocalise() {
 		descriptors.upload(desc);
 	}
 
-	std::vector<cv::DMatch> refined;
+	refined.clear();
 	std::vector<std::vector<cv::DMatch>> matches;
 	matcher->knnMatch(NextFrame->descriptors, descriptors, matches, 2);
 	for (int i = 0; i < matches.size(); ++i) {
@@ -345,6 +349,7 @@ bool Tracker::Relocalise() {
 
 	if (refined.size() < 3)
 		return false;
+
 	std::vector<Eigen::Vector3d> plist;
 	std::vector<Eigen::Vector3d> qlist;
 	for (int i = 0; i < refined.size(); ++i) {
@@ -356,89 +361,113 @@ bool Tracker::Relocalise() {
 	bool bOK = Solver::PoseEstimate(plist, qlist, outliers, delta, maxIterReloc);
 
 	if (!bOK) {
-		std::cout << "Reloc failed." << std::endl;
 		return false;
+	}
+
+	KeyFrame * CandidateKF = NULL;
+	float norm_rot, norm_trans;
+	std::set<const KeyFrame *>::iterator iter = map->keyFrames.begin();
+	std::set<const KeyFrame *>::iterator lend = map->keyFrames.end();
+	for(; iter != lend; ++iter) {
+		const KeyFrame * kf = *iter;
+		Eigen::Matrix4d pose = delta * kf->pose.cast<double>();
+		Eigen::Matrix3d r = pose.topLeftCorner(3, 3);
+		Eigen::Vector3d t = pose.topRightCorner(3, 1);
+		Eigen::Vector3d angle = r.eulerAngles(0, 1, 2).array().sin();
+		if(!CandidateKF) {
+			CandidateKF = const_cast<KeyFrame *>(kf);
+			norm_rot = angle.norm();
+			norm_trans = t.norm();
+			continue;
+		}
+
+		float nrot = angle.norm();
+		float ntrans = t.norm();
+		if((nrot + ntrans) < (norm_rot + norm_trans)) {
+			CandidateKF = const_cast<KeyFrame *>(kf);
+			norm_rot = angle.norm();
+			norm_trans = t.norm();
+		}
 	}
 
 	std::cout << "Reloc Sucess." << std::endl;
 	NextFrame->pose = delta.inverse();
+	ReferenceKF = CandidateKF;
+
 	return true;
+}
 
+void Tracker::FilterMatching() {
 
-	//	if (graphMatching) {
-//		std::vector<ORBKey> vFrameKey;
-//		std::vector<ORBKey> vMapKey;
-//		std::vector<float> vDistance;
-//		std::vector<int> vQueryIdx;
-//		cv::Mat cpuFrameDesc;
-//		nextFrame.descriptors.download(cpuFrameDesc);
-//		cv::Mat cpuMatching(2, matches.size(), CV_32SC1);
+//	frameKeySelected.clear();
+//	mapKeySelected.clear();
+//	keyDistance.clear();
+//	vQueryIdx.clear();
+//	cv::Mat cpuFrameDesc;
+//	NextFrame->descriptors.download(cpuFrameDesc);
+//	cv::Mat cpuMatching(2, refined.size(), CV_32SC1);
 //
-//		for (int i = 0; i < matches.size(); ++i) {
-//			int trainIdx = matches[i].trainIdx;
-//			int queryIdx = matches[i].queryIdx;
-//			ORBKey trainKey = mpMap->hostKeys[trainIdx];
-//			ORBKey queryKey;
-//			if (trainKey.valid && queryKey.valid) {
-//				cv::Vec3f normal = nextFrame.mNormals[queryIdx];
-//				Eigen::Vector3d& p = nextFrame.mPoints[queryIdx];
-//				queryKey.pos = make_float3(p(0), p(1), p(2));
-//				queryKey.normal = make_float3(normal(0), normal(1), normal(2));
-//				vFrameKey.push_back(queryKey);
-//				vMapKey.push_back(trainKey);
-//				vDistance.push_back(matches[i].distance);
-//				vQueryIdx.push_back(queryIdx);
-//			}
+//	for (int i = 0; i < refined.size(); ++i) {
+//		int trainIdx = refined[i].trainIdx;
+//		int queryIdx = refined[i].queryIdx;
+//		SurfKey trainKey = map->hostKeys[trainIdx];
+//		SurfKey queryKey;
+//		if (trainKey.valid && queryKey.valid) {
+//			Eigen::Vector3f & p = NextFrame->mapPoints[queryIdx];
+//			queryKey.pos = { p(0), p(1), p(2) };
+//			queryKey.normal = NextFrame->pointNormal[queryIdx];
+//			frameKeySelected.push_back(queryKey);
+//			mapKeySelected.push_back(trainKey);
+//			keyDistance.push_back(refined[i].distance);
+//			vQueryIdx.push_back(queryIdx);
 //		}
+//	}
 //
-//		DeviceArray<ORBKey> trainKeys(vMapKey.size());
-//		DeviceArray<ORBKey> queryKeys(vFrameKey.size());
-//		DeviceArray<float> MatchDist(vDistance.size());
-//		DeviceArray<int> QueryIdx(vQueryIdx.size());
+//	DeviceArray<SurfKey> trainKeys(mapKeySelected.size());
+//	DeviceArray<SurfKey> queryKeys(frameKeySelected.size());
+//	DeviceArray<float> MatchDist(keyDistance.size());
+//	DeviceArray<int> QueryIdx(vQueryIdx.size());
 //
-//		MatchDist.upload((void*) vDistance.data(), vDistance.size());
-//		trainKeys.upload((void*) vMapKey.data(), vMapKey.size());
-//		queryKeys.upload((void*) vFrameKey.data(), vFrameKey.size());
-//		QueryIdx.upload((void*) vQueryIdx.data(), vQueryIdx.size());
+//	MatchDist.upload((void*) keyDistance.data(), keyDistance.size());
+//	trainKeys.upload((void*) mapKeySelected.data(), mapKeySelected.size());
+//	queryKeys.upload((void*) frameKeySelected.data(), frameKeySelected.size());
+//	QueryIdx.upload((void*) vQueryIdx.data(), vQueryIdx.size());
 //
-//		cuda::GpuMat AdjecencyMatrix(matches.size(), matches.size(), CV_32FC1);
-//		DeviceArray<ORBKey> query_select, train_select;
-//		DeviceArray<int> SelectedIdx;
+//	cuda::GpuMat AdjecencyMatrix(refined.size(), refined.size(), CV_32FC1);
+//	DeviceArray<SurfKey> query_select, train_select;
+//	DeviceArray<int> SelectedIdx;
 //
-//		BuildAdjecencyMatrix(AdjecencyMatrix, trainKeys, queryKeys, MatchDist,
-//				train_select, query_select, QueryIdx, SelectedIdx);
+//	BuildAdjecencyMatrix(AdjecencyMatrix, trainKeys, queryKeys, MatchDist,
+//			train_select, query_select, QueryIdx, SelectedIdx);
 //
-//		std::vector<int> vSelectedIdx;
-//		std::vector<ORBKey> vORB_train, vORB_query;
-//		vSelectedIdx.resize(SelectedIdx.size);
-//		vORB_train.resize(train_select.size);
-//		vORB_query.resize(query_select.size);
+//	std::vector<int> vSelectedIdx;
+//	std::vector<SurfKey> vORB_train, vORB_query;
+//	vSelectedIdx.resize(SelectedIdx.size);
+//	vORB_train.resize(train_select.size);
+//	vORB_query.resize(query_select.size);
 //
-//		train_select.download((void*) vORB_train.data(), vORB_train.size());
-//		query_select.download((void*) vORB_query.data(), vORB_query.size());
-//		SelectedIdx.download((void*) vSelectedIdx.data(), vSelectedIdx.size());
+//	train_select.download((void*) vORB_train.data(), vORB_train.size());
+//	query_select.download((void*) vORB_query.data(), vORB_query.size());
+//	SelectedIdx.download((void*) vSelectedIdx.data(), vSelectedIdx.size());
 //
-//		for (int i = 0; i < query_select.size; ++i) {
-//			Eigen::Vector3d p, q;
-//			if (vORB_query[i].valid && vORB_train[i].valid) {
-//				bool redundant = false;
-//				for (int j = 0; j < i; j++) {
-//					if (vSelectedIdx[j] == vSelectedIdx[i]) {
-//						redundant = true;
-//						break;
-//					}
+//	for (int i = 0; i < query_select.size; ++i) {
+//		Eigen::Vector3d p, q;
+//		if (vORB_query[i].valid && vORB_train[i].valid) {
+//			bool redundant = false;
+//			for (int j = 0; j < i; j++) {
+//				if (vSelectedIdx[j] == vSelectedIdx[i]) {
+//					redundant = true;
+//					break;
 //				}
-//				if (!redundant) {
-//					p << vORB_query[i].pos.x, vORB_query[i].pos.y, vORB_query[i].pos.z;
-//					q << vORB_train[i].pos.x, vORB_train[i].pos.y, vORB_train[i].pos.z;
-//					plist.push_back(p);
-//					qlist.push_back(q);
-//				}
+//			}
+//			if (!redundant) {
+//				p << vORB_query[i].pos.x, vORB_query[i].pos.y, vORB_query[i].pos.z;
+//				q << vORB_train[i].pos.x, vORB_train[i].pos.y, vORB_train[i].pos.z;
+//				plist.push_back(p);
+//				qlist.push_back(q);
 //			}
 //		}
 //	}
-//	else {
-
 }
 
 Eigen::Matrix4f Tracker::GetCurrentPose() const {

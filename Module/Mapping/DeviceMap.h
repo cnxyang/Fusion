@@ -144,7 +144,7 @@ struct DeviceMap {
 	static constexpr float voxelSizeInv = 1.0 / VoxelSize;
 	static constexpr float blockWidth = VoxelSize * BlockSize;
 	static constexpr uint NumEntries = NumBuckets + NumExcess;
-	static constexpr float stepScale = TruncateDist * voxelSizeInv;
+	static constexpr float stepScale = 0.5 * TruncateDist * voxelSizeInv;
 
 	PtrSz<int> heapMem;
 	PtrSz<int> entryPtr;

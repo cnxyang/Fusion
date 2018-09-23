@@ -4,7 +4,7 @@
 #include "Solver.h"
 
 bool Solver::PoseEstimate(std::vector<Eigen::Vector3d> & src, std::vector<Eigen::Vector3d> & ref,
-				          std::vector<bool> & outlier, Eigen::Matrix4d & Tlastcurr, int iteration) {
+				          std::vector<bool> & outlier, Eigen::Matrix4d & Tlastcurr, int iteration, bool checkAngle) {
 
 	Eigen::Matrix3d R_best = Eigen::Matrix3d::Identity();
 	Eigen::Vector3d t_best = Eigen::Vector3d::Zero();
@@ -140,7 +140,7 @@ bool Solver::PoseEstimate(std::vector<Eigen::Vector3d> & src, std::vector<Eigen:
 		}
 	}
 
-	if(confidence < 0.8) {
+	if(checkAngle && confidence < 0.8) {
 		Eigen::Vector3d angles = R_best.eulerAngles(0, 1, 2).array().sin();
 		if (angles.norm() >= 0.2 || t_best.norm() >= 0.1)
 			return false;

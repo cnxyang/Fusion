@@ -120,6 +120,9 @@ void Mapping::UpdateMapKeys() {
 
 void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 
+	if(keyFrames.count(kf))
+		return;
+
 	keyFrames.insert(kf);
 
 	cv::Mat desc;
