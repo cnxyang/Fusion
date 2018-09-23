@@ -406,7 +406,7 @@ struct KeyFusion {
 	__device__ __forceinline__ void InsertKeys() {
 
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
-		if (x < keys.size) {
+		if (x < size) {
 			map.InsertKey(&keys[x]);
 		}
 	}
@@ -416,6 +416,8 @@ struct KeyFusion {
 	uint * nokeys;
 
 	PtrSz<SurfKey> keys;
+
+	size_t size;
 };
 
 __global__ void CollectKeyPointsKernel(KeyFusion fuse) {
@@ -442,14 +444,15 @@ void CollectKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys, DeviceArray<uint>
 	SafeCall(cudaGetLastError());
 }
 
-void InsertKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys) {
+void InsertKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys, size_t size) {
 
 	KeyFusion fuse;
 	fuse.map = map;
 	fuse.keys = keys;
+	fuse.size = size;
 
 	dim3 thread(1024);
-	dim3 block(DivUp(keys.size, thread.x));
+	dim3 block(DivUp(size, thread.x));
 
 	InsertKeyPointsKernel<<<block, thread>>>(fuse);
 

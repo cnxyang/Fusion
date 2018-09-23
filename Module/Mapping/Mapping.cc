@@ -118,6 +118,33 @@ void Mapping::UpdateMapKeys() {
 	}
 }
 
+void Mapping::FuseKeyFrame(const KeyFrame * kf) {
+
+	keyFrames.insert(kf);
+
+	cv::Mat desc;
+	std::vector<SurfKey> keyChain;
+	kf->descriptors.download(desc);
+	int noK = std::min(kf->N, (int)surfKeys.size);
+
+	for(int i = 0; i < noK; ++i) {
+//		if(kf->observations[i] > 3) {
+			SurfKey key;
+			Eigen::Vector3f pt = kf->GetWorldPoint(i);
+			key.pos = {pt(0), pt(1), pt(2)};
+			key.normal = kf->pointNormal[i];
+			key.valid = true;
+			for (int j = 0; j < 64; ++j) {
+				key.descriptor[j] = desc.at<float>(i, j);
+			}
+			keyChain.push_back(key);
+//		}
+	}
+
+	surfKeys.upload(keyChain.data(), keyChain.size());
+	InsertKeyPoints(*this, surfKeys, keyChain.size());
+}
+
 void Mapping::FuseKeyPoints(const Frame * f) {
 
 	cv::Mat desc;
@@ -140,7 +167,7 @@ void Mapping::FuseKeyPoints(const Frame * f) {
 	}
 
 	surfKeys.upload(keyChain.data(), keyChain.size());
-	InsertKeyPoints(*this, surfKeys);
+	InsertKeyPoints(*this, surfKeys, keyChain.size());
 }
 
 void Mapping::Reset() {
@@ -148,6 +175,10 @@ void Mapping::Reset() {
 	ResetMap(*this);
 
 	ResetKeyPoints(*this);
+
+	mapKeys.clear();
+
+	keyFrames.clear();
 }
 
 Mapping::operator KeyMap() const {

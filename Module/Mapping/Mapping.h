@@ -29,6 +29,8 @@ public:
 
 	void UpdateMapKeys();
 
+	void FuseKeyFrame(const KeyFrame * kf);
+
 	void FuseKeyPoints(const Frame * f);
 
 	void UpdateVisibility(const Frame * f, uint & no);
@@ -66,7 +68,7 @@ public:
 	DeviceArray<float3> modelNormal;
 	DeviceArray<uchar3> modelColor;
 	std::vector<SurfKey> hostKeys;
-	std::set<KeyFrame *> keyFrames;
+	std::set<const KeyFrame *> keyFrames;
 
 protected:
 

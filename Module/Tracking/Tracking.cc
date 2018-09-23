@@ -23,6 +23,8 @@ Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) {
 	imageUpdated = false;
 	mappingDisabled = false;
 	needImages = false;
+	ReferenceKF = NULL;
+	LastKeyFrame = NULL;
 
 	renderedImage.create(cols_, rows_);
 	renderedDepth.create(cols_, rows_);
@@ -50,23 +52,28 @@ Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) {
 
 void Tracker::ResetTracking() {
 
-	state = 1;
-	lastState = 1;
+	state = lastState = 1;
+	ReferenceKF = LastKeyFrame = NULL;
 	nextPose = Eigen::Matrix4d::Identity();
 	lastPose = Eigen::Matrix4d::Identity();
+	NextFrame->pose = nextPose;
+	LastFrame->pose = lastPose;
 }
 
 bool Tracker::Track() {
 
 	bool valid = false;
 	std::swap(state, lastState);
-
 	if(needImages) {
-		if(state != -1)
-			RenderImage(LastFrame->vmap[0], LastFrame->nmap[0], make_float3(0, 0, 0), renderedImage);
-		DepthToImage(LastFrame->depth[0], renderedDepth);
-		RgbImageToRgba(LastFrame->color, rgbaImage);
-		imageUpdated = true;
+		if(updateImageMutex.try_lock()) {
+			if(state != -1 && state != 1)
+				RenderImage(LastFrame->vmap[0], LastFrame->nmap[0], make_float3(0), renderedImage);
+			DepthToImage(LastFrame->depth[0], renderedDepth);
+			RgbImageToRgba(LastFrame->color, rgbaImage);
+			std::cout << state << std::endl;
+			imageUpdated = true;
+			updateImageMutex.unlock();
+		}
 	}
 
 	switch(state) {
@@ -78,18 +85,22 @@ bool Tracker::Track() {
 
 	case 0:
 		valid = TrackFrame();
-		lastState = 0;
 
 		if(valid) {
 			noMissedFrames = 0;
 			if(lastState != -1) {
-				map->FuseKeyPoints(NextFrame);
+				lastState = 0;
+				if(NeedKeyFrame())
+					CreateKeyFrame();
 				SwapFrame();
 				return true;
 			}
+
+			lastState = 0;
 			return false;
 		}
 
+		lastState = 0;
 		noMissedFrames++;
 		if(noMissedFrames > 10) {
 			lastState = -1;
@@ -103,7 +114,7 @@ bool Tracker::Track() {
 		if(valid) {
 			lastState = 0;
 			SwapFrame();
-			return false;
+			return true;
 		}
 
 		lastState = -1;
@@ -114,13 +125,53 @@ bool Tracker::Track() {
 bool Tracker::TrackFrame() {
 
 	bool valid = false;
-	valid = TrackLastFrame();
+	valid = TrackReferenceKF();
 	if(!valid) {
 		return false;
 	}
 
 	valid = ComputeSE3();
 	return valid;
+}
+
+bool Tracker::TrackReferenceKF() {
+
+	std::vector<cv::DMatch> refined;
+	std::vector<std::vector<cv::DMatch>> rawMatches;
+	matcher->knnMatch(NextFrame->descriptors, ReferenceKF->descriptors, rawMatches, 2);
+	for (int i = 0; i < rawMatches.size(); ++i) {
+		if (rawMatches[i][0].distance < 0.80 * rawMatches[i][1].distance) {
+			refined.push_back(rawMatches[i][0]);
+		}
+	}
+
+	noInliers = refined.size();
+	if (noInliers < 3)
+		return false;
+
+	std::vector<Eigen::Vector3d> src, ref;
+	for (int i = 0; i < noInliers; ++i) {
+		src.push_back(NextFrame->mapPoints[refined[i].queryIdx].cast<double>());
+		ref.push_back(ReferenceKF->mapPoints[refined[i].trainIdx].cast<double>());
+	}
+
+	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
+	NextFrame->outliers.resize(refined.size());
+	std::fill(NextFrame->outliers.begin(), NextFrame->outliers.end(), true);
+
+	bool result = Solver::PoseEstimate(src, ref, NextFrame->outliers, delta, maxIter);
+	noInliers = std::count(outliers.begin(), outliers.end(), false);
+
+	if (result) {
+		NextFrame->pose = delta.inverse() * ReferenceKF->pose.cast<double>();
+		for(int i = 0; i < refined.size(); ++i) {
+			if(!NextFrame->outliers[i]) {
+				ReferenceKF->observations[refined[i].trainIdx]++;
+			}
+		}
+	}
+
+	return result;
 }
 
 bool Tracker::TrackLastFrame() {
@@ -159,9 +210,32 @@ bool Tracker::TrackLastFrame() {
 	return result;
 }
 
+bool Tracker::NeedKeyFrame() {
+
+	if(mappingDisabled)
+		return false;
+
+	Eigen::Matrix4f dT = NextFrame->pose.cast<float>() * ReferenceKF->pose.inverse();
+	Eigen::Matrix3f dR = dT.topLeftCorner(3, 3);
+	Eigen::Vector3f dt = dT.topRightCorner(3, 1);
+	Eigen::Vector3f angle = dR.eulerAngles(0, 1, 2).array().sin();
+	if(angle.norm() > 0.1 || dt.norm() > 0.1 )
+		return true;
+
+	return false;
+}
+
+void Tracker::CreateKeyFrame() {
+	if(ReferenceKF)
+		map->FuseKeyFrame(ReferenceKF);
+	std::swap(ReferenceKF, LastKeyFrame);
+	ReferenceKF = new KeyFrame(NextFrame);
+}
+
 void Tracker::InitTracking() {
 
 	ResetTracking();
+	CreateKeyFrame();
 	return;
 }
 
@@ -239,46 +313,59 @@ bool Tracker::ComputeSE3() {
 
 bool Tracker::Relocalise() {
 
-//	if(lastState != -1) {
-//		mpMap->updateMapKeys();
-//
-//		if(mpMap->noKeysInMap == 0)
-//			return false;
-//
-//		cv::Mat desc(mpMap->noKeysInMap, 32, CV_8UC1);
-//		mapPoints.clear();
-//		for(int i = 0; i < mpMap->noKeysInMap; ++i) {
-//			ORBKey & key = mpMap->hostKeys[i];
-//			for(int j = 0; j < 32; ++j) {
-//				desc.at<char>(i, j) = key.descriptor[j];
-//			}
-//			Eigen::Vector3d pos;
-//			pos << key.pos.x, key.pos.y, key.pos.z;
-//			mapPoints.push_back(pos);
-//		}
-//		keyDescriptors.upload(desc);
-//	}
-//
-//	std::vector<cv::DMatch> matches;
-//	std::vector<std::vector<cv::DMatch>> rawMatches;
-//	orbMatcher->knnMatch(nextFrame.descriptors, keyDescriptors, rawMatches, 2);
-//
-//	for (int i = 0; i < rawMatches.size(); ++i) {
-//		if (rawMatches[i][0].distance < 0.85 * rawMatches[i][1].distance) {
-//			matches.push_back(rawMatches[i][0]);
-//		}
-//		else if (graphMatching) {
-//			matches.push_back(rawMatches[i][0]);
-//			matches.push_back(rawMatches[i][1]);
-//		}
-//	}
-//
-//	if (matches.size() < 50)
-//		return false;
-//
-//	std::vector<Eigen::Vector3d> plist;
-//	std::vector<Eigen::Vector3d> qlist;
-//	if (graphMatching) {
+	if(lastState != -1) {
+
+		map->UpdateMapKeys();
+
+		if(map->noKeysHost == 0)
+			return false;
+
+		cv::Mat desc(map->noKeysHost, 64, CV_32FC1);
+		mapKeys.clear();
+		for(int i = 0; i < map->noKeysHost; ++i) {
+			SurfKey & key = map->hostKeys[i];
+			for(int j = 0; j < 64; ++j) {
+				desc.at<float>(i, j) = key.descriptor[j];
+			}
+			Eigen::Vector3d pos;
+			pos << key.pos.x, key.pos.y, key.pos.z;
+			mapKeys.push_back(pos);
+		}
+		descriptors.upload(desc);
+	}
+
+	std::vector<cv::DMatch> refined;
+	std::vector<std::vector<cv::DMatch>> matches;
+	matcher->knnMatch(NextFrame->descriptors, descriptors, matches, 2);
+	for (int i = 0; i < matches.size(); ++i) {
+		if (matches[i][0].distance < 0.9 * matches[i][1].distance) {
+			refined.push_back(matches[i][0]);
+		}
+	}
+
+	if (refined.size() < 3)
+		return false;
+	std::vector<Eigen::Vector3d> plist;
+	std::vector<Eigen::Vector3d> qlist;
+	for (int i = 0; i < refined.size(); ++i) {
+		plist.push_back(NextFrame->mapPoints[refined[i].queryIdx].cast<double>());
+		qlist.push_back(mapKeys[refined[i].trainIdx]);
+	}
+
+	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
+	bool bOK = Solver::PoseEstimate(plist, qlist, outliers, delta, maxIterReloc);
+
+	if (!bOK) {
+		std::cout << "Reloc failed." << std::endl;
+		return false;
+	}
+
+	std::cout << "Reloc Sucess." << std::endl;
+	NextFrame->pose = delta.inverse();
+	return true;
+
+
+	//	if (graphMatching) {
 //		std::vector<ORBKey> vFrameKey;
 //		std::vector<ORBKey> vMapKey;
 //		std::vector<float> vDistance;
@@ -351,29 +438,7 @@ bool Tracker::Relocalise() {
 //		}
 //	}
 //	else {
-//		for (int i = 0; i < matches.size(); ++i) {
-//			plist.push_back(nextFrame.mPoints[matches[i].queryIdx]);
-//			qlist.push_back(mapPoints[matches[i].trainIdx]);
-//		}
-//	}
-//
-//	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
-//	bool bOK = Solver::PoseEstimate(plist, qlist, outliers, delta, maxIterReloc);
-//
-//	if (!bOK) {
-//		return false;
-//	}
-//
-//	nextFrame.index.resize(nextFrame.N);
-//	fill(nextFrame.index.begin(), nextFrame.index.end(), -1);
-//	for(int i = 0; i < matches.size(); ++i) {
-//		if(!outliers[i]) {
-//			nextFrame.index[matches[i].queryIdx] = mpMap->hostIndex[matches[i].trainIdx];
-//		}
-//	}
-//	nextFrame.SetPose(delta.inverse());
-//	return true;
-	return true;
+
 }
 
 Eigen::Matrix4f Tracker::GetCurrentPose() const {

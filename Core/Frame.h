@@ -29,6 +29,8 @@ struct Frame {
 
 	void ResizeImages();
 
+	void Clear();
+
 	void ClearKeyPoints();
 
 	void FillImages(const cv::Mat & range_, const cv::Mat & color_);

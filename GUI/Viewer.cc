@@ -220,7 +220,6 @@ void Viewer::topDownView() {
 				(void*) psystem->renderedImage.data,
 				psystem->renderedImage.step, sizeof(uchar4) * 640, 480,
 				cudaMemcpyDeviceToDevice));
-		psystem->imageUpdated = false;
 	}
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 	topDownImage.RenderToViewport(true);
@@ -228,10 +227,13 @@ void Viewer::topDownView() {
 
 void Viewer::showPrediction() {
 	if(ptracker->imageUpdated) {
-		SafeCall(cudaMemcpy2DToArray(**renderedImageMaped, 0, 0,
-				(void*) ptracker->renderedImage.data,
-				 ptracker->renderedImage.step, sizeof(uchar4) * 640, 480,
-				 cudaMemcpyDeviceToDevice));
+		if(ptracker->updateImageMutex.try_lock()) {
+			SafeCall(cudaMemcpy2DToArray(**renderedImageMaped, 0, 0,
+					(void*) ptracker->renderedImage.data,
+					 ptracker->renderedImage.step, sizeof(uchar4) * 640, 480,
+					 cudaMemcpyDeviceToDevice));
+			ptracker->updateImageMutex.unlock();
+		}
 	}
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 	renderedImage.RenderToViewport(true);
@@ -239,10 +241,13 @@ void Viewer::showPrediction() {
 
 void Viewer::showDepthImage() {
 	if(ptracker->imageUpdated) {
-		SafeCall(cudaMemcpy2DToArray(**depthImageMaped, 0, 0,
-				(void*) ptracker->renderedDepth.data,
-				 ptracker->renderedDepth.step, sizeof(uchar4) * 640, 480,
-				 cudaMemcpyDeviceToDevice));
+		if(ptracker->updateImageMutex.try_lock()) {
+			SafeCall(cudaMemcpy2DToArray(**depthImageMaped, 0, 0,
+					(void*) ptracker->renderedDepth.data,
+					 ptracker->renderedDepth.step, sizeof(uchar4) * 640, 480,
+					 cudaMemcpyDeviceToDevice));
+			ptracker->updateImageMutex.unlock();
+		}
 	}
 
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
@@ -251,10 +256,13 @@ void Viewer::showDepthImage() {
 
 void Viewer::showColorImage() {
 	if(ptracker->imageUpdated) {
-		SafeCall(cudaMemcpy2DToArray(**colorImageMaped, 0, 0,
-				(void*) ptracker->rgbaImage.data,
-				ptracker->rgbaImage.step, sizeof(uchar4) * 640, 480,
-				cudaMemcpyDeviceToDevice));
+		if(ptracker->updateImageMutex.try_lock()) {
+			SafeCall(cudaMemcpy2DToArray(**colorImageMaped, 0, 0,
+					(void*) ptracker->rgbaImage.data,
+					ptracker->rgbaImage.step, sizeof(uchar4) * 640, 480,
+					cudaMemcpyDeviceToDevice));
+			ptracker->updateImageMutex.unlock();
+		}
 	}
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 	colorImage.RenderToViewport(true);
@@ -350,11 +358,11 @@ void Viewer::Insert(std::vector<GLfloat>& vPt, Eigen::Vector3f& pt) {
 
 void Viewer::drawKeyFrame() {
 	vector<GLfloat> points;
-	std::set<KeyFrame *>::iterator iter = mpMap->keyFrames.begin();
-	std::set<KeyFrame *>::iterator lend = mpMap->keyFrames.end();
+	std::set<const KeyFrame *>::iterator iter = mpMap->keyFrames.begin();
+	std::set<const KeyFrame *>::iterator lend = mpMap->keyFrames.end();
 
 	for(; iter != lend; ++iter) {
-		Eigen::Vector3d trans = (*iter)->translation();
+		Eigen::Vector3f trans = (*iter)->Translation();
 		points.push_back(trans(0));
 		points.push_back(trans(1));
 		points.push_back(trans(2));

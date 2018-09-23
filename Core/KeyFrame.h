@@ -8,40 +8,35 @@
 #include <opencv.hpp>
 
 class Frame;
-struct KeyFrame;
-
-struct SubFrame {
-	Eigen::Matrix4f deltaPose;
-	KeyFrame * referenceKF;
-	cv::Mat scaledDepth;
-	cv::Mat rawColor;
-};
 
 struct KeyFrame {
 
-	unsigned long frameId;
+	KeyFrame();
 
 	KeyFrame(const Frame * f);
-	void push_back(Frame *& f);
-	void find(Frame * f);
-	void remove(Frame * f);
-	Eigen::Matrix3d rotation() const;
-	Eigen::Vector3d translation() const;
 
-	bool valid;
+	Eigen::Matrix3f Rotation() const;
+
+	Eigen::Vector3f Translation() const;
+
+	Matrix3f GpuRotation() const;
+
+	Matrix3f GpuInvRotation() const;
+
+	float3 GpuTranslation() const;
+
+	Eigen::Vector3f GetWorldPoint(int i) const;
+
 	int N;
-	Eigen::Matrix4d pose;
-	std::set<SubFrame *> subFrames;
+	unsigned long frameId;
 
-	DeviceArray2D<float4> vmap;
-	DeviceArray2D<float3> nmap;
+	Eigen::Matrix4f pose;
 
-	cv::Mat rawColor;
-	cv::Mat scaledDepth;
-
-	std::vector<int> keyIndices;
-	std::vector<Eigen::Vector3d> frameKeys;
-	cv::cuda::GpuMat frameDescriptors;
+	cv::cuda::GpuMat descriptors;
+	std::vector<float4> pointNormal;
+	std::vector<cv::KeyPoint> keyPoints;
+	std::vector<Eigen::Vector3f> mapPoints;
+	std::vector<int> observations;
 };
 
 #endif

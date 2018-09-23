@@ -5,6 +5,7 @@
 #include "Viewer.h"
 #include "Mapping.h"
 #include "Reduction.h"
+#include <mutex>
 
 class Viewer;
 class Mapping;
@@ -38,8 +39,9 @@ public:
 	Frame * NextFrame;
 	Frame * LastFrame;
 
-	std::atomic<bool> imageUpdated;
+	std::mutex updateImageMutex;
 	std::atomic<bool> needImages;
+	std::atomic<bool> imageUpdated;
 	std::atomic<bool> mappingDisabled;
 	std::atomic<bool> useGraphMatching;
 
@@ -57,14 +59,23 @@ protected:
 
 	bool ComputeSE3();
 
+	bool TrackReferenceKF();
+
 	bool TrackLastFrame();
 
 	bool Relocalise();
 
 	void InitTracking();
 
+	bool NeedKeyFrame();
+
+	void CreateKeyFrame();
+
 	Mapping * map;
 	Viewer * viewer;
+
+	KeyFrame * ReferenceKF;
+	KeyFrame * LastKeyFrame;
 
 	DeviceArray2D<float> sumSE3;
 	DeviceArray2D<float> sumSO3;
@@ -74,6 +85,9 @@ protected:
 	const int maxIter = 35;
 	const int maxIterReloc = 100;
 	cv::Ptr<cv::cuda::DescriptorMatcher> matcher;
+
+	std::vector<Eigen::Vector3d> mapKeys;
+	cv::cuda::GpuMat descriptors;
 
 	int noInliers;
 	int noMissedFrames;

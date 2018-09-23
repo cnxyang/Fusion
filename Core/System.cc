@@ -89,11 +89,9 @@ bool System::GrabImage(const Mat & image, const Mat & depth) {
 		return false;
 	}
 
-	if(!paused) {
-		state = tracker->GrabFrame(image, depth);
-	}
+	state = tracker->GrabFrame(image, depth);
 
-	switch(tracker->lastState) {
+	switch(tracker->state) {
 	case 0:
 		num_frames_after_reloc++;
 		break;
@@ -108,32 +106,12 @@ bool System::GrabImage(const Mat & image, const Mat & depth) {
 		if (!tracker->mappingDisabled && tracker->state != -1 && num_frames_after_reloc >= 10)
 			map->FuseColor(tracker->LastFrame, noBlocks);
 
-		if (!tracker->mappingDisabled) {
+		if (!tracker->mappingDisabled && tracker->state != -1) {
 			map->RayTrace(noBlocks, tracker->LastFrame);
 		} else {
 			map->UpdateVisibility(tracker->LastFrame, noBlocks);
 			map->RayTrace(noBlocks, tracker->LastFrame);
 		}
-
-//		Eigen::AngleAxisd angle(M_PI / 2, -Eigen::Vector3d::UnitX());
-//		Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
-//		Matrix3f curot = eigen_to_mat3f(angle.toRotationMatrix());
-//		Matrix3f curotinv = eigen_to_mat3f(angle.toRotationMatrix().transpose());
-//		float3 trans = make_float3(0, -8, 0);
-//		mpMap->updateVisibility(curot, curotinv, trans, 8.0, 11.0, Frame::fx(0),
-//				Frame::fy(0), vmap.cols / 2, vmap.rows / 2, no);
-//		mpMap->rayTrace(no, curot, curotinv, trans, vmap, nmap, 8.0, 11.0,
-//				Frame::fx(0), Frame::fy(0), vmap.cols / 2, vmap.rows / 2);
-//		RenderImage(vmap, nmap, make_float3(0, 0, 0), renderedImage);
-
-//		cv::Mat img(480, 640, CV_8UC4);
-//		image.download(img.data, img.step);
-//		cv::imshow("img", img);
-//		int key = cv::waitKey(10);
-//		if(key == 27)
-//			return false;
-
-		imageUpdated = true;
 
 		if(nFrames % 25 == 0 && requestMesh) {
 			if(!tracker->mappingDisabled) {
@@ -141,6 +119,26 @@ bool System::GrabImage(const Mat & image, const Mat & depth) {
 				map->UpdateMapKeys();
 			}
 		}
+
+		//		Eigen::AngleAxisd angle(M_PI / 2, -Eigen::Vector3d::UnitX());
+		//		Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
+		//		Matrix3f curot = eigen_to_mat3f(angle.toRotationMatrix());
+		//		Matrix3f curotinv = eigen_to_mat3f(angle.toRotationMatrix().transpose());
+		//		float3 trans = make_float3(0, -8, 0);
+		//		mpMap->updateVisibility(curot, curotinv, trans, 8.0, 11.0, Frame::fx(0),
+		//				Frame::fy(0), vmap.cols / 2, vmap.rows / 2, no);
+		//		mpMap->rayTrace(no, curot, curotinv, trans, vmap, nmap, 8.0, 11.0,
+		//				Frame::fx(0), Frame::fy(0), vmap.cols / 2, vmap.rows / 2);
+		//		RenderImage(vmap, nmap, make_float3(0, 0, 0), renderedImage);
+
+		//		cv::Mat img(480, 640, CV_8UC4);
+		//		image.download(img.data, img.step);
+		//		cv::imshow("img", img);
+		//		int key = cv::waitKey(10);
+		//		if(key == 27)
+		//			return false;
+		//
+		//		imageUpdated = true;
 
 		nFrames++;
 	}

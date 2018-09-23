@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
 
 	while (1) {
 		if (cam.fetchFrame(imD, imRGB)) {
-			bool valid = slam.grabImage(imRGB, imD);
+			bool valid = slam.GrabImage(imRGB, imD);
 			if(!valid) {
 				cam.stopStreaming();
 				return 0;

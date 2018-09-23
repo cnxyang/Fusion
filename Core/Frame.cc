@@ -27,7 +27,7 @@ Frame::Frame(const Frame * other):frameId(other->frameId), N(0) {
 void Frame::Create(int cols_, int rows_) {
 
 	if(mbFirstCall) {
-		surfExt = cv::cuda::SURF_CUDA(20, 4, 2, false, 0.005);
+		surfExt = cv::cuda::SURF_CUDA(20, 4, 2, false, 0.01);
 		briskExt = cv::BRISK::create(30, 4);
 		for(int i = 0; i < NUM_PYRS; ++i) {
 			mCols[i] = cols_ / (1 << i);
@@ -47,6 +47,10 @@ void Frame::Create(int cols_, int rows_) {
 		depth[i].create(cols, rows);
 		image[i].create(cols, rows);
 	}
+}
+
+void Frame::Clear() {
+
 }
 
 void Frame::FillImages(const cv::Mat & range_, const cv::Mat & color_) {
@@ -112,7 +116,10 @@ float Frame::InterpDepth(cv::Mat & map, float & x, float & y) {
 
 	float d0 = d01 * coeff.x + d00 * (1 - coeff.x);
 	float d1 = d11 * coeff.x + d10 * (1 - coeff.x);
-	return (1 - coeff.y) * d0 + coeff.y * d1;
+	float final = (1 - coeff.y) * d0 + coeff.y * d1;
+	if(std::abs(final - d00) <= 0.005)
+		dp = final;
+	return dp;
 }
 
 float4 Frame::InterpNormal(cv::Mat & map, float & x, float & y) {
@@ -155,31 +162,31 @@ void Frame::ExtractKeyPoints() {
 	depth[0].download(sDepth.data, sDepth.step);
 	nmap[0].download(sNormal.data, sNormal.step);
 
+	N = 0;
+	keyPoints.clear();
+	mapPoints.clear();
+	descriptors.release();
+
 	cv::cuda::GpuMat img(image[0].rows, image[0].cols, CV_8UC1, image[0].data, image[0].step);
 	surfExt(img, cv::cuda::GpuMat(), rawKeyPoints, descriptors);
 	descriptors.download(rawDescriptors);
 
 	cv::Mat desc;
 
-	float invfx = 1.0 / fx(0);
-	float invfy = 1.0 / fy(0);
-	float cx0 = cx(0);
-	float cy0 = cy(0);
-
 	N = rawKeyPoints.size();
 	for(int i = 0; i < N; ++i) {
 		cv::KeyPoint & kp = rawKeyPoints[i];
-		float & x = kp.pt.x;
-		float & y = kp.pt.y;
-		float dp = InterpDepth(sDepth, x, y);
-//		float dp = sDepth.at<float>(y, x);
+		float x = kp.pt.x;
+		float y = kp.pt.y;
+//		float dp = InterpDepth(sDepth, x, y);
+		float dp = sDepth.at<float>((int)(y + 0.5), (int)(x + 0.5));
 		if(!std::isnan(dp) && dp > 0.3 && dp < mDepthCutoff) {
 			float4 n = InterpNormal(sNormal, x, y);
 			if(!std::isnan(n.x)) {
 				Eigen::Vector3f v;
+				v(0) = dp * (x - cx(0)) / fx(0);
+				v(1) = dp * (y - cy(0)) / fy(0);
 				v(2) = dp;
-				v(0) = dp * (x - cx0) * invfx;
-				v(1) = dp * (y - cy0) * invfy;
 				mapPoints.push_back(v);
 				keyPoints.push_back(kp);
 				pointNormal.push_back(n);
@@ -192,8 +199,8 @@ void Frame::ExtractKeyPoints() {
 	descriptors.upload(desc);
 	pose = Eigen::Matrix4d::Identity();
 
-//	cv::Mat rawImage(480, 640, CV_8UC3);
-//	color.download(rawImage.data, rawImage.step);
+//	cv::Mat rawImage(480, 640, CV_8UC1);
+//	img.download(rawImage);
 //	for(int i = 0; i < N; ++i) {
 //		cv::Point2f upperLeft = keyPoints[i].pt - cv::Point2f(5, 5);
 //		cv::Point2f lowerRight = keyPoints[i].pt + cv::Point2f(5, 5);
