@@ -39,9 +39,9 @@ private:
 	void showDepthImage();
 	void topDownView();
 
-	System * psystem;
-	Mapping * mpMap;
-	Tracker * ptracker;
+	System * system;
+	Mapping * map;
+	Tracker * tracker;
 
 	std::atomic<bool> quit;
 

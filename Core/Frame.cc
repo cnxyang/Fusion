@@ -27,7 +27,7 @@ Frame::Frame(const Frame * other):frameId(other->frameId), N(0) {
 void Frame::Create(int cols_, int rows_) {
 
 	if(mbFirstCall) {
-		surfExt = cv::cuda::SURF_CUDA(20, 4, 2, false, 0.01);
+		surfExt = cv::cuda::SURF_CUDA(20);
 		briskExt = cv::BRISK::create(30, 4);
 		for(int i = 0; i < NUM_PYRS; ++i) {
 			mCols[i] = cols_ / (1 << i);
@@ -179,7 +179,6 @@ void Frame::ExtractKeyPoints() {
 		float x = kp.pt.x;
 		float y = kp.pt.y;
 		float dp = InterpDepth(sDepth, x, y);
-//		float dp = sDepth.at<float>((int)(y + 0.5), (int)(x + 0.5));
 		if(!std::isnan(dp) && dp > 0.3 && dp < mDepthCutoff) {
 			float4 n = InterpNormal(sNormal, x, y);
 			if(!std::isnan(n.x)) {

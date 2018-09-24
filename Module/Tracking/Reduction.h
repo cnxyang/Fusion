@@ -4,6 +4,7 @@
 #include "VectorMath.h"
 #include "Intrinsics.h"
 #include "RenderScene.h"
+#include <opencv.hpp>
 
 void FilterDepth(const DeviceArray2D<unsigned short> & depth,
 		DeviceArray2D<float> & filteredDepth, float depthScale);
@@ -50,11 +51,8 @@ void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
 		DeviceArray<float> & out, float * redisual, double * matrixA_host,
 		double * vectorB_host);
 
-#include <opencv.hpp>
-void BuildAdjecencyMatrix(cv::cuda::GpuMat & AM,
-		DeviceArray<ORBKey> & TrainKeys, DeviceArray<ORBKey> & QueryKeys,
-		DeviceArray<float> & MatchDist, DeviceArray<ORBKey> & train_select,
-		DeviceArray<ORBKey> & query_select, DeviceArray<int> & QueryIdx,
-		DeviceArray<int> & SelectedIdx);
+void BuildAdjecencyMatrix(cv::cuda::GpuMat & adjecencyMatrix,
+		DeviceArray<SurfKey> & frameKeys, DeviceArray<SurfKey> & mapKeys,
+		DeviceArray<float> & dist);
 
 #endif

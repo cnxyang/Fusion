@@ -446,6 +446,9 @@ void CollectKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys, DeviceArray<uint>
 
 void InsertKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys, size_t size) {
 
+	if(size == 0)
+		return;
+
 	KeyFusion fuse;
 	fuse.map = map;
 	fuse.keys = keys;

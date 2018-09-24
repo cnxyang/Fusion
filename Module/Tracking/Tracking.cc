@@ -21,6 +21,7 @@ Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) {
 	map = NULL;
 	viewer = NULL;
 	noInliers = 0;
+	mappingTurnedOff = NULL;
 	noMissedFrames = 0;
 	state = lastState = 1;
 	useGraphMatching = false;
@@ -128,7 +129,12 @@ bool Tracker::Track() {
 bool Tracker::TrackFrame() {
 
 	bool valid = false;
-	valid = TrackLastFrame();
+
+	if (!mappingDisabled) {
+		valid = TrackReferenceKF();
+	} else {
+		valid = TrackLastFrame();
+	}
 
 	if(!valid) {
 		return false;
@@ -153,17 +159,18 @@ bool Tracker::TrackReferenceKF() {
 	if (noInliers < 3)
 		return false;
 
-	std::vector<Eigen::Vector3d> src, ref;
+	refPoints.clear();
+	framePoints.clear();
 	for (int i = 0; i < noInliers; ++i) {
-		src.push_back(NextFrame->mapPoints[refined[i].queryIdx].cast<double>());
-		ref.push_back(ReferenceKF->mapPoints[refined[i].trainIdx].cast<double>());
+		framePoints.push_back(NextFrame->mapPoints[refined[i].queryIdx].cast<double>());
+		refPoints.push_back(ReferenceKF->mapPoints[refined[i].trainIdx].cast<double>());
 	}
 
 	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
 	NextFrame->outliers.resize(refined.size());
 	std::fill(NextFrame->outliers.begin(), NextFrame->outliers.end(), true);
 
-	bool result = Solver::PoseEstimate(src, ref, NextFrame->outliers, delta, maxIter, true );
+	bool result = Solver::PoseEstimate(framePoints, refPoints, NextFrame->outliers, delta, maxIter, true );
 	noInliers = std::count(outliers.begin(), outliers.end(), false);
 
 	if (result) {
@@ -193,17 +200,18 @@ bool Tracker::TrackLastFrame() {
 	if (noInliers < 3)
 		return false;
 
-	std::vector<Eigen::Vector3d> src, ref;
+	refPoints.clear();
+	framePoints.clear();
 	for (int i = 0; i < noInliers; ++i) {
-		src.push_back(NextFrame->mapPoints[refined[i].queryIdx].cast<double>());
-		ref.push_back(LastFrame->mapPoints[refined[i].trainIdx].cast<double>());
+		framePoints.push_back(NextFrame->mapPoints[refined[i].queryIdx].cast<double>());
+		refPoints.push_back(LastFrame->mapPoints[refined[i].trainIdx].cast<double>());
 	}
 
 	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
 	NextFrame->outliers.resize(refined.size());
 	std::fill(NextFrame->outliers.begin(), NextFrame->outliers.end(), true);
 
-	bool result = Solver::PoseEstimate(src, ref, NextFrame->outliers, delta, maxIter, true);
+	bool result = Solver::PoseEstimate(framePoints, refPoints, NextFrame->outliers, delta, maxIter, true);
 	noInliers = std::count(outliers.begin(), outliers.end(), false);
 
 	if (result) {
@@ -212,6 +220,38 @@ bool Tracker::TrackLastFrame() {
 	}
 
 	return result;
+}
+
+void Tracker::FindNearestKF() {
+
+	KeyFrame * CandidateKF = NULL;
+	float norm_rot, norm_trans;
+	std::set<const KeyFrame *>::iterator iter = map->keyFrames.begin();
+	std::set<const KeyFrame *>::iterator lend = map->keyFrames.end();
+	Eigen::Matrix4d pose = NextFrame->pose.inverse() * ReferenceKF->pose.cast<double>();
+	Eigen::Matrix3d r = pose.topLeftCorner(3, 3);
+	Eigen::Vector3d t = pose.topRightCorner(3, 1);
+	Eigen::Vector3d angle = r.eulerAngles(0, 1, 2).array().sin();
+
+	for(; iter != lend; ++iter) {
+		const KeyFrame * kf = *iter;
+		pose = NextFrame->pose.inverse() * kf->pose.cast<double>();
+		r = pose.topLeftCorner(3, 3);
+		t = pose.topRightCorner(3, 1);
+		angle = r.eulerAngles(0, 1, 2).array().sin();
+
+		float nrot = angle.norm();
+		float ntrans = t.norm();
+		if((nrot + ntrans) < (norm_rot + norm_trans)) {
+			CandidateKF = const_cast<KeyFrame *>(kf);
+			norm_rot = angle.norm();
+			norm_trans = t.norm();
+		}
+	}
+
+	if(CandidateKF != ReferenceKF) {
+		ReferenceKF = CandidateKF;
+	}
 }
 
 bool Tracker::NeedKeyFrame() {
@@ -350,15 +390,15 @@ bool Tracker::Relocalise() {
 	if (refined.size() < 3)
 		return false;
 
-	std::vector<Eigen::Vector3d> plist;
-	std::vector<Eigen::Vector3d> qlist;
+	framePoints.clear();
+	refPoints.clear();
 	for (int i = 0; i < refined.size(); ++i) {
-		plist.push_back(NextFrame->mapPoints[refined[i].queryIdx].cast<double>());
-		qlist.push_back(mapKeys[refined[i].trainIdx]);
+		framePoints.push_back(NextFrame->mapPoints[refined[i].queryIdx].cast<double>());
+		refPoints.push_back(mapKeys[refined[i].trainIdx]);
 	}
 
 	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
-	bool bOK = Solver::PoseEstimate(plist, qlist, outliers, delta, maxIterReloc);
+	bool bOK = Solver::PoseEstimate(framePoints, refPoints, outliers, delta, maxIterReloc);
 
 	if (!bOK) {
 		return false;

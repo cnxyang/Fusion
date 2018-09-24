@@ -10,10 +10,9 @@
 using namespace std;
 using namespace pangolin;
 
-Viewer::Viewer()
-: mpMap(nullptr), ptracker(nullptr), psystem(nullptr),
-  vao(0), vertexMaped(nullptr), normalMaped(nullptr),
-  colorMaped(nullptr), quit(false) {
+Viewer::Viewer() :
+		map(NULL), tracker(NULL), system(NULL), vao(0), vertexMaped(NULL),
+		normalMaped(NULL), colorMaped(NULL), quit(false) {
 }
 
 void Viewer::signalQuit() {
@@ -59,16 +58,16 @@ void Viewer::spin() {
 	GL_UNSIGNED_BYTE, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
 	colorMaped = new CudaScopedMappedPtr(color);
 
-	colorImage.Reinitialise(640, 480, GL_RGB, true, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+	colorImage.Reinitialise(640, 480, GL_RGB, true, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 	colorImageMaped = new CudaScopedMappedArray(colorImage);
 
-	depthImage.Reinitialise(640, 480, GL_RGBA, true, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	depthImage.Reinitialise(640, 480, GL_RGBA, true, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	depthImageMaped = new CudaScopedMappedArray(depthImage);
 
-	renderedImage.Reinitialise(640, 480, GL_RGBA, true, 0,  GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	renderedImage.Reinitialise(640, 480, GL_RGBA, true, 0,  GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	renderedImageMaped = new CudaScopedMappedArray(renderedImage);
 
-	topDownImage.Reinitialise(640, 480, GL_RGBA, true, 0,  GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	topDownImage.Reinitialise(640, 480, GL_RGBA, true, 0,  GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	topDownImageMaped = new CudaScopedMappedArray(topDownImage);
 
 	View & dCam = CreateDisplay().SetAspect(-640.0 / 480).SetHandler(new Handler3D(sCam));
@@ -97,6 +96,8 @@ void Viewer::spin() {
 	Var<bool> btnUseGraphMatching("UI.Graph Matching", false, true);
 	Var<bool> btnLocalisationMode("UI.Localisation Only", false, true);
 	Var<bool> btnShowTopDownView("UI.Top Down View", false, true);
+	Var<bool> btnWriteMapToDisk("UI.Write Map to Disk", false, false);
+	Var<bool> btnReadMapFromDisk("UI.Read Map From Disk", false, false);
 
 	while (1) {
 
@@ -106,7 +107,7 @@ void Viewer::spin() {
 
 		if (ShouldQuit()) {
 			SafeCall(cudaProfilerStop());
-			psystem->requestStop = true;
+			system->requestStop = true;
 		}
 
 		glClearColor(0.0f, 0.2f, 0.3f, 1.0f);
@@ -114,36 +115,44 @@ void Viewer::spin() {
 
 		if (Pushed(btnReset)) {
 			btnLocalisationMode = false;
-			psystem->requestReboot = true;
+			system->requestReboot = true;
 		}
 
 		if (Pushed(btnSaveMesh))
-			psystem->requestSaveMesh = true;
+			system->requestSaveMesh = true;
 
 		if (btnUseGraphMatching) {
-			if(!ptracker->useGraphMatching)
-				ptracker->useGraphMatching = true;
+			if(!tracker->useGraphMatching)
+				tracker->useGraphMatching = true;
 		}
 		else {
-			if(ptracker->useGraphMatching)
-				ptracker->useGraphMatching = false;
+			if(tracker->useGraphMatching)
+				tracker->useGraphMatching = false;
+		}
+
+		if (Pushed(btnWriteMapToDisk)) {
+			system->requestSaveMap = true;
+		}
+
+		if (Pushed(btnReadMapFromDisk)) {
+			system->requestReadMap = true;
 		}
 
 		if (btnLocalisationMode) {
-			if(!ptracker->mappingDisabled)
-				ptracker->mappingDisabled = true;
+			if(!tracker->mappingDisabled)
+				tracker->mappingDisabled = true;
 		}
 		else {
-			if(ptracker->mappingDisabled)
-				ptracker->mappingDisabled = false;
+			if(tracker->mappingDisabled)
+				tracker->mappingDisabled = false;
 		}
 
 		dCam.Activate(sCam);
 
 		if (btnShowMesh || btnShowNormal || btnShowColor)
-			psystem->requestMesh = true;
+			system->requestMesh = true;
 		else
-			psystem->requestMesh = false;
+			system->requestMesh = false;
 
 		if (btnShowKeyFrame)
 			drawKeyFrame();
@@ -184,12 +193,12 @@ void Viewer::spin() {
 		if (btnShowRenderedImage ||
 			btnShowDepthImage ||
 			btnShowColorImage) {
-			if(!ptracker->needImages)
-				ptracker->needImages = true;
+			if(!tracker->needImages)
+				tracker->needImages = true;
 		}
 		else
-			if(ptracker->needImages)
-				ptracker->needImages = false;
+			if(tracker->needImages)
+				tracker->needImages = false;
 
 		Image0.Activate();
 		if (btnShowRenderedImage)
@@ -207,18 +216,18 @@ void Viewer::spin() {
 		if (btnShowTopDownView)
 			topDownView();
 
-		if (ptracker->imageUpdated)
-			ptracker->imageUpdated = false;
+		if (tracker->imageUpdated)
+			tracker->imageUpdated = false;
 
 		FinishFrame();
 	}
 }
 
 void Viewer::topDownView() {
-	if(psystem->imageUpdated) {
+	if(system->imageUpdated) {
 		SafeCall(cudaMemcpy2DToArray(**topDownImageMaped, 0, 0,
-				(void*) psystem->renderedImage.data,
-				psystem->renderedImage.step, sizeof(uchar4) * 640, 480,
+				(void*) system->renderedImage.data,
+				system->renderedImage.step, sizeof(uchar4) * 640, 480,
 				cudaMemcpyDeviceToDevice));
 	}
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
@@ -226,13 +235,13 @@ void Viewer::topDownView() {
 }
 
 void Viewer::showPrediction() {
-	if(ptracker->imageUpdated) {
-		if(ptracker->updateImageMutex.try_lock()) {
+	if(tracker->imageUpdated) {
+		if(tracker->updateImageMutex.try_lock()) {
 			SafeCall(cudaMemcpy2DToArray(**renderedImageMaped, 0, 0,
-					(void*) ptracker->renderedImage.data,
-					 ptracker->renderedImage.step, sizeof(uchar4) * 640, 480,
+					(void*) tracker->renderedImage.data,
+					 tracker->renderedImage.step, sizeof(uchar4) * 640, 480,
 					 cudaMemcpyDeviceToDevice));
-			ptracker->updateImageMutex.unlock();
+			tracker->updateImageMutex.unlock();
 		}
 	}
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
@@ -240,13 +249,13 @@ void Viewer::showPrediction() {
 }
 
 void Viewer::showDepthImage() {
-	if(ptracker->imageUpdated) {
-		if(ptracker->updateImageMutex.try_lock()) {
+	if(tracker->imageUpdated) {
+		if(tracker->updateImageMutex.try_lock()) {
 			SafeCall(cudaMemcpy2DToArray(**depthImageMaped, 0, 0,
-					(void*) ptracker->renderedDepth.data,
-					 ptracker->renderedDepth.step, sizeof(uchar4) * 640, 480,
+					(void*) tracker->renderedDepth.data,
+					 tracker->renderedDepth.step, sizeof(uchar4) * 640, 480,
 					 cudaMemcpyDeviceToDevice));
-			ptracker->updateImageMutex.unlock();
+			tracker->updateImageMutex.unlock();
 		}
 	}
 
@@ -255,13 +264,13 @@ void Viewer::showDepthImage() {
 }
 
 void Viewer::showColorImage() {
-	if(ptracker->imageUpdated) {
-		if(ptracker->updateImageMutex.try_lock()) {
+	if(tracker->imageUpdated) {
+		if(tracker->updateImageMutex.try_lock()) {
 			SafeCall(cudaMemcpy2DToArray(**colorImageMaped, 0, 0,
-					(void*) ptracker->rgbaImage.data,
-					ptracker->rgbaImage.step, sizeof(uchar4) * 640, 480,
+					(void*) tracker->rgbaImage.data,
+					tracker->rgbaImage.step, sizeof(uchar4) * 640, 480,
 					cudaMemcpyDeviceToDevice));
-			ptracker->updateImageMutex.unlock();
+			tracker->updateImageMutex.unlock();
 		}
 	}
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
@@ -269,10 +278,11 @@ void Viewer::showColorImage() {
 }
 
 void Viewer::drawColor() {
-	if (mpMap->meshUpdated) {
-		cudaMemcpy((void*) **vertexMaped, (void*) mpMap->modelVertex, sizeof(float3) * mpMap->noTrianglesHost * 3,  cudaMemcpyDeviceToDevice);
-		cudaMemcpy((void*) **colorMaped, (void*) mpMap->modelColor, sizeof(uchar3) * mpMap->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
-		mpMap->meshUpdated = false;
+	if (map->meshUpdated) {
+		cudaMemcpy((void*) **vertexMaped, (void*) map->modelVertex, sizeof(float3) * map->noTrianglesHost * 3,  cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **normalMaped, (void*) map->modelNormal, sizeof(float3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **colorMaped, (void*) map->modelColor, sizeof(uchar3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
+		map->meshUpdated = false;
 	}
 
 	colorShader.SaveBind();
@@ -289,7 +299,7 @@ void Viewer::drawColor() {
 	glEnableVertexAttribArray(1);
 	color.Unbind();
 
-	glDrawArrays(GL_TRIANGLES, 0, mpMap->noTrianglesHost * 3);
+	glDrawArrays(GL_TRIANGLES, 0, map->noTrianglesHost * 3);
 	glDisableVertexAttribArray(0);
 	glDisableVertexAttribArray(1);
 	colorShader.Unbind();
@@ -298,7 +308,7 @@ void Viewer::drawColor() {
 
 void Viewer::followCam() {
 
-	Eigen::Matrix4f pose = ptracker->GetCurrentPose();
+	Eigen::Matrix4f pose = tracker->GetCurrentPose();
 	Eigen::Matrix3f rotation = pose.topLeftCorner(3, 3);
 	Eigen::Vector3f translation = pose.topRightCorner(3, 1);
 	Eigen::Vector3f up = { 0, -1, 0 };
@@ -312,13 +322,14 @@ void Viewer::followCam() {
 
 void Viewer::drawMesh(bool bNormal) {
 
-	if (mpMap->noTrianglesHost == 0)
+	if (map->noTrianglesHost == 0)
 		return;
 
-	if (mpMap->meshUpdated) {
-		cudaMemcpy((void*) **vertexMaped, (void*) mpMap->modelVertex, sizeof(float3) * mpMap->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
-		cudaMemcpy((void*) **normalMaped, (void*) mpMap->modelNormal, sizeof(float3) * mpMap->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
-		mpMap->meshUpdated = false;
+	if (map->meshUpdated) {
+		cudaMemcpy((void*) **vertexMaped, (void*) map->modelVertex, sizeof(float3) * map->noTrianglesHost * 3,  cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **normalMaped, (void*) map->modelNormal, sizeof(float3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **colorMaped, (void*) map->modelColor, sizeof(uchar3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
+		map->meshUpdated = false;
 	}
 
 	pangolin::GlSlProgram * program;
@@ -342,7 +353,7 @@ void Viewer::drawMesh(bool bNormal) {
 	glEnableVertexAttribArray(1);
 	normal.Unbind();
 
-	glDrawArrays(GL_TRIANGLES, 0, mpMap->noTrianglesHost * 3);
+	glDrawArrays(GL_TRIANGLES, 0, map->noTrianglesHost * 3);
 	glDisableVertexAttribArray(0);
 	glDisableVertexAttribArray(1);
 	program->Unbind();
@@ -358,8 +369,8 @@ void Viewer::Insert(std::vector<GLfloat>& vPt, Eigen::Vector3f& pt) {
 
 void Viewer::drawKeyFrame() {
 	vector<GLfloat> points;
-	std::set<const KeyFrame *>::iterator iter = mpMap->keyFrames.begin();
-	std::set<const KeyFrame *>::iterator lend = mpMap->keyFrames.end();
+	std::set<const KeyFrame *>::iterator iter = map->keyFrames.begin();
+	std::set<const KeyFrame *>::iterator lend = map->keyFrames.end();
 
 	for(; iter != lend; ++iter) {
 		Eigen::Vector3f trans = (*iter)->Translation();
@@ -384,7 +395,7 @@ void Viewer::drawCamera() {
 	p[3] << -0.1, -0.08, 0;
 	p[4] << 0, 0, -0.08;
 
-	Eigen::Matrix4f pose = ptracker->GetCurrentPose();
+	Eigen::Matrix4f pose = tracker->GetCurrentPose();
 	Eigen::Matrix3f rotation = pose.topLeftCorner(3, 3);
 	Eigen::Vector3f translation = pose.topRightCorner(3, 1);
 	for (int i = 0; i < 5; ++i) {
@@ -413,7 +424,7 @@ void Viewer::drawCamera() {
 	Insert(cam, p[3]);
 	Insert(cam, p[4]);
 
-	bool lost = (ptracker->state == -1);
+	bool lost = (tracker->state == -1);
 	if (lost)
 		glColor3f(1.0, 0.0, 0.0);
 	else
@@ -425,21 +436,15 @@ void Viewer::drawCamera() {
 
 void Viewer::drawKeys() {
 
-	if(mpMap->noKeysHost == 0)
+	if(map->noKeysHost == 0)
 		return;
 
 	vector<GLfloat> points;
-	for(int i = 0; i < mpMap->noKeysHost; ++i) {
-		points.push_back(mpMap->hostKeys[i].pos.x);
-		points.push_back(mpMap->hostKeys[i].pos.y);
-		points.push_back(mpMap->hostKeys[i].pos.z);
+	for(int i = 0; i < map->noKeysHost; ++i) {
+		points.push_back(map->hostKeys[i].pos.x);
+		points.push_back(map->hostKeys[i].pos.y);
+		points.push_back(map->hostKeys[i].pos.z);
 	}
-
-//	for(int i = 0; i < ptracker->NextFrame->mapPoints.size(); ++i) {
-//		points.push_back(ptracker->NextFrame->mapPoints[i](0));
-//		points.push_back(ptracker->NextFrame->mapPoints[i](1));
-//		points.push_back(ptracker->NextFrame->mapPoints[i](2));
-//	}
 
 	glColor3f(1.0, 0.0, 0.0);
 	glPointSize(3.0);
@@ -448,13 +453,13 @@ void Viewer::drawKeys() {
 }
 
 void Viewer::setMap(Mapping* pMap) {
-	mpMap = pMap;
+	map = pMap;
 }
 
 void Viewer::setSystem(System* pSystem) {
-	psystem = pSystem;
+	system = pSystem;
 }
 
 void Viewer::setTracker(Tracker* pTracker) {
-	ptracker = pTracker;
+	tracker = pTracker;
 }

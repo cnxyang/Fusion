@@ -34,12 +34,22 @@ public:
 
 	void JoinViewer();
 
-	void SaveMesh();
+	void RebootSystem();
 
-	void Reboot();
+	void FilterMessage();
+
+	void WriteMeshToDisk();
+
+	void WriteMapToDisk();
+
+	void ReadMapFromDisk();
+
+	void RenderTopDown(float dist = 8.0f);
 
 	std::atomic<bool> paused;
 	std::atomic<bool> requestMesh;
+	std::atomic<bool> requestSaveMap;
+	std::atomic<bool> requestReadMap;
 	std::atomic<bool> requestSaveMesh;
 	std::atomic<bool> requestReboot;
 	std::atomic<bool> requestStop;

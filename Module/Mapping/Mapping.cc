@@ -35,6 +35,8 @@ void Mapping::Create() {
 
 	zRangeMin.create(80, 60);
 	zRangeMax.create(80, 60);
+	zRangeMinEnlarged.create(160, 120);
+	zRangeMaxEnlarged.create(160, 120);
 	noRenderingBlocks.create(1);
 	renderingBlockList.create(DeviceMap::MaxRenderingBlocks);
 
@@ -118,6 +120,55 @@ void Mapping::UpdateMapKeys() {
 	}
 }
 
+void Mapping::CreateRAM() {
+
+	heapCounterRAM = new int[1];
+	hashCounterRAM = new int[1];
+	noVisibleEntriesRAM = new uint[1];
+	heapRAM = new int[DeviceMap::NumSdfBlocks];
+	bucketMutexRAM = new int[DeviceMap::NumBuckets];
+	sdfBlockRAM = new Voxel[DeviceMap::NumVoxels];
+	hashEntriesRAM = new HashEntry[DeviceMap::NumEntries];
+	visibleEntriesRAM = new HashEntry[DeviceMap::NumEntries];
+}
+
+void Mapping::DownloadToRAM() {
+
+	CreateRAM();
+	heapCounter.download(heapCounterRAM);
+	hashCounter.download(hashCounterRAM);
+	noVisibleEntries.download(noVisibleEntriesRAM);
+	heap.download(heapRAM);
+	bucketMutex.download(bucketMutexRAM);
+	sdfBlock.download(sdfBlockRAM);
+	hashEntries.download(hashEntriesRAM);
+	visibleEntries.download(visibleEntriesRAM);
+}
+
+void Mapping::UploadFromRAM() {
+
+	heapCounter.upload(heapCounterRAM);
+	hashCounter.upload(hashCounterRAM);
+	noVisibleEntries.upload(noVisibleEntriesRAM);
+	heap.upload(heapRAM);
+	bucketMutex.upload(bucketMutexRAM);
+	sdfBlock.upload(sdfBlockRAM);
+	hashEntries.upload(hashEntriesRAM);
+	visibleEntries.upload(visibleEntriesRAM);
+}
+
+void Mapping::ReleaseRAM() {
+
+	delete [] heapCounterRAM;
+	delete [] hashCounterRAM;
+	delete [] noVisibleEntriesRAM;
+	delete [] heapRAM;
+	delete [] bucketMutexRAM;
+	delete [] sdfBlockRAM;
+	delete [] hashEntriesRAM;
+	delete [] visibleEntriesRAM;
+}
+
 void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 
 	if(keyFrames.count(kf))
@@ -131,7 +182,7 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 	int noK = std::min(kf->N, (int)surfKeys.size);
 
 	for(int i = 0; i < noK; ++i) {
-//		if(kf->observations[i] > 3) {
+		if(kf->observations[i] > -1) {
 			SurfKey key;
 			Eigen::Vector3f pt = kf->GetWorldPoint(i);
 			key.pos = {pt(0), pt(1), pt(2)};
@@ -141,7 +192,7 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 				key.descriptor[j] = desc.at<float>(i, j);
 			}
 			keyChain.push_back(key);
-//		}
+		}
 	}
 
 	surfKeys.upload(keyChain.data(), keyChain.size());
@@ -176,11 +227,9 @@ void Mapping::FuseKeyPoints(const Frame * f) {
 void Mapping::Reset() {
 
 	ResetMap(*this);
-
 	ResetKeyPoints(*this);
 
 	mapKeys.clear();
-
 	keyFrames.clear();
 }
 

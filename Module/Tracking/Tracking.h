@@ -69,6 +69,8 @@ protected:
 
 	void InitTracking();
 
+	void FindNearestKF();
+
 	bool NeedKeyFrame();
 
 	void CreateKeyFrame();
@@ -100,12 +102,15 @@ protected:
 	float so3Residual[2];
 	float lastSo3Error;
 
+	bool mappingTurnedOff;
 	std::vector<bool> outliers;
-
 	std::vector<cv::DMatch> refined;
-//	std::vector<SurfKey> frameKeySelected;
-//	std::vector<SurfKey> mapKeySelected;
-//	std::vector<float> keyDistance;
+
+	std::vector<SurfKey> frameKeySelected;
+	std::vector<SurfKey> mapKeySelected;
+	std::vector<float> matchDistance;
+	std::vector<Eigen::Vector3d> refPoints;
+	std::vector<Eigen::Vector3d> framePoints;
 //	std::vector<int> vQueryIdx;
 //	std::vector<Eigen::Vector3d> trainKeyPoints;
 //	std::vector<Eigen::Vector3d> queryKeyPoints;

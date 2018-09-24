@@ -37,6 +37,10 @@ struct KeyFrame {
 	std::vector<cv::KeyPoint> keyPoints;
 	std::vector<Eigen::Vector3f> mapPoints;
 	std::vector<int> observations;
+
+	DeviceArray2D<float> depth;
+	DeviceArray2D<float4> vmap;
+	DeviceArray2D<float4> nmap;
 };
 
 #endif

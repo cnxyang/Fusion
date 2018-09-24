@@ -203,7 +203,6 @@ __device__ int DeviceMap::voxelPosToLocalIdx(const int3 & pos) const {
 ///////////////////////////////////////////////////////
 // Implementation - Key Maps
 ///////////////////////////////////////////////////////
-
 __device__ int KeyMap::Hash(const int3 & pos) {
 
 	int res = ((pos.x * 73856093) ^ (pos.y * 19349669) ^ (pos.z * 83492791)) % KeyMap::MaxKeys;

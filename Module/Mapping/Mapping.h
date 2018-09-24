@@ -29,28 +29,36 @@ public:
 
 	void UpdateMapKeys();
 
+	void CreateRAM();
+
+	void DownloadToRAM();
+
+	void UploadFromRAM();
+
+	void ReleaseRAM();
+
 	void FuseKeyFrame(const KeyFrame * kf);
 
 	void FuseKeyPoints(const Frame * f);
 
 	void UpdateVisibility(const Frame * f, uint & no);
 
+	void FuseColor(const Frame * f, uint & no);
+
+	void RayTrace(uint noVisibleBlocks, Frame * f);
+
 	void UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 			float depthMin, float depthMax, float fx, float fy, float cx,
 			float cy, uint & no);
 
-	void RayTrace(uint noVisibleBlocks, Frame * f);
+	void FuseColor(const DeviceArray2D<float> & depth,
+			const DeviceArray2D<uchar3> & color, Matrix3f Rview,
+			Matrix3f RviewInv, float3 tview, uint & no);
 
 	void RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 			float3 tview, DeviceArray2D<float4> & vmap,
 			DeviceArray2D<float4> & nmap, float depthMin, float depthMax,
 			float fx, float fy, float cx, float cy);
-
-	void FuseColor(const Frame * f, uint & no);
-
-	void FuseColor(const DeviceArray2D<float> & depth,
-			const DeviceArray2D<uchar3> & color, Matrix3f Rview,
-			Matrix3f RviewInv, float3 tview, uint & no);
 
 	operator KeyMap() const;
 
@@ -70,6 +78,15 @@ public:
 	std::vector<SurfKey> hostKeys;
 	std::set<const KeyFrame *> keyFrames;
 
+	int * heapRAM;
+	int * heapCounterRAM;
+	int * hashCounterRAM;
+	int * bucketMutexRAM;
+	Voxel * sdfBlockRAM;
+	uint * noVisibleEntriesRAM;
+	HashEntry * hashEntriesRAM;
+	HashEntry * visibleEntriesRAM;
+
 protected:
 
 	DeviceArray<int> heap;
@@ -85,6 +102,8 @@ protected:
 	DeviceArray<RenderingBlock> renderingBlockList;
 	DeviceArray2D<float> zRangeMin;
 	DeviceArray2D<float> zRangeMax;
+	DeviceArray2D<float> zRangeMinEnlarged;
+	DeviceArray2D<float> zRangeMaxEnlarged;
 
 	DeviceArray<uint> nBlocks;
 	DeviceArray<int3> blockPoses;

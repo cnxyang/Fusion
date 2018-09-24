@@ -168,7 +168,7 @@ void PyrDownGauss(const DeviceArray2D<unsigned char> & src,
 	dim3 thread(8, 8);
 	dim3 block(DivUp(src.cols, thread.x), DivUp(src.rows, thread.y));
 
-	PyrDownGaussKernel<uchar, uchar> <<<block, thread>>>(src, dst);
+	PyrDownGaussKernel<unsigned char, unsigned char> <<<block, thread>>>(src, dst);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
@@ -324,8 +324,7 @@ void RenderImage(const DeviceArray2D<float4> & points,
 				 DeviceArray2D<uchar4> & image) {
 
 	dim3 block(8, 4);
-	dim3 grid(cv::divUp(points.cols, block.x),
-			  cv::divUp(points.rows, block.y));
+	dim3 grid(DivUp(points.cols, block.x), DivUp(points.rows, block.y));
 
 	RenderImageDevice<<<grid, block>>>(points, normals, light_pose, image);
 
@@ -349,8 +348,7 @@ __global__ void depthToImageKernel(PtrStepSz<float> depth, PtrStepSz<uchar4> ima
 void DepthToImage(const DeviceArray2D<float> & depth,
 				  DeviceArray2D<uchar4> & image) {
 	dim3 block(32, 8);
-	dim3 grid(cv::divUp(image.cols, block.x),
-			  cv::divUp(image.rows, block.y));
+	dim3 grid(DivUp(image.cols, block.x), DivUp(image.rows, block.y));
 
 	depthToImageKernel<<<grid, block>>>(depth, image);
 
@@ -372,8 +370,7 @@ __global__ void rgbImageToRgbaKernel(PtrStepSz<uchar3> image, PtrStepSz<uchar4> 
 void RgbImageToRgba(const DeviceArray2D<uchar3> & image,
 				    DeviceArray2D<uchar4> & rgba) {
 	dim3 block(32, 8);
-	dim3 grid(cv::divUp(image.cols, block.x),
-			  cv::divUp(image.rows, block.y));
+	dim3 grid(DivUp(image.cols, block.x), DivUp(image.rows, block.y));
 
 	rgbImageToRgbaKernel<<<grid, block>>>(image, rgba);
 

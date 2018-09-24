@@ -92,7 +92,11 @@ struct __align__(8) Voxel {
 	uchar3 color;
 };
 
-struct SurfKey {
+struct KeyPoint {
+
+};
+
+struct SurfKey : public KeyPoint {
 
 	int valid;
 
@@ -154,14 +158,6 @@ struct DeviceMap {
 	PtrSz<uint> noVisibleBlocks;
 	PtrSz<HashEntry> hashEntries;
 	PtrSz<HashEntry> visibleEntries;
-};
-
-struct ORBKey {
-	bool valid;
-	int obs;
-	float3 pos;
-	float3 normal;
-	char descriptor[32];
 };
 
 struct KeyMap {

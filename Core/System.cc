@@ -1,9 +1,6 @@
 #include "System.h"
 #include <fstream>
 
-using namespace cv;
-using namespace std;
-
 Matrix3f eigen_to_mat3f(Eigen::Matrix3d mat) {
 	Matrix3f mat3f;
 	mat3f.rowx = make_float3((float) mat(0, 0), (float) mat(0, 1), (float)mat(0, 2));
@@ -19,7 +16,8 @@ float3 eigen_to_float3(Eigen::Vector3d vec) {
 System::System(SysDesc* pParam) :
 		map(0), viewer(0), tracker(0), requestStop(false), nFrames(0),
 		requestSaveMesh(false), requestReboot(false), paused(false),
-		state(true), requestMesh(false) {
+		state(true), requestMesh(false), requestSaveMap(false),
+		requestReadMap(false) {
 
 	if(pParam) {
 		param = new SysDesc();
@@ -38,7 +36,7 @@ System::System(SysDesc* pParam) :
 		param->TrackModel = true;
 	}
 
-	mK = Mat::eye(3, 3, CV_32FC1);
+	mK = cv::Mat::eye(3, 3, CV_32FC1);
 	mK.at<float>(0, 0) = param->fx;
 	mK.at<float>(1, 1) = param->fy;
 	mK.at<float>(0, 2) = param->cx;
@@ -58,7 +56,7 @@ System::System(SysDesc* pParam) :
 
 	tracker->SetMap(map);
 
-	viewerThread = new thread(&Viewer::spin, viewer);
+	viewerThread = new std::thread(&Viewer::spin, viewer);
 	viewerThread->detach();
 
 	Frame::mDepthScale = param->DepthScale;
@@ -70,24 +68,26 @@ System::System(SysDesc* pParam) :
 	num_frames_after_reloc = 10;
 }
 
-bool System::GrabImage(const Mat & image, const Mat & depth) {
+void System::RenderTopDown(float dist) {
 
-	if(requestSaveMesh) {
-		SaveMesh();
-		requestSaveMesh = false;
-	}
+	uint noBlocks;
+	Eigen::AngleAxisd angle(M_PI / 2, -Eigen::Vector3d::UnitX());
+	Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
+	Matrix3f curot = eigen_to_mat3f(angle.toRotationMatrix());
+	Matrix3f curotinv = eigen_to_mat3f(angle.toRotationMatrix().transpose());
+	float3 trans = make_float3(0, -dist, 0);
+	map->UpdateVisibility(curot, curotinv, trans, dist + DeviceMap::DepthMin,
+			dist + DeviceMap::DepthMax, Frame::fx(0), Frame::fy(0),
+			vmap.cols / 2, vmap.rows / 2, noBlocks);
+	map->RayTrace(noBlocks, curot, curotinv, trans, vmap, nmap,
+			dist + DeviceMap::DepthMin, dist + DeviceMap::DepthMax,
+			Frame::fx(0), Frame::fy(0), vmap.cols / 2, vmap.rows / 2);
+	RenderImage(vmap, nmap, make_float3(0), renderedImage);
+}
 
-	if(requestReboot) {
-		Reboot();
-		requestReboot = false;
-	}
+bool System::GrabImage(const cv::Mat & image, const cv::Mat & depth) {
 
-	if(requestStop) {
-		viewer->signalQuit();
-		SafeCall(cudaDeviceSynchronize());
-		SafeCall(cudaGetLastError());
-		return false;
-	}
+	FilterMessage();
 
 	state = tracker->GrabFrame(image, depth);
 
@@ -103,7 +103,8 @@ bool System::GrabImage(const Mat & image, const Mat & depth) {
 
 	if (state) {
 		uint noBlocks;
-		if (!tracker->mappingDisabled && tracker->state != -1 && num_frames_after_reloc >= 10)
+		if (!tracker->mappingDisabled && tracker->state != -1
+				&& num_frames_after_reloc >= 10)
 			map->FuseColor(tracker->LastFrame, noBlocks);
 
 		if (!tracker->mappingDisabled && tracker->state != -1) {
@@ -113,32 +114,18 @@ bool System::GrabImage(const Mat & image, const Mat & depth) {
 			map->RayTrace(noBlocks, tracker->LastFrame);
 		}
 
-		if(nFrames % 25 == 0 && requestMesh) {
-			if(!tracker->mappingDisabled) {
+		if (nFrames % 25 == 0 && requestMesh) {
+			if (!tracker->mappingDisabled) {
 				map->CreateModel();
 				map->UpdateMapKeys();
 			}
 		}
 
-		//		Eigen::AngleAxisd angle(M_PI / 2, -Eigen::Vector3d::UnitX());
-		//		Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
-		//		Matrix3f curot = eigen_to_mat3f(angle.toRotationMatrix());
-		//		Matrix3f curotinv = eigen_to_mat3f(angle.toRotationMatrix().transpose());
-		//		float3 trans = make_float3(0, -8, 0);
-		//		mpMap->updateVisibility(curot, curotinv, trans, 8.0, 11.0, Frame::fx(0),
-		//				Frame::fy(0), vmap.cols / 2, vmap.rows / 2, no);
-		//		mpMap->rayTrace(no, curot, curotinv, trans, vmap, nmap, 8.0, 11.0,
-		//				Frame::fx(0), Frame::fy(0), vmap.cols / 2, vmap.rows / 2);
-		//		RenderImage(vmap, nmap, make_float3(0, 0, 0), renderedImage);
+		if(!requestMesh) {
+			RenderTopDown(8.0f);
+		}
 
-		//		cv::Mat img(480, 640, CV_8UC4);
-		//		image.download(img.data, img.step);
-		//		cv::imshow("img", img);
-		//		int key = cv::waitKey(10);
-		//		if(key == 27)
-		//			return false;
-		//
-		//		imageUpdated = true;
+		imageUpdated = true;
 
 		nFrames++;
 	}
@@ -146,7 +133,7 @@ bool System::GrabImage(const Mat & image, const Mat & depth) {
 	return true;
 }
 
-void System::SaveMesh() {
+void System::WriteMeshToDisk() {
 
 	map->CreateModel();
 
@@ -201,9 +188,102 @@ void System::SaveMesh() {
 	delete host_color;
 }
 
-void System::Reboot() {
+void System::WriteMapToDisk() {
+
+	map->DownloadToRAM();
+
+	auto file = std::fstream("/home/xyang/map.bin", std::ios::out | std::ios::binary);
+
+	const int NumSdfBlocks = DeviceMap::NumSdfBlocks;
+	const int NumBuckets = DeviceMap::NumBuckets;
+	const int NumVoxels = DeviceMap::NumVoxels;
+	const int NumEntries = DeviceMap::NumEntries;
+
+	file.write((const char*)&NumSdfBlocks, sizeof(int));
+	file.write((const char*)&NumBuckets, sizeof(int));
+	file.write((const char*)&NumVoxels, sizeof(int));
+	file.write((const char*)&NumEntries, sizeof(int));
+
+	file.write((char*) map->heapCounterRAM, sizeof(int));
+	file.write((char*) map->hashCounterRAM, sizeof(int));
+	file.write((char*) map->noVisibleEntriesRAM, sizeof(uint));
+	file.write((char*) map->heapRAM, sizeof(int) * DeviceMap::NumSdfBlocks);
+	file.write((char*) map->bucketMutexRAM, sizeof(int) * DeviceMap::NumBuckets);
+	file.write((char*) map->sdfBlockRAM, sizeof(int) * DeviceMap::NumVoxels);
+	file.write((char*) map->hashEntriesRAM, sizeof(int) * DeviceMap::NumEntries);
+	file.write((char*) map->visibleEntriesRAM, sizeof(int) * DeviceMap::NumEntries);
+
+	file.close();
+	map->ReleaseRAM();
+}
+
+void System::ReadMapFromDisk() {
+
+	int NumSdfBlocks;
+	int NumBuckets;
+	int NumVoxels;
+	int NumEntries;
+
+	auto file = std::fstream("/home/xyang/map.bin", std::ios::in | std::ios::binary);
+
+	file.read((char *) &NumSdfBlocks, sizeof(int));
+	assert(NumSdfBlocks == DeviceMap::NumSdfBlocks);
+	file.read((char *) &NumBuckets, sizeof(int));
+	file.read((char *) &NumVoxels, sizeof(int));
+	file.read((char *) &NumEntries, sizeof(int));
+
+	map->CreateRAM();
+
+	file.read((char*) map->heapCounterRAM, sizeof(int));
+	file.read((char*) map->hashCounterRAM, sizeof(int));
+	file.read((char*) map->noVisibleEntriesRAM, sizeof(uint));
+	file.read((char*) map->heapRAM, sizeof(int) * DeviceMap::NumSdfBlocks);
+	file.read((char*) map->bucketMutexRAM, sizeof(int) * DeviceMap::NumBuckets);
+	file.read((char*) map->sdfBlockRAM, sizeof(int) * DeviceMap::NumVoxels);
+	file.read((char*) map->hashEntriesRAM, sizeof(int) * DeviceMap::NumEntries);
+	file.read((char*) map->visibleEntriesRAM, sizeof(int) * DeviceMap::NumEntries);
+
+	map->UploadFromRAM();
+	map->ReleaseRAM();
+
+	file.close();
+}
+
+void System::RebootSystem() {
+
 	map->Reset();
+
 	tracker->ResetTracking();
+}
+
+void System::FilterMessage() {
+
+	if(requestSaveMesh) {
+		WriteMeshToDisk();
+		requestSaveMesh = false;
+	}
+
+	if(requestReboot) {
+		RebootSystem();
+		requestReboot = false;
+	}
+
+	if(requestSaveMap) {
+		WriteMapToDisk();
+		requestSaveMap = false;
+	}
+
+	if(requestReadMap) {
+		ReadMapFromDisk();
+		requestReadMap = false;
+	}
+
+	if(requestStop) {
+		viewer->signalQuit();
+		SafeCall(cudaDeviceSynchronize());
+		SafeCall(cudaGetLastError());
+		exit(0);
+	}
 }
 
 void System::JoinViewer() {
@@ -211,13 +291,7 @@ void System::JoinViewer() {
 	while(true) {
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-		if(requestSaveMesh) {
-			SaveMesh();
-			requestSaveMesh = false;
-		}
 
-		if(requestStop) {
-			return;
-		}
+		FilterMessage();
 	}
 }
