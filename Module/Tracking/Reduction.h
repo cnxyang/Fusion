@@ -7,7 +7,8 @@
 #include <opencv.hpp>
 
 void FilterDepth(const DeviceArray2D<unsigned short> & depth,
-		DeviceArray2D<float> & filteredDepth, float depthScale);
+		DeviceArray2D<float> & rawDepth, DeviceArray2D<float> & filteredDepth,
+		float depthScale);
 
 void ComputeVMap(const DeviceArray2D<float> & depth,
 		DeviceArray2D<float4> & vmap, float fx, float fy, float cx, float cy,

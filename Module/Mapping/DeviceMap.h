@@ -142,7 +142,7 @@ struct DeviceMap {
 	static constexpr uint NumVoxels = NumSdfBlocks * BlockSize3;
 	static constexpr uint MaxTriangles = 20000000; // roughly 700MB memory
 	static constexpr uint MaxVertices = MaxTriangles * 3;
-	static constexpr float VoxelSize = 0.008f;
+	static constexpr float VoxelSize = 0.005f;
 	static constexpr float TruncateDist = VoxelSize * 8;
 	static constexpr int MaxRenderingBlocks = 260000;
 	static constexpr float voxelSizeInv = 1.0 / VoxelSize;
@@ -162,7 +162,7 @@ struct DeviceMap {
 
 struct KeyMap {
 
-	static constexpr float GridSize = 0.03;
+	static constexpr float GridSize = 0.05;
 	static constexpr int MaxKeys = 100000;
 	static constexpr int nBuckets = 5;
 	static constexpr int maxEntries = MaxKeys * nBuckets;

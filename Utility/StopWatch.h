@@ -19,6 +19,7 @@ struct StopWatch {
 		std::cout << "Process " << progName << " Finished in " << result.count() << " ms" << std::endl;
 	}
 
+	static bool enabled;
 	static std::chrono::system_clock::time_point t1;
 };
 

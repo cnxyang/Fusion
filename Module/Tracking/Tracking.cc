@@ -45,8 +45,6 @@ Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) {
 	iteration[2] = 3;
 
 	K = Intrinsics(fx, fy, cx, cy);
-	lastIcpError = std::numeric_limits<float>::max();
-	lastSo3Error = std::numeric_limits<float>::max();
 	matcher = cuda::DescriptorMatcher::createBFMatcher(NORM_L2);
 
 	NextFrame = new Frame();
@@ -130,11 +128,11 @@ bool Tracker::TrackFrame() {
 
 	bool valid = false;
 
-	if (!mappingDisabled) {
-		valid = TrackReferenceKF();
-	} else {
+//	if (!mappingDisabled) {
+//		valid = TrackReferenceKF();
+//	} else {
 		valid = TrackLastFrame();
-	}
+//	}
 
 	if(!valid) {
 		return false;
@@ -301,7 +299,6 @@ bool Tracker::ComputeSE3() {
 	Eigen::Matrix<double, 6, 6, Eigen::RowMajor> matA;
 	Eigen::Matrix<double, 6, 1> vecb;
 	Eigen::Matrix<double, 6, 1> result;
-	lastIcpError = std::numeric_limits<float>::max();
 	lastPose = LastFrame->pose;
 	nextPose = NextFrame->pose;
 	Eigen::Matrix4d pose = NextFrame->pose;
@@ -346,13 +343,14 @@ bool Tracker::ComputeSE3() {
 	Eigen::Matrix3d r = p.topLeftCorner(3, 3);
 	Eigen::Vector3d t = p.topRightCorner(3, 1);
 	Eigen::Vector3d a = r.eulerAngles(0, 1, 2).array().sin();
-	if(icpError >= 1e-4 || a.norm() >= 0.1 || t.norm() >= 0.1) {
+	if(icpError < 1e-4 || (a.norm() >= 0.1 && t.norm() >= 0.1)) {
+		return true;
+	}
+	else {
 		std::cout << icpError << " " << t.norm() << " " << a.norm() << std::endl;
 		NextFrame->pose = lastPose;
 		return false;
 	}
-	else
-		return true;
 }
 
 bool Tracker::Relocalise() {

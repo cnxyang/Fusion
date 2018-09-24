@@ -36,6 +36,7 @@ void Frame::Create(int cols_, int rows_) {
 		mbFirstCall = false;
 	}
 
+	temp.create(cols_, rows_);
 	range.create(cols_, rows_);
 	color.create(cols_, rows_);
 
@@ -55,9 +56,9 @@ void Frame::Clear() {
 
 void Frame::FillImages(const cv::Mat & range_, const cv::Mat & color_) {
 
-	range.upload(range_.data, range_.step);
+	temp.upload(range_.data, range_.step);
 	color.upload(color_.data, color_.step);
-	FilterDepth(range, depth[0], mDepthScale);
+	FilterDepth(temp, range, depth[0], mDepthScale);
 	ImageToIntensity(color, image[0]);
 	for(int i = 1; i < NUM_PYRS; ++i) {
 		PyrDownGauss(depth[i - 1], depth[i]);

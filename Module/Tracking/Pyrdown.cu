@@ -3,7 +3,8 @@
 __constant__ float sigSpace = 0.5 / (4 * 4);
 __constant__ float sigRange = 0.5 / (0.5 * 0.5);
 __global__ void FilterDepthKernel(const PtrStepSz<unsigned short> depth,
-		PtrStep<float> filteredDepth, float depthScaleInv) {
+		PtrStep<float> rawDepth, PtrStep<float> filteredDepth,
+		float depthScaleInv) {
 
 	int x = blockDim.x * blockIdx.x + threadIdx.x;
 	int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -11,6 +12,7 @@ __global__ void FilterDepthKernel(const PtrStepSz<unsigned short> depth,
 		return;
 
     float center = depth.ptr(y)[x] * depthScaleInv;
+	rawDepth.ptr(y)[x] = center;
 	if(isnan(center)) {
 		filteredDepth.ptr(y)[x] = center;
 		return;
@@ -38,12 +40,13 @@ __global__ void FilterDepthKernel(const PtrStepSz<unsigned short> depth,
 }
 
 void FilterDepth(const DeviceArray2D<unsigned short> & depth,
-		DeviceArray2D<float> & filteredDepth, float depthScale) {
+		DeviceArray2D<float> & rawDepth, DeviceArray2D<float> & filteredDepth,
+		float depthScale) {
 
 	dim3 thread(8, 8);
 	dim3 block(DivUp(depth.cols, thread.x), DivUp(depth.rows, thread.y));
 
-	FilterDepthKernel<<<block, thread>>>(depth, filteredDepth, 1.0 / depthScale);
+	FilterDepthKernel<<<block, thread>>>(depth, rawDepth, filteredDepth, 1.0 / depthScale);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());

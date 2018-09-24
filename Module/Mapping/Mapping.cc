@@ -66,7 +66,7 @@ void Mapping::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 }
 
 void Mapping::FuseColor(const Frame * f, uint & no) {
-	FuseColor(f->depth[0], f->color, f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
+	FuseColor(f->range, f->color, f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
 }
 
 void Mapping::FuseColor(const DeviceArray2D<float> & depth,
