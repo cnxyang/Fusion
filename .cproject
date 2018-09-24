@@ -2,7 +2,7 @@
 <?fileVersion 4.0.0?><cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
 	<storageModule moduleId="org.eclipse.cdt.core.settings">
 		<cconfiguration id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077">
-			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077" moduleId="org.eclipse.cdt.core.settings" name="tum_release">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077" moduleId="org.eclipse.cdt.core.settings" name="ReleaseTum">
 				<externalSettings/>
 				<extensions>
 					<extension id="com.nvidia.cuda.ide.elf" point="org.eclipse.cdt.core.BinaryParser"/>
@@ -17,11 +17,11 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077" name="tum_release" parent="com.nvidia.cuda.ide.nine_zero.configuration.release">
+				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077" name="ReleaseTum" parent="com.nvidia.cuda.ide.nine_zero.configuration.release">
 					<folderInfo id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077." name="/" resourcePath="">
 						<toolChain id="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release.1779413738" name="CUDA Toolkit 9.2" superClass="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release">
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.389657246" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
-							<builder buildPath="${workspace_loc:/fusion}/Release" id="com.nvidia.cuda.ide.builder.1409127714" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="CUDA Toolkit 9.2 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
+							<builder buildPath="${workspace_loc:/fusion}/Build/Release/Tum/" id="com.nvidia.cuda.ide.builder.1409127714" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="CUDA Toolkit 9.2 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
 							<tool id="nvcc.compiler.base.1047712494" name="NVCC Compiler" superClass="nvcc.compiler.base">
 								<option id="nvcc.compiler.deviceDebug.1657224818" name="Generate device debug information (-G)" superClass="nvcc.compiler.deviceDebug"/>
 								<option id="nvcc.compiler.option.level.1352502860" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level"/>
@@ -32,8 +32,12 @@
 									<listOptionValue builtIn="false" value="-dlcm=ca"/>
 								</option>
 								<option id="nvcc.compiler.include.paths.104044077" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/include}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/cuda}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Module/Mapping}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Module/Optimizer}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Module/Tracking}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/GUI}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Utility}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/opencv2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/openni2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/eigen3"/>
@@ -55,6 +59,7 @@
 									<listOptionValue builtIn="false" value="opencv_imgcodecs"/>
 									<listOptionValue builtIn="false" value="opencv_features2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudaarithm"/>
+									<listOptionValue builtIn="false" value="opencv_xfeatures2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudafeatures2d"/>
 								</option>
 								<inputType id="nvcc.linker.input.1380585301" superClass="nvcc.linker.input">
@@ -69,7 +74,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="live.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="Main.cc|live.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -83,7 +88,7 @@
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 		</cconfiguration>
 		<cconfiguration id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.188212017">
-			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.188212017" moduleId="org.eclipse.cdt.core.settings" name="tum_debug">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.188212017" moduleId="org.eclipse.cdt.core.settings" name="DebugTum">
 				<externalSettings/>
 				<extensions>
 					<extension id="com.nvidia.cuda.ide.elf" point="org.eclipse.cdt.core.BinaryParser"/>
@@ -98,7 +103,7 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.188212017" name="tum_debug" parent="com.nvidia.cuda.ide.nine_zero.configuration.release">
+				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.188212017" name="DebugTum" parent="com.nvidia.cuda.ide.nine_zero.configuration.release">
 					<folderInfo id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.188212017." name="/" resourcePath="">
 						<toolChain id="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release.1362056051" name="CUDA Toolkit 9.2" superClass="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release">
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.2101669057" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
@@ -113,8 +118,12 @@
 									<listOptionValue builtIn="false" value="-dlcm=ca"/>
 								</option>
 								<option id="nvcc.compiler.include.paths.401777453" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/include}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/cuda}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Module/Mapping}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Module/Optimizer}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Module/Tracking}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/GUI}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Utility}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/opencv2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/openni2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/eigen3"/>
@@ -137,6 +146,7 @@
 									<listOptionValue builtIn="false" value="opencv_imgcodecs"/>
 									<listOptionValue builtIn="false" value="opencv_features2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudaarithm"/>
+									<listOptionValue builtIn="false" value="opencv_xfeatures2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudafeatures2d"/>
 								</option>
 								<inputType id="nvcc.linker.input.4867270" superClass="nvcc.linker.input">
@@ -151,7 +161,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="live.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="Main.cc|live.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -165,7 +175,7 @@
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 		</cconfiguration>
 		<cconfiguration id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.490052200">
-			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.490052200" moduleId="org.eclipse.cdt.core.settings" name="live_release">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.490052200" moduleId="org.eclipse.cdt.core.settings" name="Release">
 				<externalSettings/>
 				<extensions>
 					<extension id="com.nvidia.cuda.ide.elf" point="org.eclipse.cdt.core.BinaryParser"/>
@@ -180,7 +190,7 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.490052200" name="live_release" parent="com.nvidia.cuda.ide.nine_zero.configuration.release">
+				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.490052200" name="Release" parent="com.nvidia.cuda.ide.nine_zero.configuration.release">
 					<folderInfo id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.490052200." name="/" resourcePath="">
 						<toolChain id="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release.874046131" name="CUDA Toolkit 9.2" superClass="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release">
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.22677172" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
@@ -195,8 +205,12 @@
 									<listOptionValue builtIn="false" value="-dlcm=ca"/>
 								</option>
 								<option id="nvcc.compiler.include.paths.823795855" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/include}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/cuda}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Module/Mapping}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Module/Optimizer}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Module/Tracking}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/GUI}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Utility}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/opencv2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/openni2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/eigen3"/>
@@ -219,6 +233,7 @@
 									<listOptionValue builtIn="false" value="opencv_imgcodecs"/>
 									<listOptionValue builtIn="false" value="opencv_features2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudaarithm"/>
+									<listOptionValue builtIn="false" value="opencv_xfeatures2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudafeatures2d"/>
 								</option>
 								<inputType id="nvcc.linker.input.1080903313" superClass="nvcc.linker.input">
@@ -233,7 +248,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="tum.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="MainTum.cc|tum.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -247,7 +262,7 @@
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 		</cconfiguration>
 		<cconfiguration id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.490052200.1805694553">
-			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.490052200.1805694553" moduleId="org.eclipse.cdt.core.settings" name="live_debug">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.490052200.1805694553" moduleId="org.eclipse.cdt.core.settings" name="Debug">
 				<externalSettings/>
 				<extensions>
 					<extension id="com.nvidia.cuda.ide.elf" point="org.eclipse.cdt.core.BinaryParser"/>
@@ -262,7 +277,7 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.490052200.1805694553" name="live_debug" parent="com.nvidia.cuda.ide.nine_zero.configuration.release">
+				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.490052200.1805694553" name="Debug" parent="com.nvidia.cuda.ide.nine_zero.configuration.release">
 					<folderInfo id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.490052200.1805694553." name="/" resourcePath="">
 						<toolChain id="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release.1355844827" name="CUDA Toolkit 9.2" superClass="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release">
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.300604631" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
@@ -277,8 +292,12 @@
 									<listOptionValue builtIn="false" value="-dlcm=ca"/>
 								</option>
 								<option id="nvcc.compiler.include.paths.1477135929" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/include}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/cuda}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Module/Mapping}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Module/Optimizer}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Module/Tracking}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/GUI}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Utility}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/opencv2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/openni2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/eigen3"/>
@@ -301,6 +320,7 @@
 									<listOptionValue builtIn="false" value="opencv_imgcodecs"/>
 									<listOptionValue builtIn="false" value="opencv_features2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudaarithm"/>
+									<listOptionValue builtIn="false" value="opencv_xfeatures2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudafeatures2d"/>
 								</option>
 								<inputType id="nvcc.linker.input.1853565097" superClass="nvcc.linker.input">
@@ -315,7 +335,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="tum.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="MainTum.cc|tum.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -347,14 +367,19 @@
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
 		<configuration configurationName="tum_debug"/>
-		<configuration configurationName="tum_release"/>
-		<configuration configurationName="live_debug"/>
-		<configuration configurationName="live_release"/>
-		<configuration configurationName="Debug">
+		<configuration configurationName="ReleaseTum">
 			<resource resourceType="PROJECT" workspacePath="/fusion"/>
 		</configuration>
+		<configuration configurationName="tum_release"/>
+		<configuration configurationName="DebugTum"/>
+		<configuration configurationName="live_debug"/>
+		<configuration configurationName="live_release"/>
 		<configuration configurationName="Release">
 			<resource resourceType="PROJECT" workspacePath="/fusion"/>
 		</configuration>
+		<configuration configurationName="Debug">
+			<resource resourceType="PROJECT" workspacePath="/fusion"/>
+		</configuration>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
 </cproject>
