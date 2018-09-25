@@ -4,7 +4,7 @@ __constant__ float sigSpace = 0.5 / (4 * 4);
 __constant__ float sigRange = 0.5 / (0.5 * 0.5);
 __global__ void FilterDepthKernel(const PtrStepSz<unsigned short> depth,
 		PtrStep<float> rawDepth, PtrStep<float> filteredDepth,
-		float depthScaleInv) {
+		float depthScaleInv, float depthCutoff) {
 
 	int x = blockDim.x * blockIdx.x + threadIdx.x;
 	int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -12,9 +12,9 @@ __global__ void FilterDepthKernel(const PtrStepSz<unsigned short> depth,
 		return;
 
     float center = depth.ptr(y)[x] * depthScaleInv;
-	rawDepth.ptr(y)[x] = center;
+	rawDepth.ptr(y)[x] = center < depthCutoff ? center : __int_as_float(0x7fffffff);
 	if(isnan(center)) {
-		filteredDepth.ptr(y)[x] = center;
+		filteredDepth.ptr(y)[x] = __int_as_float(0x7fffffff);
 		return;
 	}
 
@@ -36,17 +36,18 @@ __global__ void FilterDepthKernel(const PtrStepSz<unsigned short> depth,
 		}
     }
 
-    filteredDepth.ptr(y)[x] = sum1 / sum2;
+    float final = sum1 / sum2;
+    filteredDepth.ptr(y)[x] = final < depthCutoff ? final : __int_as_float(0x7fffffff);
 }
 
 void FilterDepth(const DeviceArray2D<unsigned short> & depth,
 		DeviceArray2D<float> & rawDepth, DeviceArray2D<float> & filteredDepth,
-		float depthScale) {
+		float depthScale, float depthCutoff) {
 
 	dim3 thread(8, 8);
 	dim3 block(DivUp(depth.cols, thread.x), DivUp(depth.rows, thread.y));
 
-	FilterDepthKernel<<<block, thread>>>(depth, rawDepth, filteredDepth, 1.0 / depthScale);
+	FilterDepthKernel<<<block, thread>>>(depth, rawDepth, filteredDepth, 1.0 / depthScale, depthCutoff);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
@@ -342,9 +343,11 @@ __global__ void depthToImageKernel(PtrStepSz<float> depth, PtrStepSz<uchar4> ima
 	if (x >= image.cols || y >= image.rows)
 		return;
 
-	float dp = depth.ptr(y)[x] / 20.0;
+	float dp = depth.ptr(y)[x] / 3.0;
 	int intdp = __float2int_rd(dp * 255);
 	intdp = intdp > 255 ? 255 : intdp;
+	if(isnan(dp))
+		intdp = 0;
 	image.ptr(y)[x] = make_uchar4(intdp, intdp, intdp, 255);
 }
 
@@ -379,4 +382,43 @@ void RgbImageToRgba(const DeviceArray2D<uchar3> & image,
 
 	SafeCall(cudaGetLastError());
 	SafeCall(cudaDeviceSynchronize());
+}
+
+__global__ void ForwardWarpingKernel(PtrStepSz<float4> srcVMap,
+		PtrStep<float4> srcNMap, PtrStep<float4> dstVMap,
+		PtrStep<float4> dstNMap, Matrix3f srcRot, Matrix3f dstInvRot,
+		float3 srcTrans, float3 dstTrans, float fx, float fy, float cx,
+		float cy) {
+
+	int x = blockDim.x * blockIdx.x + threadIdx.x;
+	int y = blockDim.y * blockIdx.y + threadIdx.y;
+	if(x >= srcVMap.cols || y >= srcVMap.rows)
+		return;
+
+	float4 srcv = srcVMap.ptr(y)[x];
+	float4 dstv = make_float4(dstInvRot * (srcRot * srcv + srcTrans - dstTrans), srcv.w);
+	float u = fx * dstv.x / dstv.z + cx;
+	float v = fy * dstv.y / dstv.z + cy;
+	if(u < 0 || v < 0 || u >= srcVMap.cols || v >= srcVMap.rows)
+		return;
+
+	float4 srcn = srcNMap.ptr(y)[x];
+	float4 dstn = make_float4(dstInvRot * (srcRot * srcn));
+	dstVMap.ptr((int) v)[(int) u] = dstv;
+	dstNMap.ptr((int) v)[(int) u] = normalised(dstn);
+}
+
+void ForwardWarping(const DeviceArray2D<float4> & srcVMap,
+		const DeviceArray2D<float4> & srcNMap, DeviceArray2D<float4> & dstVMap,
+		DeviceArray2D<float4> & dstNMap, Matrix3f srcRot, Matrix3f dstInvRot,
+		float3 srcTrans, float3 dstTrans, float fx, float fy, float cx,
+		float cy) {
+
+	dim3 thread(8, 8);
+	dim3 block(DivUp(srcVMap.cols, thread.x), DivUp(srcVMap.rows, thread.y));
+
+	dstVMap.clear();
+	ForwardWarpingKernel<<<block, thread>>>(srcVMap, srcNMap, dstVMap, dstNMap,
+			srcRot, dstInvRot, srcTrans, dstTrans, fx, fy, cx, cy);
+
 }

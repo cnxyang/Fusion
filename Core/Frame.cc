@@ -58,7 +58,7 @@ void Frame::FillImages(const cv::Mat & range_, const cv::Mat & color_) {
 
 	temp.upload(range_.data, range_.step);
 	color.upload(color_.data, color_.step);
-	FilterDepth(temp, range, depth[0], mDepthScale);
+	FilterDepth(temp, range, depth[0], mDepthScale, mDepthCutoff);
 	ImageToIntensity(color, image[0]);
 	for(int i = 1; i < NUM_PYRS; ++i) {
 		PyrDownGauss(depth[i - 1], depth[i]);
@@ -198,18 +198,21 @@ void Frame::ExtractKeyPoints() {
 	N = mapPoints.size();
 	descriptors.upload(desc);
 	pose = Eigen::Matrix4d::Identity();
+}
 
-//	cv::Mat rawImage(480, 640, CV_8UC1);
-//	img.download(rawImage);
-//	for(int i = 0; i < N; ++i) {
-//		cv::Point2f upperLeft = keyPoints[i].pt - cv::Point2f(5, 5);
-//		cv::Point2f lowerRight = keyPoints[i].pt + cv::Point2f(5, 5);
-//		cv::drawMarker(rawImage, keyPoints[i].pt, cv::Scalar(0, 125, 0), cv::MARKER_CROSS, 5);
-//		cv::rectangle(rawImage, upperLeft, lowerRight, cv::Scalar(0, 125, 0));
-//	}
-//
-//	cv::imshow("img", rawImage);
-//	cv::waitKey(10);
+void Frame::DrawKeyPoints() {
+
+	cv::Mat rawImage(480, 640, CV_8UC1);
+	image[0].download(rawImage.data, rawImage.step);
+	for (int i = 0; i < N; ++i) {
+		cv::Point2f upperLeft = keyPoints[i].pt - cv::Point2f(5, 5);
+		cv::Point2f lowerRight = keyPoints[i].pt + cv::Point2f(5, 5);
+		cv::drawMarker(rawImage, keyPoints[i].pt, cv::Scalar(0, 125, 0), cv::MARKER_CROSS, 5);
+		cv::rectangle(rawImage, upperLeft, lowerRight, cv::Scalar(0, 125, 0));
+	}
+
+	cv::imshow("img", rawImage);
+	cv::waitKey(10);
 }
 
 void Frame::SetK(cv::Mat& K) {

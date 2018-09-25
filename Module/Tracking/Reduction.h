@@ -8,7 +8,7 @@
 
 void FilterDepth(const DeviceArray2D<unsigned short> & depth,
 		DeviceArray2D<float> & rawDepth, DeviceArray2D<float> & filteredDepth,
-		float depthScale);
+		float depthScale, float depthCutoff);
 
 void ComputeVMap(const DeviceArray2D<float> & depth,
 		DeviceArray2D<float4> & vmap, float fx, float fy, float cx, float cy,
@@ -38,6 +38,12 @@ void DepthToImage(const DeviceArray2D<float> & depth,
 
 void RgbImageToRgba(const DeviceArray2D<uchar3> & image,
 		DeviceArray2D<uchar4> & rgba);
+
+void ForwardWarping(const DeviceArray2D<float4> & srcVMap,
+		const DeviceArray2D<float4> & srcNMap, DeviceArray2D<float4> & dstVMap,
+		DeviceArray2D<float4> & dstNMap, Matrix3f srcRot, Matrix3f dstInvRot,
+		float3 srcTrans, float3 dstTrans, float fx, float fy, float cx,
+		float cy);
 
 void ICPStep(DeviceArray2D<float4> & nextVMap, DeviceArray2D<float4> & lastVMap,
 		DeviceArray2D<float4> & nextNMap, DeviceArray2D<float4> & lastNMap,

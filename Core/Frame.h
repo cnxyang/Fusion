@@ -31,6 +31,8 @@ struct Frame {
 
 	void Clear();
 
+	void DrawKeyPoints();
+
 	void ClearKeyPoints();
 
 	void FillImages(const cv::Mat & range_, const cv::Mat & color_);

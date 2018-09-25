@@ -108,7 +108,11 @@ bool System::GrabImage(const cv::Mat & image, const cv::Mat & depth) {
 			map->FuseColor(tracker->LastFrame, noBlocks);
 
 		if (!tracker->mappingDisabled && tracker->state != -1) {
-			map->RayTrace(noBlocks, tracker->LastFrame);
+			if(nFrames % 3 == 0)
+				map->RayTrace(noBlocks, tracker->LastFrame);
+			else
+				map->ForwardWarp(tracker->NextFrame, tracker->LastFrame);
+
 		} else {
 			map->UpdateVisibility(tracker->LastFrame, noBlocks);
 			map->RayTrace(noBlocks, tracker->LastFrame);

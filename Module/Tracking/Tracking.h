@@ -97,6 +97,7 @@ protected:
 	int noMissedFrames;
 
 	int iteration[3];
+	int minIcpCount[3];
 	float icpResidual[2];
 
 	bool mappingTurnedOff;
