@@ -97,10 +97,8 @@ protected:
 	int noMissedFrames;
 
 	int iteration[3];
+	int minIcpCount[3];
 	float icpResidual[2];
-	float lastIcpError;
-	float so3Residual[2];
-	float lastSo3Error;
 
 	bool mappingTurnedOff;
 	std::vector<bool> outliers;
@@ -111,9 +109,6 @@ protected:
 	std::vector<float> matchDistance;
 	std::vector<Eigen::Vector3d> refPoints;
 	std::vector<Eigen::Vector3d> framePoints;
-//	std::vector<int> vQueryIdx;
-//	std::vector<Eigen::Vector3d> trainKeyPoints;
-//	std::vector<Eigen::Vector3d> queryKeyPoints;
 };
 
 #endif

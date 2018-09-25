@@ -37,6 +37,8 @@ public:
 
 	void ReleaseRAM();
 
+	bool HasNewKF();
+
 	void FuseKeyFrame(const KeyFrame * kf);
 
 	void FuseKeyPoints(const Frame * f);
@@ -46,6 +48,8 @@ public:
 	void FuseColor(const Frame * f, uint & no);
 
 	void RayTrace(uint noVisibleBlocks, Frame * f);
+
+	void ForwardWarp(const Frame * last, Frame * next);
 
 	void UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 			float depthMin, float depthMax, float fx, float fy, float cx,
@@ -117,6 +121,8 @@ protected:
 	DeviceArray<SurfKey> mapKeys;
 	DeviceArray<SurfKey> tmpKeys;
 	DeviceArray<SurfKey> surfKeys;
+
+	bool hasNewKFFlag;
 };
 
 #endif

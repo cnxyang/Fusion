@@ -4,7 +4,7 @@
 #include "RenderScene.h"
 
 Mapping::Mapping() :
-		meshUpdated(false) {
+		meshUpdated(false), hasNewKFFlag(false) {
 	Create();
 }
 
@@ -49,6 +49,13 @@ void Mapping::Create() {
 	Reset();
 }
 
+void Mapping::ForwardWarp(const Frame * last, Frame * next) {
+	ForwardWarping(last->vmap[0], last->nmap[0], next->vmap[0], next->nmap[0],
+			last->GpuRotation(), next->GpuInvRotation(), last->GpuTranslation(),
+			next->GpuTranslation(), Frame::fx(0), Frame::fy(0), Frame::cx(0),
+			Frame::cy(0));
+}
+
 void Mapping::UpdateVisibility(const Frame * f, uint & no) {
 
 	CheckBlockVisibility(*this, noVisibleEntries, f->GpuRotation(), f->GpuInvRotation(),
@@ -66,7 +73,7 @@ void Mapping::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 }
 
 void Mapping::FuseColor(const Frame * f, uint & no) {
-	FuseColor(f->depth[0], f->color, f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
+	FuseColor(f->range, f->color, f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
 }
 
 void Mapping::FuseColor(const DeviceArray2D<float> & depth,
@@ -135,6 +142,7 @@ void Mapping::CreateRAM() {
 void Mapping::DownloadToRAM() {
 
 	CreateRAM();
+
 	heapCounter.download(heapCounterRAM);
 	hashCounter.download(hashCounterRAM);
 	noVisibleEntries.download(noVisibleEntriesRAM);
@@ -169,12 +177,18 @@ void Mapping::ReleaseRAM() {
 	delete [] visibleEntriesRAM;
 }
 
+bool Mapping::HasNewKF() {
+
+	return hasNewKFFlag;
+}
+
 void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 
 	if(keyFrames.count(kf))
 		return;
 
 	keyFrames.insert(kf);
+	hasNewKFFlag = true;
 
 	cv::Mat desc;
 	std::vector<SurfKey> keyChain;

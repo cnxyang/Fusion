@@ -108,7 +108,11 @@ bool System::GrabImage(const cv::Mat & image, const cv::Mat & depth) {
 			map->FuseColor(tracker->LastFrame, noBlocks);
 
 		if (!tracker->mappingDisabled && tracker->state != -1) {
-			map->RayTrace(noBlocks, tracker->LastFrame);
+			if(nFrames % 3 == 0)
+				map->RayTrace(noBlocks, tracker->LastFrame);
+			else
+				map->ForwardWarp(tracker->NextFrame, tracker->LastFrame);
+
 		} else {
 			map->UpdateVisibility(tracker->LastFrame, noBlocks);
 			map->RayTrace(noBlocks, tracker->LastFrame);
@@ -209,9 +213,9 @@ void System::WriteMapToDisk() {
 	file.write((char*) map->noVisibleEntriesRAM, sizeof(uint));
 	file.write((char*) map->heapRAM, sizeof(int) * DeviceMap::NumSdfBlocks);
 	file.write((char*) map->bucketMutexRAM, sizeof(int) * DeviceMap::NumBuckets);
-	file.write((char*) map->sdfBlockRAM, sizeof(int) * DeviceMap::NumVoxels);
-	file.write((char*) map->hashEntriesRAM, sizeof(int) * DeviceMap::NumEntries);
-	file.write((char*) map->visibleEntriesRAM, sizeof(int) * DeviceMap::NumEntries);
+	file.write((char*) map->sdfBlockRAM, sizeof(Voxel) * DeviceMap::NumVoxels);
+	file.write((char*) map->hashEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
+	file.write((char*) map->visibleEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
 
 	file.close();
 	map->ReleaseRAM();
@@ -227,7 +231,6 @@ void System::ReadMapFromDisk() {
 	auto file = std::fstream("/home/xyang/map.bin", std::ios::in | std::ios::binary);
 
 	file.read((char *) &NumSdfBlocks, sizeof(int));
-	assert(NumSdfBlocks == DeviceMap::NumSdfBlocks);
 	file.read((char *) &NumBuckets, sizeof(int));
 	file.read((char *) &NumVoxels, sizeof(int));
 	file.read((char *) &NumEntries, sizeof(int));
@@ -239,9 +242,9 @@ void System::ReadMapFromDisk() {
 	file.read((char*) map->noVisibleEntriesRAM, sizeof(uint));
 	file.read((char*) map->heapRAM, sizeof(int) * DeviceMap::NumSdfBlocks);
 	file.read((char*) map->bucketMutexRAM, sizeof(int) * DeviceMap::NumBuckets);
-	file.read((char*) map->sdfBlockRAM, sizeof(int) * DeviceMap::NumVoxels);
-	file.read((char*) map->hashEntriesRAM, sizeof(int) * DeviceMap::NumEntries);
-	file.read((char*) map->visibleEntriesRAM, sizeof(int) * DeviceMap::NumEntries);
+	file.read((char*) map->sdfBlockRAM, sizeof(Voxel) * DeviceMap::NumVoxels);
+	file.read((char*) map->hashEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
+	file.read((char*) map->visibleEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
 
 	map->UploadFromRAM();
 	map->ReleaseRAM();

@@ -44,9 +44,11 @@ Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) {
 	iteration[1] = 5;
 	iteration[2] = 3;
 
+	minIcpCount[0] = 100000;
+	minIcpCount[1] = 25000;
+	minIcpCount[2] = 6250;
+
 	K = Intrinsics(fx, fy, cx, cy);
-	lastIcpError = std::numeric_limits<float>::max();
-	lastSo3Error = std::numeric_limits<float>::max();
 	matcher = cuda::DescriptorMatcher::createBFMatcher(NORM_L2);
 
 	NextFrame = new Frame();
@@ -73,7 +75,7 @@ bool Tracker::Track() {
 		if(updateImageMutex.try_lock()) {
 			if(state != -1 && state != 1)
 				RenderImage(LastFrame->vmap[0], LastFrame->nmap[0], make_float3(0), renderedImage);
-			DepthToImage(LastFrame->depth[0], renderedDepth);
+			DepthToImage(LastFrame->range, renderedDepth);
 			RgbImageToRgba(LastFrame->color, rgbaImage);
 			imageUpdated = true;
 			updateImageMutex.unlock();
@@ -130,11 +132,7 @@ bool Tracker::TrackFrame() {
 
 	bool valid = false;
 
-	if (!mappingDisabled) {
-		valid = TrackReferenceKF();
-	} else {
-		valid = TrackLastFrame();
-	}
+	valid = TrackLastFrame();
 
 	if(!valid) {
 		return false;
@@ -301,11 +299,11 @@ bool Tracker::ComputeSE3() {
 	Eigen::Matrix<double, 6, 6, Eigen::RowMajor> matA;
 	Eigen::Matrix<double, 6, 1> vecb;
 	Eigen::Matrix<double, 6, 1> result;
-	lastIcpError = std::numeric_limits<float>::max();
 	lastPose = LastFrame->pose;
 	nextPose = NextFrame->pose;
 	Eigen::Matrix4d pose = NextFrame->pose;
 	float icpError = 0;
+	int icpCount = 0;
 
 	for(int i = Frame::NUM_PYRS - 1; i >= 0; --i) {
 		for(int j = 0; j < iteration[i]; ++j) {
@@ -327,9 +325,9 @@ bool Tracker::ComputeSE3() {
 					vecb.data());
 
 			icpError = sqrt(icpResidual[0]) / icpResidual[1];
-			int icpCount = (int) icpResidual[1];
+			icpCount = (int) icpResidual[1];
 
-			if (std::isnan(icpError)) {
+			if (std::isnan(icpError) || icpCount < minIcpCount[i]) {
 				NextFrame->pose = lastPose;
 				return false;
 			}
@@ -346,13 +344,15 @@ bool Tracker::ComputeSE3() {
 	Eigen::Matrix3d r = p.topLeftCorner(3, 3);
 	Eigen::Vector3d t = p.topRightCorner(3, 1);
 	Eigen::Vector3d a = r.eulerAngles(0, 1, 2).array().sin();
-	if(icpError >= 1e-4 || a.norm() >= 0.1 || t.norm() >= 0.1) {
-		std::cout << icpError << " " << t.norm() << " " << a.norm() << std::endl;
+	if(icpError < 1e-4 && a.norm() <= 0.1 && t.norm() <= 0.1) {
+		std::cout << "good: " << icpError << "/" << icpCount <<" " << t.norm() << " " << a.norm() << std::endl;
+		return true;
+	}
+	else {
+		std::cout << "bad: " << icpError << "/" << icpCount <<" " << t.norm() << " " << a.norm() << std::endl;
 		NextFrame->pose = lastPose;
 		return false;
 	}
-	else
-		return true;
 }
 
 bool Tracker::Relocalise() {

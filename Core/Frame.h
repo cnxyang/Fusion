@@ -31,6 +31,8 @@ struct Frame {
 
 	void Clear();
 
+	void DrawKeyPoints();
+
 	void ClearKeyPoints();
 
 	void FillImages(const cv::Mat & range_, const cv::Mat & color_);
@@ -51,7 +53,8 @@ struct Frame {
 
 	Eigen::Vector3f GetWorldPoint(int i) const;
 
-	DeviceArray2D<unsigned short> range;
+	DeviceArray2D<unsigned short> temp;
+	DeviceArray2D<float> range;
 	DeviceArray2D<uchar3> color;
 
 	DeviceArray2D<float4> vmap[NUM_PYRS];
