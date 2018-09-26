@@ -52,9 +52,9 @@ template<class T> struct DeviceArray {
 
 	void upload(const void * data_, size_t size_);
 
-	void download(void * data_);
+	void download(void * data_) const;
 
-	void download(void * data_, size_t size_);
+	void download(void * data_, size_t size_) const;
 
 	void clear();
 
@@ -175,12 +175,12 @@ template<class T> void DeviceArray<T>::upload(const void * data_, size_t size_) 
 	SafeCall(cudaMemcpy(data, data_, sizeof(T) * size_, cudaMemcpyHostToDevice));
 }
 
-template<class T> void DeviceArray<T>::download(void * host_ptr) {
-	SafeCall(cudaMemcpy(host_ptr, data, sizeof(T) * size,	cudaMemcpyDeviceToHost));
+template<class T> void DeviceArray<T>::download(void * data_) const {
+	download(data_, size);
 }
 
-template<class T> void DeviceArray<T>::download(void * host_ptr, size_t size) {
-	SafeCall(cudaMemcpy(host_ptr, data, sizeof(T) * size,	cudaMemcpyDeviceToHost));
+template<class T> void DeviceArray<T>::download(void * data_, size_t size_) const {
+	SafeCall(cudaMemcpy(data_, data, sizeof(T) * size_,	cudaMemcpyDeviceToHost));
 }
 
 template<class T> void DeviceArray<T>::clear() {

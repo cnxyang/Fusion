@@ -19,6 +19,8 @@ struct Frame {
 
 	static const int NUM_PYRS = 3;
 
+	static const int MIN_KEY_POINTS = 500;
+
 	Frame();
 
 	Frame(const Frame * other);
@@ -71,6 +73,7 @@ struct Frame {
 	Eigen::Matrix4d pose;
 
 	int N;
+	bool bad;
 	cv::cuda::GpuMat descriptors;
 	std::vector<float4> pointNormal;
 	std::vector<Eigen::Vector3f> mapPoints;

@@ -18,7 +18,7 @@ unsigned long Frame::nextId = 0;
 cv::cuda::SURF_CUDA Frame::surfExt;
 cv::Ptr<cv::BRISK> Frame::briskExt;
 
-Frame::Frame():frameId(0), N(0) {}
+Frame::Frame():frameId(0), N(0), bad(false) {}
 
 Frame::Frame(const Frame * other):frameId(other->frameId), N(0) {
 
@@ -71,6 +71,7 @@ void Frame::FillImages(const cv::Mat & range_, const cv::Mat & color_) {
 	}
 
 	frameId = nextId++;
+	bad = false;
 }
 
 void Frame::ResizeImages() {
@@ -196,6 +197,9 @@ void Frame::ExtractKeyPoints() {
 	}
 
 	N = mapPoints.size();
+	if(N < MIN_KEY_POINTS)
+		bad = true;
+
 	descriptors.upload(desc);
 	pose = Eigen::Matrix4d::Identity();
 }

@@ -4,7 +4,8 @@ void ResetMap(DeviceMap map);
 
 void ResetKeyPoints(KeyMap map);
 
-void InsertKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys, size_t size);
+void InsertKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys,
+		DeviceArray<int> & keyIndex, size_t size);
 
 void CollectKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys,
 		DeviceArray<uint> & noKeys);

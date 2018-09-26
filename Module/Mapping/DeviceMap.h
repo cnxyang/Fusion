@@ -98,7 +98,7 @@ struct KeyPoint {
 
 struct SurfKey : public KeyPoint {
 
-	int valid;
+	bool valid;
 
 	float3 pos;
 
@@ -175,7 +175,7 @@ struct KeyMap {
 
 	__device__ SurfKey * FindKey(const float3 & pos, int & first, int & buck, int & hashIndex);
 
-	__device__ void InsertKey(SurfKey* key);
+	__device__ void InsertKey(SurfKey* key, int & hashIndex);
 
 	__device__ void ResetKeys(int index);
 

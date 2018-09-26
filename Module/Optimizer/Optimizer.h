@@ -6,6 +6,9 @@
 class Optimizer {
 
 public:
+
+	const int NUM_LOCAL_KF = 7;
+
 	Optimizer();
 
 	void run();
@@ -22,6 +25,5 @@ protected:
 
 	size_t noKeyFrames;
 };
-
 
 #endif

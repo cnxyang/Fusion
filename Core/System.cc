@@ -46,6 +46,7 @@ System::System(SysDesc* pParam) :
 	map = new Mapping();
 	map->Create();
 
+	optimizer = new Optimizer();
 	viewer = new Viewer();
 	tracker = new Tracker(param->cols, param->rows,
 			param->fx, param->fy, param->cx, param->cy);
@@ -55,9 +56,12 @@ System::System(SysDesc* pParam) :
 	viewer->setTracker(tracker);
 
 	tracker->SetMap(map);
-
 	viewerThread = new std::thread(&Viewer::spin, viewer);
 	viewerThread->detach();
+
+	optimizer->SetMap(map);
+	optimizerThd = new std::thread(&Optimizer::run, optimizer);
+	optimizerThd->detach();
 
 	Frame::mDepthScale = param->DepthScale;
 	Frame::mDepthCutoff = param->DepthCutoff;
@@ -108,11 +112,7 @@ bool System::GrabImage(const cv::Mat & image, const cv::Mat & depth) {
 			map->FuseColor(tracker->LastFrame, noBlocks);
 
 		if (!tracker->mappingDisabled && tracker->state != -1) {
-			if(nFrames % 3 == 0)
-				map->RayTrace(noBlocks, tracker->LastFrame);
-			else
-				map->ForwardWarp(tracker->NextFrame, tracker->LastFrame);
-
+			map->RayTrace(noBlocks, tracker->LastFrame);
 		} else {
 			map->UpdateVisibility(tracker->LastFrame, noBlocks);
 			map->RayTrace(noBlocks, tracker->LastFrame);
@@ -250,6 +250,8 @@ void System::ReadMapFromDisk() {
 	map->ReleaseRAM();
 
 	file.close();
+
+	map->CreateModel();
 }
 
 void System::RebootSystem() {
@@ -259,14 +261,14 @@ void System::RebootSystem() {
 	tracker->ResetTracking();
 }
 
-void System::FilterMessage() {
+void System::FilterMessage(bool finished) {
 
 	if(requestSaveMesh) {
 		WriteMeshToDisk();
 		requestSaveMesh = false;
 	}
 
-	if(requestReboot) {
+	if(finished && requestReboot) {
 		RebootSystem();
 		requestReboot = false;
 	}
@@ -295,6 +297,6 @@ void System::JoinViewer() {
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-		FilterMessage();
+		FilterMessage(true);
 	}
 }

@@ -80,6 +80,8 @@ public:
 	DeviceArray<float3> modelNormal;
 	DeviceArray<uchar3> modelColor;
 	std::vector<SurfKey> hostKeys;
+
+	std::set<const KeyFrame *> localMap;
 	std::set<const KeyFrame *> keyFrames;
 
 	int * heapRAM;
@@ -118,11 +120,12 @@ protected:
 
 	DeviceArray<uint> noKeys;
 	DeviceArray<int> mutexKeys;
+	DeviceArray<int> mapKeyIndex;
 	DeviceArray<SurfKey> mapKeys;
 	DeviceArray<SurfKey> tmpKeys;
 	DeviceArray<SurfKey> surfKeys;
 
-	bool hasNewKFFlag;
+	std::atomic<bool> hasNewKFFlag;
 };
 
 #endif

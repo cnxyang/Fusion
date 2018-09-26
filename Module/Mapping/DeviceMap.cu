@@ -228,7 +228,8 @@ __device__ SurfKey * KeyMap::FindKey(const float3 & pos) {
 	return nullptr;
 }
 
-__device__ SurfKey * KeyMap::FindKey(const float3& pos, int & first, int & buck, int & hashIndex) {
+__device__ SurfKey * KeyMap::FindKey(const float3 & pos, int & first,
+		int & buck, int & hashIndex) {
 
 	first = -1;
 	int3 p = make_int3(pos / GridSize);
@@ -249,29 +250,36 @@ __device__ SurfKey * KeyMap::FindKey(const float3& pos, int & first, int & buck,
 		}
 	}
 
-	if(first != -1)
-		hashIndex = first;
-	return nullptr;
+	return NULL;
 }
 
-__device__ void KeyMap::InsertKey(SurfKey * key) {
+__device__ void KeyMap::InsertKey(SurfKey * key, int & hashIndex) {
 
-	int first = -1;
 	int buck = 0;
-	int hashIndex;
-	SurfKey * oldKey = FindKey(key->pos, first, buck, hashIndex);
+	int first = -1;
+	SurfKey * oldKey = NULL;
+	if(hashIndex >= 0 && hashIndex < Keys.size) {
+		oldKey = &Keys[hashIndex];
+		if (oldKey && oldKey->valid) {
+			return;
+		}
+	}
+
+	oldKey = FindKey(key->pos, first, buck, hashIndex);
 	if (oldKey && oldKey->valid) {
 		return;
 	}
 	else if (first != -1) {
+
 		int lock = atomicExch(&Mutex[buck], 1);
 		if (lock < 0) {
 			hashIndex = first;
 			SurfKey * oldkey = &Keys[first];
 			memcpy((void*) oldkey, (void*) key, sizeof(SurfKey));
+
+			atomicExch(&Mutex[buck], -1);
+			return;
 		}
-		atomicExch(&Mutex[buck], -1);
-		return;
 	}
 }
 
@@ -282,6 +290,5 @@ __device__ void KeyMap::ResetKeys(int index) {
 
 	if (index < Keys.size) {
 		Keys[index].valid = false;
-//		Keys[index].obs = 0;
 	}
 }

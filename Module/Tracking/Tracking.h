@@ -59,9 +59,13 @@ protected:
 
 	bool ComputeSE3();
 
+	void RenderView();
+
 	bool TrackReferenceKF();
 
 	bool TrackLastFrame();
+
+	void CheckOutliers();
 
 	bool Relocalise();
 

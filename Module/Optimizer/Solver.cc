@@ -3,8 +3,9 @@
 
 #include "Solver.h"
 
-bool Solver::PoseEstimate(std::vector<Eigen::Vector3d> & src, std::vector<Eigen::Vector3d> & ref,
-				          std::vector<bool> & outlier, Eigen::Matrix4d & Tlastcurr, int iteration, bool checkAngle) {
+bool Solver::PoseEstimate(std::vector<Eigen::Vector3d> & src,
+		std::vector<Eigen::Vector3d> & ref, std::vector<bool> & outlier,
+		Eigen::Matrix4d & Tlastcurr, int iteration, bool checkAngle) {
 
 	Eigen::Matrix3d R_best = Eigen::Matrix3d::Identity();
 	Eigen::Vector3d t_best = Eigen::Vector3d::Zero();

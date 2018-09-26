@@ -4,12 +4,14 @@
 #include "Viewer.h"
 #include "Mapping.h"
 #include "Tracking.h"
+#include "Optimizer.h"
 
 #include <thread>
 
 class Viewer;
 class Mapping;
 class Tracker;
+class Optimizer;
 
 struct SysDesc {
 	int cols, rows;
@@ -36,7 +38,7 @@ public:
 
 	void RebootSystem();
 
-	void FilterMessage();
+	void FilterMessage(bool finished = false);
 
 	void WriteMeshToDisk();
 
@@ -68,7 +70,11 @@ protected:
 	SysDesc * param;
 	Viewer  * viewer;
 	Tracker * tracker;
+	Optimizer * optimizer;
+
 	std::thread * viewerThread;
+	std::thread * optimizerThd;
+
 	int num_frames_after_reloc;
 
 };

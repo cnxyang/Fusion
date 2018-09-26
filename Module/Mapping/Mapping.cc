@@ -45,6 +45,7 @@ void Mapping::Create() {
 	mapKeys.create(KeyMap::maxEntries);
 	tmpKeys.create(KeyMap::maxEntries);
 	surfKeys.create(2000);
+	mapKeyIndex.create(2000);
 
 	Reset();
 }
@@ -184,58 +185,53 @@ bool Mapping::HasNewKF() {
 
 void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 
-	if(keyFrames.count(kf))
+	if (keyFrames.count(kf))
 		return;
 
 	keyFrames.insert(kf);
 	hasNewKFFlag = true;
 
 	cv::Mat desc;
+	std::vector<int> index;
+	std::vector<int> keyIndex;
 	std::vector<SurfKey> keyChain;
 	kf->descriptors.download(desc);
-	int noK = std::min(kf->N, (int)surfKeys.size);
+	int noK = std::min(kf->N, (int) surfKeys.size);
 
-	for(int i = 0; i < noK; ++i) {
-		if(kf->observations[i] > -1) {
+	for (int i = 0; i < noK; ++i) {
+
+		if (kf->observations[i] > 1) {
+
 			SurfKey key;
 			Eigen::Vector3f pt = kf->GetWorldPoint(i);
-			key.pos = {pt(0), pt(1), pt(2)};
+			key.pos = { pt(0), pt(1), pt(2) };
 			key.normal = kf->pointNormal[i];
 			key.valid = true;
+
 			for (int j = 0; j < 64; ++j) {
 				key.descriptor[j] = desc.at<float>(i, j);
 			}
+
+			index.push_back(i);
 			keyChain.push_back(key);
+			keyIndex.push_back(kf->keyIndex[i]);
 		}
 	}
 
 	surfKeys.upload(keyChain.data(), keyChain.size());
-	InsertKeyPoints(*this, surfKeys, keyChain.size());
+	mapKeyIndex.upload(keyIndex.data(), keyIndex.size());
+	InsertKeyPoints(*this, surfKeys, mapKeyIndex, keyChain.size());
+	mapKeyIndex.download(keyIndex.data(), keyIndex.size());
+
+	for(int i = 0; i < index.size(); ++i) {
+		int idx = index[i];
+		kf->keyIndex[idx] = keyIndex[i];
+	}
 }
 
 void Mapping::FuseKeyPoints(const Frame * f) {
 
-	cv::Mat desc;
-	std::vector<SurfKey> keyChain;
-	f->descriptors.download(desc);
-	int noK = std::min(f->N, (int)surfKeys.size);
-
-	for(int i = 0; i < noK; ++i) {
-		if(!f->outliers[i]) {
-			SurfKey key;
-			Eigen::Vector3f pt = f->GetWorldPoint(i);
-			key.pos = { pt(0), pt(1), pt(2) };
-			key.normal = f->pointNormal[i];
-			key.valid = true;
-			for(int j = 0; j < 64; ++j) {
-				key.descriptor[j] = desc.at<float>(i, j);
-			}
-			keyChain.push_back(key);
-		}
-	}
-
-	surfKeys.upload(keyChain.data(), keyChain.size());
-	InsertKeyPoints(*this, surfKeys, keyChain.size());
+	std::cout << "NOT IMPLEMENTED" << std::endl;
 }
 
 void Mapping::Reset() {

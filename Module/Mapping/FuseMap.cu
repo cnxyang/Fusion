@@ -355,13 +355,7 @@ void ResetMap(DeviceMap map) {
 
 __global__ void ResetKeyPointsKernel(KeyMap map) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	if(x < KeyMap::maxEntries) {
-		map.Keys[x].valid = false;
-	}
-
-	if(x < KeyMap::nBuckets) {
-		map.Mutex[x] = EntryAvailable;
-	}
+	map.ResetKeys(x);
 }
 
 void ResetKeyPoints(KeyMap map) {
@@ -406,9 +400,8 @@ struct KeyFusion {
 	__device__ __forceinline__ void InsertKeys() {
 
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
-		if (x < size) {
-			map.InsertKey(&keys[x]);
-		}
+		if (x < size)
+			map.InsertKey(&keys[x], index[x]);
 	}
 
 	KeyMap map;
@@ -418,6 +411,8 @@ struct KeyFusion {
 	PtrSz<SurfKey> keys;
 
 	size_t size;
+
+	PtrSz<int> index;
 };
 
 __global__ void CollectKeyPointsKernel(KeyFusion fuse) {
@@ -444,15 +439,18 @@ void CollectKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys, DeviceArray<uint>
 	SafeCall(cudaGetLastError());
 }
 
-void InsertKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys, size_t size) {
+void InsertKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys,
+		DeviceArray<int> & keyIndex, size_t size) {
 
 	if(size == 0)
 		return;
 
 	KeyFusion fuse;
+
 	fuse.map = map;
 	fuse.keys = keys;
 	fuse.size = size;
+	fuse.index = keyIndex;
 
 	dim3 thread(1024);
 	dim3 block(DivUp(size, thread.x));

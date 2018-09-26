@@ -44,9 +44,9 @@ Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) {
 	iteration[1] = 5;
 	iteration[2] = 3;
 
-	minIcpCount[0] = 100000;
-	minIcpCount[1] = 25000;
-	minIcpCount[2] = 6250;
+	minIcpCount[0] = 0;
+	minIcpCount[1] = 0;
+	minIcpCount[2] = 0;
 
 	K = Intrinsics(fx, fy, cx, cy);
 	matcher = cuda::DescriptorMatcher::createBFMatcher(NORM_L2);
@@ -72,14 +72,7 @@ bool Tracker::Track() {
 	bool valid = false;
 	std::swap(state, lastState);
 	if(needImages) {
-		if(updateImageMutex.try_lock()) {
-			if(state != -1 && state != 1)
-				RenderImage(LastFrame->vmap[0], LastFrame->nmap[0], make_float3(0), renderedImage);
-			DepthToImage(LastFrame->range, renderedDepth);
-			RgbImageToRgba(LastFrame->color, rgbaImage);
-			imageUpdated = true;
-			updateImageMutex.unlock();
-		}
+		RenderView();
 	}
 
 	switch(state) {
@@ -98,6 +91,8 @@ bool Tracker::Track() {
 				lastState = 0;
 				if(NeedKeyFrame())
 					CreateKeyFrame();
+				else
+					CheckOutliers();
 				SwapFrame();
 				return true;
 			}
@@ -128,6 +123,37 @@ bool Tracker::Track() {
 	}
 }
 
+void Tracker::CheckOutliers() {
+
+	Eigen::Matrix4f deltaT = ReferenceKF->pose.inverse() * NextFrame->pose.cast<float>();
+	Eigen::Matrix3f deltaR = deltaT.topLeftCorner(3, 3);
+	Eigen::Vector3f deltat = deltaT.topRightCorner(3, 1);
+
+	std::vector<cv::DMatch> matches;
+	matcher->match(NextFrame->descriptors, ReferenceKF->descriptors, matches);
+	for(int i = 0; i < matches.size(); ++i) {
+		Eigen::Vector3f src = NextFrame->mapPoints[matches[i].queryIdx];
+		Eigen::Vector3f ref = ReferenceKF->mapPoints[matches[i].trainIdx];
+		double d = (src - (deltaR * ref + deltat)).norm();
+		if(d <= 0.05f) {
+			ReferenceKF->observations[matches[i].trainIdx]++;
+		}
+	}
+}
+
+void Tracker::RenderView() {
+
+	if (updateImageMutex.try_lock()) {
+		if (state != -1 && state != 1)
+			RenderImage(LastFrame->vmap[0], LastFrame->nmap[0], make_float3(0),
+					renderedImage);
+		DepthToImage(LastFrame->range, renderedDepth);
+		RgbImageToRgba(LastFrame->color, rgbaImage);
+		imageUpdated = true;
+		updateImageMutex.unlock();
+	}
+}
+
 bool Tracker::TrackFrame() {
 
 	bool valid = false;
@@ -135,6 +161,7 @@ bool Tracker::TrackFrame() {
 	valid = TrackLastFrame();
 
 	if(!valid) {
+		std::cout << "track last frame failed" << std::endl;
 		return false;
 	}
 
@@ -328,6 +355,7 @@ bool Tracker::ComputeSE3() {
 			icpCount = (int) icpResidual[1];
 
 			if (std::isnan(icpError) || icpCount < minIcpCount[i]) {
+				std::cout << "track icp failed" << std::endl;
 				NextFrame->pose = lastPose;
 				return false;
 			}
@@ -345,7 +373,6 @@ bool Tracker::ComputeSE3() {
 	Eigen::Vector3d t = p.topRightCorner(3, 1);
 	Eigen::Vector3d a = r.eulerAngles(0, 1, 2).array().sin();
 	if(icpError < 1e-4 && a.norm() <= 0.1 && t.norm() <= 0.1) {
-		std::cout << "good: " << icpError << "/" << icpCount <<" " << t.norm() << " " << a.norm() << std::endl;
 		return true;
 	}
 	else {
@@ -382,7 +409,7 @@ bool Tracker::Relocalise() {
 	std::vector<std::vector<cv::DMatch>> matches;
 	matcher->knnMatch(NextFrame->descriptors, descriptors, matches, 2);
 	for (int i = 0; i < matches.size(); ++i) {
-		if (matches[i][0].distance < 0.9 * matches[i][1].distance) {
+		if (matches[i][0].distance < 0.8 * matches[i][1].distance) {
 			refined.push_back(matches[i][0]);
 		}
 	}
