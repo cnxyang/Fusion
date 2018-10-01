@@ -295,6 +295,7 @@ bool Tracker::NeedKeyFrame() {
 }
 
 void Tracker::CreateKeyFrame() {
+
 	if(ReferenceKF)
 		map->FuseKeyFrame(ReferenceKF);
 	std::swap(ReferenceKF, LastKeyFrame);

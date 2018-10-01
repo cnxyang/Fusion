@@ -268,7 +268,7 @@ void System::FilterMessage(bool finished) {
 		requestSaveMesh = false;
 	}
 
-	if(finished && requestReboot) {
+	if(!finished && requestReboot) {
 		RebootSystem();
 		requestReboot = false;
 	}
@@ -292,6 +292,13 @@ void System::FilterMessage(bool finished) {
 }
 
 void System::JoinViewer() {
+
+	std::set<const KeyFrame *>::const_iterator iter = map->keyFrames.begin();
+	std::set<const KeyFrame *>::const_iterator lend = map->keyFrames.end();
+	for(; iter != lend; ++iter) {
+		const KeyFrame * kf = *iter;
+		std::cout << kf->pose << kf->newPose << std::endl;
+	}
 
 	while(true) {
 

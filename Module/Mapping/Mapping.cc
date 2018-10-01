@@ -106,6 +106,16 @@ void Mapping::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 	}
 }
 
+std::vector<KeyFrame *> Mapping::LocalMap() const {
+
+	std::vector<KeyFrame *> tmp;
+	std::vector<const KeyFrame *>::const_iterator iter = localMap.begin();
+	std::vector<const KeyFrame *>::const_iterator lend = localMap.end();
+	for(; iter != lend; ++iter)
+		tmp.push_back(const_cast<KeyFrame *>(*iter));
+	return tmp;
+}
+
 void Mapping::CreateModel() {
 
 	MeshScene(nBlocks, noTriangles, *this, edgeTable, vertexTable,
@@ -196,6 +206,8 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 	std::vector<int> keyIndex;
 	std::vector<SurfKey> keyChain;
 	kf->descriptors.download(desc);
+	kf->outliers.resize(kf->N);
+	std::fill(kf->outliers.begin(), kf->outliers.end(), true);
 	int noK = std::min(kf->N, (int) surfKeys.size);
 
 	for (int i = 0; i < noK; ++i) {
@@ -215,18 +227,35 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 			index.push_back(i);
 			keyChain.push_back(key);
 			keyIndex.push_back(kf->keyIndex[i]);
+			kf->outliers[i] = false;
 		}
 	}
 
 	surfKeys.upload(keyChain.data(), keyChain.size());
 	mapKeyIndex.upload(keyIndex.data(), keyIndex.size());
+
 	InsertKeyPoints(*this, surfKeys, mapKeyIndex, keyChain.size());
+
 	mapKeyIndex.download(keyIndex.data(), keyIndex.size());
+	surfKeys.download(keyChain.data(), keyChain.size());
 
 	for(int i = 0; i < index.size(); ++i) {
 		int idx = index[i];
 		kf->keyIndex[idx] = keyIndex[i];
+		float3 pos = keyChain[i].pos;
+		kf->mapPoints[idx] << pos.x, pos.y, pos.z;
 	}
+
+	if(localMap.size() > 0) {
+		if(localMap.size() >= 7) {
+			localMap.erase(localMap.begin());
+			localMap.push_back(kf);
+		}
+		else
+			localMap.push_back(kf);
+	}
+	else
+		localMap.push_back(kf);
 }
 
 void Mapping::FuseKeyPoints(const Frame * f) {

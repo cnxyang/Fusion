@@ -162,7 +162,7 @@ struct DeviceMap {
 
 struct KeyMap {
 
-	static constexpr float GridSize = 0.05;
+	static constexpr float GridSize = 0.005;
 	static constexpr int MaxKeys = 100000;
 	static constexpr int nBuckets = 5;
 	static constexpr int maxEntries = MaxKeys * nBuckets;

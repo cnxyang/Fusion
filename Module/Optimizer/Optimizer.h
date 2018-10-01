@@ -17,6 +17,8 @@ public:
 
 	void GlobalBA();
 
+	void GetLocalMap();
+
 	void SetMap(Mapping * map_);
 
 protected:
@@ -24,6 +26,10 @@ protected:
 	Mapping * map;
 
 	size_t noKeyFrames;
+
+	std::vector<KeyFrame *> localMap;
+
+	std::vector<KeyFrame *> globalMap;
 };
 
 #endif

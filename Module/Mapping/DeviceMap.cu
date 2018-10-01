@@ -258,15 +258,17 @@ __device__ void KeyMap::InsertKey(SurfKey * key, int & hashIndex) {
 	int buck = 0;
 	int first = -1;
 	SurfKey * oldKey = NULL;
-	if(hashIndex >= 0 && hashIndex < Keys.size) {
-		oldKey = &Keys[hashIndex];
-		if (oldKey && oldKey->valid) {
-			return;
-		}
-	}
+//	if(hashIndex >= 0 && hashIndex < Keys.size) {
+//		oldKey = &Keys[hashIndex];
+//		if (oldKey && oldKey->valid) {
+//			key->pos = oldKey->pos;
+//			return;
+//		}
+//	}
 
 	oldKey = FindKey(key->pos, first, buck, hashIndex);
 	if (oldKey && oldKey->valid) {
+		key->pos = oldKey->pos;
 		return;
 	}
 	else if (first != -1) {

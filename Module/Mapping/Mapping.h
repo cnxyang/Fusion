@@ -68,9 +68,12 @@ public:
 
 	operator DeviceMap() const;
 
+	std::vector<KeyFrame *> LocalMap() const;
+
 	std::atomic<bool> meshUpdated;
 	std::atomic<bool> mapPointsUpdated;
 	std::atomic<bool> mapUpdated;
+	std::atomic<bool> hasNewKFFlag;
 	bool lost;
 
 	uint noKeysHost;
@@ -81,7 +84,7 @@ public:
 	DeviceArray<uchar3> modelColor;
 	std::vector<SurfKey> hostKeys;
 
-	std::set<const KeyFrame *> localMap;
+	std::vector<const KeyFrame *> localMap;
 	std::set<const KeyFrame *> keyFrames;
 
 	int * heapRAM;
@@ -124,8 +127,6 @@ protected:
 	DeviceArray<SurfKey> mapKeys;
 	DeviceArray<SurfKey> tmpKeys;
 	DeviceArray<SurfKey> surfKeys;
-
-	std::atomic<bool> hasNewKFFlag;
 };
 
 #endif
