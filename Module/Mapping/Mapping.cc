@@ -116,6 +116,16 @@ std::vector<KeyFrame *> Mapping::LocalMap() const {
 	return tmp;
 }
 
+std::vector<KeyFrame *> Mapping::GlobalMap() const {
+
+	std::vector<KeyFrame *> tmp;
+	std::set<const KeyFrame *>::const_iterator iter = keyFrames.begin();
+	std::set<const KeyFrame *>::const_iterator lend = keyFrames.end();
+	for(; iter != lend; ++iter)
+		tmp.push_back(const_cast<KeyFrame *>(*iter));
+	return tmp;
+}
+
 void Mapping::CreateModel() {
 
 	MeshScene(nBlocks, noTriangles, *this, edgeTable, vertexTable,
@@ -204,7 +214,7 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 	cv::Mat desc;
 	std::vector<int> index;
 	std::vector<int> keyIndex;
-	std::vector<SurfKey> keyChain;
+	std::vector<SURF> keyChain;
 	kf->descriptors.download(desc);
 	kf->outliers.resize(kf->N);
 	std::fill(kf->outliers.begin(), kf->outliers.end(), true);
@@ -214,7 +224,7 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 
 		if (kf->observations[i] > 1) {
 
-			SurfKey key;
+			SURF key;
 			Eigen::Vector3f pt = kf->GetWorldPoint(i);
 			key.pos = { pt(0), pt(1), pt(2) };
 			key.normal = kf->pointNormal[i];

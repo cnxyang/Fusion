@@ -135,7 +135,7 @@ void Tracker::CheckOutliers() {
 		Eigen::Vector3f src = NextFrame->mapPoints[matches[i].queryIdx];
 		Eigen::Vector3f ref = ReferenceKF->mapPoints[matches[i].trainIdx];
 		double d = (src - (deltaR * ref + deltat)).norm();
-		if(d <= 0.05f) {
+		if (d <= 0.05f) {
 			ReferenceKF->observations[matches[i].trainIdx]++;
 		}
 	}
@@ -258,7 +258,7 @@ void Tracker::FindNearestKF() {
 	Eigen::Vector3d t = pose.topRightCorner(3, 1);
 	Eigen::Vector3d angle = r.eulerAngles(0, 1, 2).array().sin();
 
-	for(; iter != lend; ++iter) {
+	for (; iter != lend; ++iter) {
 		const KeyFrame * kf = *iter;
 		pose = NextFrame->pose.inverse() * kf->pose.cast<double>();
 		r = pose.topLeftCorner(3, 3);
@@ -267,14 +267,14 @@ void Tracker::FindNearestKF() {
 
 		float nrot = angle.norm();
 		float ntrans = t.norm();
-		if((nrot + ntrans) < (norm_rot + norm_trans)) {
+		if ((nrot + ntrans) < (norm_rot + norm_trans)) {
 			CandidateKF = const_cast<KeyFrame *>(kf);
 			norm_rot = angle.norm();
 			norm_trans = t.norm();
 		}
 	}
 
-	if(CandidateKF != ReferenceKF) {
+	if (CandidateKF != ReferenceKF) {
 		ReferenceKF = CandidateKF;
 	}
 }
@@ -288,7 +288,7 @@ bool Tracker::NeedKeyFrame() {
 	Eigen::Matrix3f dR = dT.topLeftCorner(3, 3);
 	Eigen::Vector3f dt = dT.topRightCorner(3, 1);
 	Eigen::Vector3f angle = dR.eulerAngles(0, 1, 2).array().sin();
-	if(angle.norm() > 0.1 || dt.norm() > 0.1 )
+	if (angle.norm() > 0.1 || dt.norm() > 0.1)
 		return true;
 
 	return false;
@@ -296,7 +296,7 @@ bool Tracker::NeedKeyFrame() {
 
 void Tracker::CreateKeyFrame() {
 
-	if(ReferenceKF)
+	if (ReferenceKF)
 		map->FuseKeyFrame(ReferenceKF);
 	std::swap(ReferenceKF, LastKeyFrame);
 	ReferenceKF = new KeyFrame(NextFrame);
@@ -395,7 +395,7 @@ bool Tracker::Relocalise() {
 		cv::Mat desc(map->noKeysHost, 64, CV_32FC1);
 		mapKeys.clear();
 		for(int i = 0; i < map->noKeysHost; ++i) {
-			SurfKey & key = map->hostKeys[i];
+			SURF & key = map->hostKeys[i];
 			for(int j = 0; j < 64; ++j) {
 				desc.at<float>(i, j) = key.descriptor[j];
 			}
@@ -412,6 +412,9 @@ bool Tracker::Relocalise() {
 	for (int i = 0; i < matches.size(); ++i) {
 		if (matches[i][0].distance < 0.8 * matches[i][1].distance) {
 			refined.push_back(matches[i][0]);
+		} else if(useGraphMatching) {
+			refined.push_back(matches[i][0]);
+			refined.push_back(matches[i][1]);
 		}
 	}
 
@@ -420,9 +423,14 @@ bool Tracker::Relocalise() {
 
 	framePoints.clear();
 	refPoints.clear();
-	for (int i = 0; i < refined.size(); ++i) {
-		framePoints.push_back(NextFrame->mapPoints[refined[i].queryIdx].cast<double>());
-		refPoints.push_back(mapKeys[refined[i].trainIdx]);
+
+	if(useGraphMatching) {
+		FilterMatching();
+	} else {
+		for (int i = 0; i < refined.size(); ++i) {
+			framePoints.push_back(NextFrame->mapPoints[refined[i].queryIdx].cast<double>());
+			refPoints.push_back(mapKeys[refined[i].trainIdx]);
+		}
 	}
 
 	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
@@ -432,6 +440,8 @@ bool Tracker::Relocalise() {
 		return false;
 	}
 
+	// try to find a closest Key Frame in the map
+	// TODO: should consider topological relations
 	KeyFrame * CandidateKF = NULL;
 	float norm_rot, norm_trans;
 	std::set<const KeyFrame *>::iterator iter = map->keyFrames.begin();
@@ -467,75 +477,88 @@ bool Tracker::Relocalise() {
 
 void Tracker::FilterMatching() {
 
-//	frameKeySelected.clear();
-//	mapKeySelected.clear();
-//	keyDistance.clear();
-//	vQueryIdx.clear();
-//	cv::Mat cpuFrameDesc;
-//	NextFrame->descriptors.download(cpuFrameDesc);
-//	cv::Mat cpuMatching(2, refined.size(), CV_32SC1);
-//
-//	for (int i = 0; i < refined.size(); ++i) {
-//		int trainIdx = refined[i].trainIdx;
-//		int queryIdx = refined[i].queryIdx;
-//		SurfKey trainKey = map->hostKeys[trainIdx];
-//		SurfKey queryKey;
-//		if (trainKey.valid && queryKey.valid) {
-//			Eigen::Vector3f & p = NextFrame->mapPoints[queryIdx];
-//			queryKey.pos = { p(0), p(1), p(2) };
-//			queryKey.normal = NextFrame->pointNormal[queryIdx];
-//			frameKeySelected.push_back(queryKey);
-//			mapKeySelected.push_back(trainKey);
-//			keyDistance.push_back(refined[i].distance);
-//			vQueryIdx.push_back(queryIdx);
-//		}
-//	}
-//
-//	DeviceArray<SurfKey> trainKeys(mapKeySelected.size());
-//	DeviceArray<SurfKey> queryKeys(frameKeySelected.size());
-//	DeviceArray<float> MatchDist(keyDistance.size());
-//	DeviceArray<int> QueryIdx(vQueryIdx.size());
-//
-//	MatchDist.upload((void*) keyDistance.data(), keyDistance.size());
-//	trainKeys.upload((void*) mapKeySelected.data(), mapKeySelected.size());
-//	queryKeys.upload((void*) frameKeySelected.data(), frameKeySelected.size());
-//	QueryIdx.upload((void*) vQueryIdx.data(), vQueryIdx.size());
-//
-//	cuda::GpuMat AdjecencyMatrix(refined.size(), refined.size(), CV_32FC1);
-//	DeviceArray<SurfKey> query_select, train_select;
-//	DeviceArray<int> SelectedIdx;
-//
-//	BuildAdjecencyMatrix(AdjecencyMatrix, trainKeys, queryKeys, MatchDist,
-//			train_select, query_select, QueryIdx, SelectedIdx);
-//
-//	std::vector<int> vSelectedIdx;
-//	std::vector<SurfKey> vORB_train, vORB_query;
-//	vSelectedIdx.resize(SelectedIdx.size);
-//	vORB_train.resize(train_select.size);
-//	vORB_query.resize(query_select.size);
-//
-//	train_select.download((void*) vORB_train.data(), vORB_train.size());
-//	query_select.download((void*) vORB_query.data(), vORB_query.size());
-//	SelectedIdx.download((void*) vSelectedIdx.data(), vSelectedIdx.size());
-//
-//	for (int i = 0; i < query_select.size; ++i) {
-//		Eigen::Vector3d p, q;
-//		if (vORB_query[i].valid && vORB_train[i].valid) {
-//			bool redundant = false;
-//			for (int j = 0; j < i; j++) {
-//				if (vSelectedIdx[j] == vSelectedIdx[i]) {
-//					redundant = true;
-//					break;
-//				}
-//			}
-//			if (!redundant) {
-//				p << vORB_query[i].pos.x, vORB_query[i].pos.y, vORB_query[i].pos.z;
-//				q << vORB_train[i].pos.x, vORB_train[i].pos.y, vORB_train[i].pos.z;
-//				plist.push_back(p);
-//				qlist.push_back(q);
-//			}
-//		}
-//	}
+	// used for storing key points in the current frame
+	frameKeySelected.clear();
+	// used for storing key points in the map (current time slice)
+	mapKeySelected.clear();
+	// store distances between all matches.
+	keyDistance.clear();
+	// frame key indices
+	queryKeyIdx.clear();
+
+	// build a list of query key points for the current frame
+	for (int i = 0; i < refined.size(); ++i) {
+
+		// get information from key matches
+		int trainIdx = refined[i].trainIdx;
+		int queryIdx = refined[i].queryIdx;
+		SURF & trainKey = map->hostKeys[trainIdx];
+
+		if (!trainKey.valid)
+			continue;
+
+		SURF queryKey;
+		Eigen::Vector3f & p = NextFrame->mapPoints[queryIdx];
+		queryKey.pos = {p(0), p(1), p(2)};
+		queryKey.normal = NextFrame->pointNormal[queryIdx];
+		frameKeySelected.push_back(queryKey);
+		mapKeySelected.push_back(trainKey);
+		keyDistance.push_back(refined[i].distance);
+		queryKeyIdx.push_back(queryIdx);
+	}
+
+	DeviceArray<SURF> trainKeys(mapKeySelected.size());
+	DeviceArray<SURF> queryKeys(frameKeySelected.size());
+	DeviceArray<float> matchDist(keyDistance.size());
+	DeviceArray<int> queryIdx(queryKeyIdx.size());
+
+	matchDist.upload(keyDistance);
+	trainKeys.upload(mapKeySelected);
+	queryKeys.upload(frameKeySelected);
+
+	// the idx of all query key points
+	queryIdx.upload((void*) queryKeyIdx.data(), queryKeyIdx.size());
+
+	cuda::GpuMat AdjecencyMatrix(refined.size(), refined.size(), CV_32FC1);
+
+	// build adjacency matrix from raw key point matches
+	DeviceArray<int> SelectedIdx;
+	DeviceArray<SURF> queryFiltered, trainFiltered;
+	BuildAdjecencyMatrix(AdjecencyMatrix, trainKeys, queryKeys, matchDist);
+
+	// filtered out useful key points
+	FilterKeyMatching(AdjecencyMatrix, trainKeys, queryKeys, trainFiltered,
+			queryFiltered, queryIdx, SelectedIdx);
+
+	std::vector<int> keyIdxFiltered_cpu;
+	std::vector<SURF> trainKeyFiltered_cpu;
+	std::vector<SURF> queryKeyFiltered_cpu;
+
+	trainFiltered.download(trainKeyFiltered_cpu);
+	queryFiltered.download(queryKeyFiltered_cpu);
+	SelectedIdx.download(keyIdxFiltered_cpu);
+
+	// filter out redundant feature matchings
+	Eigen::Vector3d p, q;
+	for (int i = 0; i < queryFiltered.size; ++i) {
+		if (!queryKeyFiltered_cpu[i].valid || !trainKeyFiltered_cpu[i].valid)
+			continue;
+
+		bool redundant = false;
+		for (int j = 0; j < i; j++) {
+			if (keyIdxFiltered_cpu[j] == keyIdxFiltered_cpu[i]) {
+				redundant = true;
+				break;
+			}
+		}
+		if (redundant)
+			continue;
+
+		p << queryKeyFiltered_cpu[i].pos.x, queryKeyFiltered_cpu[i].pos.y, queryKeyFiltered_cpu[i].pos.z;
+		q << trainKeyFiltered_cpu[i].pos.x, trainKeyFiltered_cpu[i].pos.y, trainKeyFiltered_cpu[i].pos.z;
+		framePoints.push_back(p);
+		refPoints.push_back(q);
+	}
 }
 
 Eigen::Matrix4f Tracker::GetCurrentPose() const {

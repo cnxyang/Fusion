@@ -381,7 +381,7 @@ struct KeyFusion {
 		uint val = 0;
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
 		if(x < map.Keys.size) {
-			SurfKey * key = &map.Keys[x];
+			SURF * key = &map.Keys[x];
 			if(key->valid) {
 				scan = true;
 				val = 1;
@@ -392,7 +392,7 @@ struct KeyFusion {
 		if(scan) {
 			int offset = ComputeOffset<1024>(val, nokeys);
 			if(offset > 0 && x < map.Keys.size) {
-				memcpy(&keys[offset], &map.Keys[x], sizeof(SurfKey));
+				memcpy(&keys[offset], &map.Keys[x], sizeof(SURF));
 			}
 		}
 	}
@@ -408,7 +408,7 @@ struct KeyFusion {
 
 	uint * nokeys;
 
-	PtrSz<SurfKey> keys;
+	PtrSz<SURF> keys;
 
 	size_t size;
 
@@ -423,7 +423,7 @@ __global__ void InsertKeyPointsKernel(KeyFusion fuse) {
 	fuse.InsertKeys();
 }
 
-void CollectKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys, DeviceArray<uint> & noKeys) {
+void CollectKeyPoints(KeyMap map, DeviceArray<SURF> & keys, DeviceArray<uint> & noKeys) {
 
 	KeyFusion fuse;
 	fuse.map = map;
@@ -439,7 +439,7 @@ void CollectKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys, DeviceArray<uint>
 	SafeCall(cudaGetLastError());
 }
 
-void InsertKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys,
+void InsertKeyPoints(KeyMap map, DeviceArray<SURF> & keys,
 		DeviceArray<int> & keyIndex, size_t size) {
 
 	if(size == 0)

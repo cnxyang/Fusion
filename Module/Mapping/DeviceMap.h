@@ -96,7 +96,7 @@ struct KeyPoint {
 
 };
 
-struct SurfKey : public KeyPoint {
+struct SURF : public KeyPoint {
 
 	bool valid;
 
@@ -134,7 +134,7 @@ struct DeviceMap {
 
 	static constexpr uint BlockSize = 8;
 	static constexpr uint BlockSize3 = 512;
-	static constexpr float DepthMin = 0.1f;
+	static constexpr float DepthMin = 0.0f;
 	static constexpr float DepthMax = 3.0f;
 	static constexpr uint NumExcess = 500000;
 	static constexpr uint NumBuckets = 1000000;
@@ -171,15 +171,15 @@ struct KeyMap {
 
 	__device__ int Hash(const int3& pos);
 
-	__device__ SurfKey * FindKey(const float3 & pos);
+	__device__ SURF * FindKey(const float3 & pos);
 
-	__device__ SurfKey * FindKey(const float3 & pos, int & first, int & buck, int & hashIndex);
+	__device__ SURF * FindKey(const float3 & pos, int & first, int & buck, int & hashIndex);
 
-	__device__ void InsertKey(SurfKey* key, int & hashIndex);
+	__device__ void InsertKey(SURF* key, int & hashIndex);
 
 	__device__ void ResetKeys(int index);
 
-	PtrSz<SurfKey> Keys;
+	PtrSz<SURF> Keys;
 
 	PtrSz<int> Mutex;
 };

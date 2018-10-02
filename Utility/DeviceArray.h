@@ -3,6 +3,7 @@
 
 #include "SafeCall.h"
 
+#include <vector>
 #include <atomic>
 
 template<class T> struct PtrSz {
@@ -50,9 +51,13 @@ template<class T> struct DeviceArray {
 
 	void upload(const void * data_);
 
+	void upload(const std::vector<T> & vec);
+
 	void upload(const void * data_, size_t size_);
 
 	void download(void * data_) const;
+
+	void download(std::vector<T> & vec) const;
 
 	void download(void * data_, size_t size_) const;
 
@@ -170,6 +175,10 @@ template<class T> void DeviceArray<T>::upload(const void * data_) {
 	upload(data_, size);
 }
 
+template<class T> void DeviceArray<T>::upload(const std::vector<T> & vec) {
+	upload(vec.data(), vec.size());
+}
+
 template<class T> void DeviceArray<T>::upload(const void * data_, size_t size_) {
 	if (size_ > size) return;
 	SafeCall(cudaMemcpy(data, data_, sizeof(T) * size_, cudaMemcpyHostToDevice));
@@ -177,6 +186,12 @@ template<class T> void DeviceArray<T>::upload(const void * data_, size_t size_) 
 
 template<class T> void DeviceArray<T>::download(void * data_) const {
 	download(data_, size);
+}
+
+template<class T> void DeviceArray<T>::download(std::vector<T> & vec) const {
+	if(vec.size() != size)
+		vec.resize(size);
+	download((void*) vec.data(), vec.size());
 }
 
 template<class T> void DeviceArray<T>::download(void * data_, size_t size_) const {

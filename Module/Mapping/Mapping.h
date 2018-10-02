@@ -70,6 +70,8 @@ public:
 
 	std::vector<KeyFrame *> LocalMap() const;
 
+	std::vector<KeyFrame *> GlobalMap() const;
+
 	std::atomic<bool> meshUpdated;
 	std::atomic<bool> mapPointsUpdated;
 	std::atomic<bool> mapUpdated;
@@ -82,7 +84,7 @@ public:
 	DeviceArray<float3> modelVertex;
 	DeviceArray<float3> modelNormal;
 	DeviceArray<uchar3> modelColor;
-	std::vector<SurfKey> hostKeys;
+	std::vector<SURF> hostKeys;
 
 	std::vector<const KeyFrame *> localMap;
 	std::set<const KeyFrame *> keyFrames;
@@ -124,9 +126,9 @@ protected:
 	DeviceArray<uint> noKeys;
 	DeviceArray<int> mutexKeys;
 	DeviceArray<int> mapKeyIndex;
-	DeviceArray<SurfKey> mapKeys;
-	DeviceArray<SurfKey> tmpKeys;
-	DeviceArray<SurfKey> surfKeys;
+	DeviceArray<SURF> mapKeys;
+	DeviceArray<SURF> tmpKeys;
+	DeviceArray<SURF> surfKeys;
 };
 
 #endif

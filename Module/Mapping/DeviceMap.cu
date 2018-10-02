@@ -213,13 +213,13 @@ __device__ int KeyMap::Hash(const int3 & pos) {
 	return res;
 }
 
-__device__ SurfKey * KeyMap::FindKey(const float3 & pos) {
+__device__ SURF * KeyMap::FindKey(const float3 & pos) {
 
 	int3 blockPos = make_int3(pos / GridSize);
 	int idx = Hash(blockPos);
 	int bucketIdx = idx * nBuckets;
 	for (int i = 0; i < nBuckets; ++i, ++bucketIdx) {
-		SurfKey * key = &Keys[bucketIdx];
+		SURF * key = &Keys[bucketIdx];
 		if (key->valid) {
 			if(make_int3(key->pos / GridSize) == blockPos)
 				return key;
@@ -228,7 +228,7 @@ __device__ SurfKey * KeyMap::FindKey(const float3 & pos) {
 	return nullptr;
 }
 
-__device__ SurfKey * KeyMap::FindKey(const float3 & pos, int & first,
+__device__ SURF * KeyMap::FindKey(const float3 & pos, int & first,
 		int & buck, int & hashIndex) {
 
 	first = -1;
@@ -237,7 +237,7 @@ __device__ SurfKey * KeyMap::FindKey(const float3 & pos, int & first,
 	buck = idx;
 	int bucketIdx = idx * nBuckets;
 	for (int i = 0; i < nBuckets; ++i, ++bucketIdx) {
-		SurfKey * key = &Keys[bucketIdx];
+		SURF * key = &Keys[bucketIdx];
 		if (!key->valid && first == -1)
 			first = bucketIdx;
 
@@ -253,11 +253,11 @@ __device__ SurfKey * KeyMap::FindKey(const float3 & pos, int & first,
 	return NULL;
 }
 
-__device__ void KeyMap::InsertKey(SurfKey * key, int & hashIndex) {
+__device__ void KeyMap::InsertKey(SURF * key, int & hashIndex) {
 
 	int buck = 0;
 	int first = -1;
-	SurfKey * oldKey = NULL;
+	SURF * oldKey = NULL;
 //	if(hashIndex >= 0 && hashIndex < Keys.size) {
 //		oldKey = &Keys[hashIndex];
 //		if (oldKey && oldKey->valid) {
@@ -276,8 +276,8 @@ __device__ void KeyMap::InsertKey(SurfKey * key, int & hashIndex) {
 		int lock = atomicExch(&Mutex[buck], 1);
 		if (lock < 0) {
 			hashIndex = first;
-			SurfKey * oldkey = &Keys[first];
-			memcpy((void*) oldkey, (void*) key, sizeof(SurfKey));
+			SURF * oldkey = &Keys[first];
+			memcpy((void*) oldkey, (void*) key, sizeof(SURF));
 
 			atomicExch(&Mutex[buck], -1);
 			return;

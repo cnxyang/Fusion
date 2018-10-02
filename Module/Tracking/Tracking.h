@@ -108,11 +108,13 @@ protected:
 	std::vector<bool> outliers;
 	std::vector<cv::DMatch> refined;
 
-	std::vector<SurfKey> frameKeySelected;
-	std::vector<SurfKey> mapKeySelected;
+	std::vector<SURF> frameKeySelected;
+	std::vector<SURF> mapKeySelected;
 	std::vector<float> matchDistance;
 	std::vector<Eigen::Vector3d> refPoints;
 	std::vector<Eigen::Vector3d> framePoints;
+	std::vector<float> keyDistance;
+	std::vector<int> queryKeyIdx;
 };
 
 #endif
