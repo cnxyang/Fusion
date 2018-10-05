@@ -134,7 +134,7 @@ struct DeviceMap {
 
 	static constexpr uint BlockSize = 8;
 	static constexpr uint BlockSize3 = 512;
-	static constexpr float DepthMin = 0.0f;
+	static constexpr float DepthMin = 0.1f;
 	static constexpr float DepthMax = 3.0f;
 	static constexpr uint NumExcess = 500000;
 	static constexpr uint NumBuckets = 1000000;
@@ -162,7 +162,7 @@ struct DeviceMap {
 
 struct KeyMap {
 
-	static constexpr float GridSize = 0.005;
+	static constexpr float GridSize = 0.01;
 	static constexpr int MaxKeys = 100000;
 	static constexpr int nBuckets = 5;
 	static constexpr int maxEntries = MaxKeys * nBuckets;

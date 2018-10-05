@@ -37,8 +37,8 @@ Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) {
 
 	sumSE3.create(29, 96);
 	outSE3.create(29);
-	sumSO3.create(11, 96);
-	outSO3.create(11);
+	sumRes.create(2, 96);
+	outRes.create(2);
 
 	iteration[0] = 10;
 	iteration[1] = 5;
@@ -325,7 +325,11 @@ void Tracker::SwapFrame() {
 bool Tracker::ComputeSE3() {
 
 	Eigen::Matrix<double, 6, 6, Eigen::RowMajor> matA;
+	Eigen::Matrix<double, 6, 6, Eigen::RowMajor> matA_icp;
+	Eigen::Matrix<double, 6, 6, Eigen::RowMajor> matA_rgb;
 	Eigen::Matrix<double, 6, 1> vecb;
+	Eigen::Matrix<double, 6, 1> vecb_icp;
+	Eigen::Matrix<double, 6, 1> vecb_rgb;
 	Eigen::Matrix<double, 6, 1> result;
 	lastPose = LastFrame->pose;
 	nextPose = NextFrame->pose;
@@ -333,8 +337,36 @@ bool Tracker::ComputeSE3() {
 	float icpError = 0;
 	int icpCount = 0;
 
+	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
+
+	float sobelScale = 1.0 / 8;
+	float minScale[3] = { 25 * 64, 9 * 64, 64  };
+
 	for(int i = Frame::NUM_PYRS - 1; i >= 0; --i) {
 		for(int j = 0; j < iteration[i]; ++j) {
+
+//			RGBStep(NextFrame->image[i],
+//					LastFrame->image[i],
+//					NextFrame->vmap[i],
+//					LastFrame->vmap[i],
+//					NextFrame->dIdx[i],
+//					NextFrame->dIdy[i],
+//					NextFrame->GpuRotation(),
+//					NextFrame->GpuInvRotation(),
+//					LastFrame->GpuRotation(),
+//					LastFrame->GpuInvRotation(),
+//					NextFrame->GpuTranslation(),
+//					LastFrame->GpuTranslation(),
+//					K(i),
+//					sumSE3,
+//					outSE3,
+//					sumRes,
+//					outRes,
+//					minScale[i],
+//					sobelScale,
+//					icpResidual,
+//					matA_rgb.data(),
+//					vecb_rgb.data());
 
 			ICPStep(NextFrame->vmap[i],
 					LastFrame->vmap[i],
@@ -349,8 +381,8 @@ bool Tracker::ComputeSE3() {
 					sumSE3,
 					outSE3,
 					icpResidual,
-					matA.data(),
-					vecb.data());
+					matA_icp.data(),
+					vecb_icp.data());
 
 			icpError = sqrt(icpResidual[0]) / icpResidual[1];
 			icpCount = (int) icpResidual[1];
@@ -361,10 +393,16 @@ bool Tracker::ComputeSE3() {
 				return false;
 			}
 
-			result = matA.ldlt().solve(vecb);
+//			float w = 0.1;
+//			matA = matA_rgb + w * w * matA_icp;
+//			vecb = vecb_rgb + w * vecb_icp;
+
+			result = matA_icp.ldlt().solve(vecb_icp);
 			auto e = Sophus::SE3d::exp(result);
 			auto dT = e.matrix();
-			nextPose = lastPose * (dT.inverse() * nextPose.inverse() * lastPose).inverse();
+
+			delta = dT * delta;
+			nextPose = lastPose * delta.inverse();
 			NextFrame->pose = nextPose;
 		}
 	}

@@ -47,6 +47,8 @@ void Frame::Create(int cols_, int rows_) {
 		nmap[i].create(cols, rows);
 		depth[i].create(cols, rows);
 		image[i].create(cols, rows);
+		dIdx[i].create(cols, rows);
+		dIdy[i].create(cols, rows);
 	}
 }
 
@@ -68,6 +70,7 @@ void Frame::FillImages(const cv::Mat & range_, const cv::Mat & color_) {
 	for(int i = 0; i < NUM_PYRS; ++i) {
 		ComputeVMap(depth[i], vmap[i], fx(i), fy(i), cx(i), cy(i), mDepthCutoff);
 		ComputeNMap(vmap[i], nmap[i]);
+		ComputeDerivativeImage(image[i], dIdx[i], dIdy[i]);
 	}
 
 	frameId = nextId++;

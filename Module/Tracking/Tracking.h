@@ -86,9 +86,10 @@ protected:
 	KeyFrame * LastKeyFrame;
 
 	DeviceArray<float> outSE3;
-	DeviceArray<float> outSO3;
 	DeviceArray2D<float> sumSE3;
-	DeviceArray2D<float> sumSO3;
+
+	DeviceArray<int> outRes;
+	DeviceArray2D<int> sumRes;
 
 	const int maxIter = 35;
 	const int maxIterReloc = 100;
@@ -103,6 +104,7 @@ protected:
 	int iteration[3];
 	int minIcpCount[3];
 	float icpResidual[2];
+	float rgbResidual[2];
 
 	bool mappingTurnedOff;
 	std::vector<bool> outliers;

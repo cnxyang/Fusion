@@ -186,11 +186,13 @@ __global__ void ImageToIntensityKernel(PtrStepSz<uchar3> src, PtrStep<unsigned c
 		return;
 
 	uchar3 val = src.ptr(y)[x];
-	int value = (float) val.x * 0.2126f + (float) val.y * 0.7152f + (float) val.z * 0.0722f;
+	int value = (float) val.x * 0.2989 + (float) val.y * 0.5870
+			+ (float) val.z * 0.1140;
 	dst.ptr(y)[x] = value;
 }
 
-void ImageToIntensity(const DeviceArray2D<uchar3> & rgb, DeviceArray2D<unsigned char> & image) {
+void ImageToIntensity(const DeviceArray2D<uchar3> & rgb,
+		DeviceArray2D<unsigned char> & image) {
 
 	dim3 thread(8, 8);
 	dim3 block(DivUp(image.cols, thread.x), DivUp(image.rows, thread.y));
@@ -199,6 +201,50 @@ void ImageToIntensity(const DeviceArray2D<uchar3> & rgb, DeviceArray2D<unsigned 
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
+}
+
+__constant__ float gsobel_x3x3[9] = { 1,  0, -1,
+									  2,  0, -2,
+									  1,  0, -1 };
+__constant__ float gsobel_y3x3[9] = {1,  2,  1,
+									 0,  0,  0,
+									-1, -2, -1 };
+__global__ void ComputeDerivativeImageKernel(
+		const PtrStepSz<unsigned char> image, PtrStep<short> dx,
+		PtrStep<short> dy) {
+
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+	int y = threadIdx.y + blockIdx.y * blockDim.y;
+
+	if (x >= image.cols || y >= image.rows)
+		return;
+
+	float dxVal = 0;
+	float dyVal = 0;
+
+	int kernelIndex = 8;
+	for (int j = max(y - 1, 0); j <= min(y + 1, image.rows - 1); j++) {
+		for (int i = max(x - 1, 0); i <= min(x + 1, image.cols - 1); i++) {
+			dxVal += image.ptr(j)[i] * gsobel_x3x3[kernelIndex];
+			dyVal += image.ptr(j)[i] * gsobel_y3x3[kernelIndex];
+			--kernelIndex;
+		}
+	}
+
+	dx.ptr(y)[x] = dxVal;
+	dy.ptr(y)[x] = dyVal;
+}
+
+void ComputeDerivativeImage(DeviceArray2D<unsigned char> & image,
+		DeviceArray2D<short> & dx, DeviceArray2D<short> & dy) {
+
+    dim3 block(8, 8);
+    dim3 grid(DivUp(image.cols, block.x), DivUp(image.rows, block.y));
+
+    ComputeDerivativeImageKernel<<<grid, block>>>(image, dx, dy);
+
+    SafeCall(cudaDeviceSynchronize());
+    SafeCall(cudaGetLastError());
 }
 
 __global__ void ResizeMapKernel(const PtrStepSz<float4> vsrc, const PtrStep<float4> nsrc,

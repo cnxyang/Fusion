@@ -18,7 +18,6 @@ struct KeyFrame;
 struct Frame {
 
 	static const int NUM_PYRS = 3;
-
 	static const int MIN_KEY_POINTS = 500;
 
 	Frame();
@@ -63,6 +62,8 @@ struct Frame {
 	DeviceArray2D<float4> nmap[NUM_PYRS];
 	DeviceArray2D<float> depth[NUM_PYRS];
 	DeviceArray2D<unsigned char> image[NUM_PYRS];
+	DeviceArray2D<short> dIdx[NUM_PYRS];
+	DeviceArray2D<short> dIdy[NUM_PYRS];
 
 	unsigned long frameId;
 	static unsigned long nextId;
