@@ -72,8 +72,8 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 		Matrix3f Rcurr, Matrix3f RcurrInv, Matrix3f Rlast, Matrix3f RlastInv,
 		float3 tcurr, float3 tlast, Intrinsics K, DeviceArray2D<float> & sum,
 		DeviceArray<float> & out, DeviceArray2D<int> & sumRes,
-		DeviceArray<int> & outRes, float minScale, float sobelScale,
-		float * residual, double * matrixA_host, double * vectorB_host);
+		DeviceArray<int> & outRes, float * residual, double * matrixA_host,
+		double * vectorB_host);
 
 void BuildAdjecencyMatrix(cv::cuda::GpuMat & adjecencyMatrix,
 		DeviceArray<SURF> & frameKeys, DeviceArray<SURF> & mapKeys,

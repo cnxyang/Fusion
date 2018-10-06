@@ -242,22 +242,6 @@ struct RGBReduction {
 	mutable PtrStep<float> out;
 	mutable PtrSz<Residual> RGBResidual;
 
-
-    __device__ __inline__ float2 GetGradient(const PtrStep<unsigned char> & img, const int & x, const int & y) const {
-
-    	float2 gradient;
-
-		float back = static_cast<float>(img.ptr(y)[x - 1]);
-		float fore = static_cast<float>(img.ptr(y)[x + 1]);
-		gradient.x = -(back - fore) * 0.5f;
-
-		back = static_cast<float>(img.ptr(y - 1)[x]);
-		fore = static_cast<float>(img.ptr(y + 1)[x]);
-		gradient.y = -(back - fore) * 0.5f;
-
-		return gradient;
-	}
-
 	__device__ __inline__ int2 FindCorresp(int & k) const {
 
 		int y = k / cols;
@@ -279,22 +263,22 @@ struct RGBReduction {
 			if (valid) {
 				short gx = dIdx.ptr(y)[x];
 				short gy = dIdy.ptr(y)[x];
-				if ((gx * gx + gy * gy) >= minScale) {
+				if (sqrtf(gx * gx + gy * gy) > 0) {
 					float4 vcurr = nextVMap.ptr(y)[x];
 					if (!isnan(vcurr.x)) {
 						float3 vcurr_g = Rcurr * vcurr + tcurr;
-						float3 vcurrlast = RlastInv * (vcurr_g - tcurr);
-						int u = __float2int_rn(fx * vcurrlast.x / vcurrlast.z + cx);
-						int v = __float2int_rn(fy * vcurrlast.y / vcurrlast.z + cy);
+						float3 vcurrlast = RlastInv * (vcurr_g - tlast);
+						int u = __float2int_rd(fx * vcurrlast.x / vcurrlast.z + cx + 0.5);
+						int v = __float2int_rd(fy * vcurrlast.y / vcurrlast.z + cy + 0.5);
 
 						if (u >= 0 && v >= 0 && u < cols && v < rows) {
 							float4 vlast = lastVMap.ptr(v)[u];
-							if (!isnan(vlast.x) && (vcurrlast.z - vcurr.z) < 0.07 && lastImage.ptr(v)[u] != 0) {
+							if (!isnan(vlast.x) && norm(vlast - vcurr) < 0.1 && lastImage.ptr(v)[u] != 0) {
 								res.last = { u, v };
 								res.curr = { x, y };
-								res.diff = nextImage.ptr(y)[x] - lastImage.ptr(v)[u];
+								res.diff = (int)nextImage.ptr(y)[x] - (int)lastImage.ptr(v)[u];
 								res.valid = true;
-								res.point = make_float3(vcurr);
+								res.point = make_float3(vlast);
 								value = { 1, res.diff * res.diff };
 							}
 						}
@@ -332,26 +316,20 @@ struct RGBReduction {
 
 		if (res.valid) {
 
-			float w = sigma + abs(res.diff);
-			w = w > 1e-10 ? 1.0f / w : 1.0f;
-			row[6] = -w * res.diff;
-
 			float4 vlast = lastVMap.ptr(res.last.y)[res.last.x];
-//			float3 point = RcurrInv * (Rlast * vlast + tlast - tcurr);
-			float3 point = res.point;
-			float invz = 1.0f / point.z;
-			float gx = w * sobelScale * (float)dIdx.ptr(res.curr.y)[res.curr.x];
-			float gy = w * sobelScale * (float)dIdy.ptr(res.curr.y)[res.curr.x];
-//			float2 g = GetGradient(nextImage, res.curr.x, res.curr.y);
-//			float gx = g.x;
-//			float gy = g.y;
+			float3 point = RcurrInv * (Rlast * vlast + tlast - tcurr);
+			float gx = (float)dIdx.ptr(res.curr.y)[res.curr.x] / 9.0;
+			float gy = (float)dIdy.ptr(res.curr.y)[res.curr.x] / 9.0;
 
-			row[0] = gx * fx * invz;
-			row[1] = gy * fy * invz;
-			row[2] = -(row[0] * point.x + row[1] * point.y) * invz;
-			row[3] = -point.z * row[1] + point.y * row[2];
-			row[4] = point.z * row[0] - point.x * row[2];
-			row[5] = -point.y * row[0] + point.x * row[1];
+			float3 left;
+			float invz = 1.0f / point.z;
+			left.x = gx * fx * invz;
+			left.y = gy * fy * invz;
+			left.z = -(left.x * point.x + left.y * point.y) * invz;
+
+			*(float3*) &row[0] = left;
+			*(float3*) &row[3] = cross(point, left);
+			row[6] = -res.diff;
 		}
 
 		int count = 0;
@@ -414,8 +392,6 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 			 DeviceArray<float> & out,
 			 DeviceArray2D<int> & sumRes,
 			 DeviceArray<int> & outRes,
-			 float minScale,
-			 float sobelScale,
 			 float * residual,
 			 double * matrixA_host,
 			 double * vectorB_host) {
@@ -443,7 +419,6 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 	rgb.RlastInv = RlastInv;
 	rgb.tcurr = tcurr;
 	rgb.tlast = tlast;
-	rgb.minScale = minScale;
 	rgb.RGBResidual = rgbResidual;
 	rgb.fx = K.fx;
 	rgb.fy = K.fy;
@@ -463,7 +438,6 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 	int res_host[2];
 	outRes.download(res_host);
 
-	rgb.sobelScale = sobelScale;
 	rgb.sigma = sqrt((float) res_host[1] / (res_host[0] == 0 ? 1 : res_host[0]));
 	rgb.out = sum;
 

@@ -186,8 +186,7 @@ __global__ void ImageToIntensityKernel(PtrStepSz<uchar3> src, PtrStep<unsigned c
 		return;
 
 	uchar3 val = src.ptr(y)[x];
-	int value = (float) val.x * 0.2989 + (float) val.y * 0.5870
-			+ (float) val.z * 0.1140;
+	int value = (int)(0.2125 * val.y + 0.7154 * val.x + 0.0721 * val.z);
 	dst.ptr(y)[x] = value;
 }
 
@@ -206,9 +205,9 @@ void ImageToIntensity(const DeviceArray2D<uchar3> & rgb,
 __constant__ float gsobel_x3x3[9] = { 1,  0, -1,
 									  2,  0, -2,
 									  1,  0, -1 };
-__constant__ float gsobel_y3x3[9] = {1,  2,  1,
-									 0,  0,  0,
-									-1, -2, -1 };
+__constant__ float gsobel_y3x3[9] = { 1,  2,  1,
+									  0,  0,  0,
+									 -1, -2, -1 };
 __global__ void ComputeDerivativeImageKernel(
 		const PtrStepSz<unsigned char> image, PtrStep<short> dx,
 		PtrStep<short> dy) {

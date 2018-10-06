@@ -339,9 +339,6 @@ bool Tracker::ComputeSE3() {
 
 	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
 
-	float sobelScale = 1.0 / 8;
-	float minScale[3] = { 25 * 64, 9 * 64, 64  };
-
 	for(int i = Frame::NUM_PYRS - 1; i >= 0; --i) {
 		for(int j = 0; j < iteration[i]; ++j) {
 
@@ -362,8 +359,6 @@ bool Tracker::ComputeSE3() {
 //					outSE3,
 //					sumRes,
 //					outRes,
-//					minScale[i],
-//					sobelScale,
 //					icpResidual,
 //					matA_rgb.data(),
 //					vecb_rgb.data());
@@ -392,10 +387,6 @@ bool Tracker::ComputeSE3() {
 				NextFrame->pose = lastPose;
 				return false;
 			}
-
-//			float w = 0.1;
-//			matA = matA_rgb + w * w * matA_icp;
-//			vecb = vecb_rgb + w * vecb_icp;
 
 			result = matA_icp.ldlt().solve(vecb_icp);
 			auto e = Sophus::SE3d::exp(result);
