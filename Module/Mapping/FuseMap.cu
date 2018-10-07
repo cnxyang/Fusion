@@ -13,9 +13,10 @@ struct Fusion {
 	float3 tview;
 
 	uint* noVisibleBlocks;
+
+	PtrStep<float4> nmap;
 	PtrStep<float> depth;
 	PtrStep<uchar3> rgb;
-	PtrStep<float4> bundle;
 
 	__device__ inline float2 project(float3& pt3d) {
 		float2 pt2d;
@@ -168,13 +169,17 @@ struct Fusion {
 
 				sdf = fmin(1.0f, sdf / thresh);
 				uchar3 color = rgb.ptr(uv.y)[uv.x];
+				float4 normal = nmap.ptr(uv.y)[uv.x];
+				float4 dir = normalised(make_float4(pos));
+				float w = (normal * dir / (norm(normal) * norm(dir)));
+				w = w > 0 ? w : 0;
 				Voxel & prev = map.voxelBlocks[entry.ptr + locId];
 				if(prev.weight == 0) {
 					prev = Voxel(sdf, 1, color);
 				}
 				else {
-					float3 res = 0.2f * make_float3(color) + 0.8f * make_float3(prev.color);
-					prev.sdf = (prev.sdf * prev.weight + sdf) / (prev.weight + 1);
+					float3 res = w * 0.3f * make_float3(color) + (1 - w * 0.3f) * make_float3(prev.color);
+					prev.sdf = (prev.sdf * prev.weight + w * sdf) / (prev.weight + w);
 					prev.weight = min(255, prev.weight + 1);
 					prev.color = make_uchar3(res);
 				}
@@ -242,6 +247,7 @@ void CheckBlockVisibility(DeviceMap map,
 
 void FuseMapColor(const DeviceArray2D<float> & depth,
 				  const DeviceArray2D<uchar3> & color,
+				  const DeviceArray2D<float4> & nmap,
 				  DeviceArray<uint> & noVisibleBlocks,
 				  Matrix3f Rview,
 				  Matrix3f RviewInv,
@@ -272,6 +278,7 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 	fuse.invfy = 1.0 / fy;
 	fuse.depth = depth;
 	fuse.rgb = color;
+	fuse.nmap = nmap;
 	fuse.rows = rows;
 	fuse.cols = cols;
 	fuse.noVisibleBlocks = noVisibleBlocks;

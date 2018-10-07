@@ -74,14 +74,16 @@ void Mapping::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 }
 
 void Mapping::FuseColor(const Frame * f, uint & no) {
-	FuseColor(f->range, f->color, f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
+	FuseColor(f->range, f->color, f->nmap[0], f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
 }
 
 void Mapping::FuseColor(const DeviceArray2D<float> & depth,
-		const DeviceArray2D<uchar3> & color, Matrix3f Rview, Matrix3f RviewInv,
+		const DeviceArray2D<uchar3> & color,
+		const DeviceArray2D<float4> & normal,
+		Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, uint & no) {
 
-	FuseMapColor(depth, color, noVisibleEntries, Rview, RviewInv, tview, *this,
+	FuseMapColor(depth, color, normal, noVisibleEntries, Rview, RviewInv, tview, *this,
 			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0),
 			DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
 
@@ -158,6 +160,9 @@ void Mapping::CreateRAM() {
 	sdfBlockRAM = new Voxel[DeviceMap::NumVoxels];
 	hashEntriesRAM = new HashEntry[DeviceMap::NumEntries];
 	visibleEntriesRAM = new HashEntry[DeviceMap::NumEntries];
+
+	mutexKeysRAM = new int[KeyMap::MaxKeys];
+	mapKeysRAM = new SURF[KeyMap::maxEntries];
 }
 
 void Mapping::DownloadToRAM() {
@@ -172,6 +177,9 @@ void Mapping::DownloadToRAM() {
 	sdfBlock.download(sdfBlockRAM);
 	hashEntries.download(hashEntriesRAM);
 	visibleEntries.download(visibleEntriesRAM);
+
+	mutexKeys.download(mutexKeysRAM);
+	mapKeys.download(mapKeysRAM);
 }
 
 void Mapping::UploadFromRAM() {
@@ -184,6 +192,9 @@ void Mapping::UploadFromRAM() {
 	sdfBlock.upload(sdfBlockRAM);
 	hashEntries.upload(hashEntriesRAM);
 	visibleEntries.upload(visibleEntriesRAM);
+
+	mutexKeys.upload(mutexKeysRAM);
+	mapKeys.upload(mapKeysRAM);
 }
 
 void Mapping::ReleaseRAM() {
@@ -196,6 +207,9 @@ void Mapping::ReleaseRAM() {
 	delete [] sdfBlockRAM;
 	delete [] hashEntriesRAM;
 	delete [] visibleEntriesRAM;
+
+	delete [] mutexKeysRAM;
+	delete [] mapKeysRAM;
 }
 
 bool Mapping::HasNewKF() {

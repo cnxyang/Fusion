@@ -67,6 +67,9 @@ void Tracker::ResetTracking() {
 	LastFrame->pose = lastPose;
 }
 
+//-----------------------------------------
+// Main Control Flow
+//-----------------------------------------
 bool Tracker::Track() {
 
 	bool valid = false;
@@ -125,6 +128,12 @@ bool Tracker::Track() {
 
 void Tracker::CheckOutliers() {
 
+	// to prevent system from crushing
+	// when have loaded a pre-built map
+	// TODO: get rid of this dirty hack
+	if(!ReferenceKF)
+		return;
+
 	Eigen::Matrix4f deltaT = ReferenceKF->pose.inverse() * NextFrame->pose.cast<float>();
 	Eigen::Matrix3f deltaR = deltaT.topLeftCorner(3, 3);
 	Eigen::Vector3f deltat = deltaT.topRightCorner(3, 1);
@@ -169,6 +178,11 @@ bool Tracker::TrackFrame() {
 	return valid;
 }
 
+//-----------------------------------------
+// Track Current Frame w.r.t Key Frame
+// TODO: deprecated due to lack of effective
+// key frame management, will investigate later
+//-----------------------------------------
 bool Tracker::TrackReferenceKF() {
 
 	refined.clear();
@@ -210,6 +224,9 @@ bool Tracker::TrackReferenceKF() {
 	return result;
 }
 
+//-----------------------------------------
+// Track Current Frame w.r.t Last Frame
+//-----------------------------------------
 bool Tracker::TrackLastFrame() {
 
 	refined.clear();
@@ -334,7 +351,10 @@ bool Tracker::ComputeSE3() {
 	lastPose = LastFrame->pose;
 	nextPose = NextFrame->pose;
 	Eigen::Matrix4d pose = NextFrame->pose;
+
+	float rgbError = 0;
 	float icpError = 0;
+	int rgbCount = 0;
 	int icpCount = 0;
 
 	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
@@ -342,26 +362,34 @@ bool Tracker::ComputeSE3() {
 	for(int i = Frame::NUM_PYRS - 1; i >= 0; --i) {
 		for(int j = 0; j < iteration[i]; ++j) {
 
-//			RGBStep(NextFrame->image[i],
-//					LastFrame->image[i],
-//					NextFrame->vmap[i],
-//					LastFrame->vmap[i],
-//					NextFrame->dIdx[i],
-//					NextFrame->dIdy[i],
-//					NextFrame->GpuRotation(),
-//					NextFrame->GpuInvRotation(),
-//					LastFrame->GpuRotation(),
-//					LastFrame->GpuInvRotation(),
-//					NextFrame->GpuTranslation(),
-//					LastFrame->GpuTranslation(),
-//					K(i),
-//					sumSE3,
-//					outSE3,
-//					sumRes,
-//					outRes,
-//					icpResidual,
-//					matA_rgb.data(),
-//					vecb_rgb.data());
+			RGBStep(NextFrame->image[i],
+					LastFrame->image[i],
+					NextFrame->vmap[i],
+					LastFrame->vmap[i],
+					NextFrame->dIdx[i],
+					NextFrame->dIdy[i],
+					NextFrame->GpuRotation(),
+					NextFrame->GpuInvRotation(),
+					LastFrame->GpuRotation(),
+					LastFrame->GpuInvRotation(),
+					NextFrame->GpuTranslation(),
+					LastFrame->GpuTranslation(),
+					K(i),
+					sumSE3,
+					outSE3,
+					sumRes,
+					outRes,
+					rgbResidual,
+					matA_rgb.data(),
+					vecb_rgb.data());
+
+			rgbError = sqrt(rgbResidual[0]) / rgbResidual[1];
+			rgbCount = (int) rgbResidual[1];
+			if (std::isnan(rgbError) || rgbCount < minIcpCount[i]) {
+					std::cout << "track rgb failed" << std::endl;
+					NextFrame->pose = lastPose;
+					return false;
+			}
 
 			ICPStep(NextFrame->vmap[i],
 					LastFrame->vmap[i],
@@ -388,7 +416,10 @@ bool Tracker::ComputeSE3() {
 				return false;
 			}
 
-			result = matA_icp.ldlt().solve(vecb_icp);
+			matA = matA_rgb * 1e-7 + matA_icp;
+			vecb = vecb_rgb * 1e-7 + vecb_icp;
+
+			result = matA.ldlt().solve(vecb);
 			auto e = Sophus::SE3d::exp(result);
 			auto dT = e.matrix();
 
@@ -398,15 +429,15 @@ bool Tracker::ComputeSE3() {
 		}
 	}
 
+	std::cout << rgbError << std::endl;
 	Eigen::Matrix4d p = pose.inverse() * NextFrame->pose;
 	Eigen::Matrix3d r = p.topLeftCorner(3, 3);
 	Eigen::Vector3d t = p.topRightCorner(3, 1);
 	Eigen::Vector3d a = r.eulerAngles(0, 1, 2).array().sin();
-	if(icpError < 1e-4 && a.norm() <= 0.1 && t.norm() <= 0.1) {
+	if ((icpError < 1e-4 && rgbError < 0.01) && (a.norm() <= 0.1 && t.norm() <= 0.1)) {
 		return true;
-	}
-	else {
-		std::cout << "bad: " << icpError << "/" << icpCount <<" " << t.norm() << " " << a.norm() << std::endl;
+	} else {
+		std::cout << "bad : " << icpError << "/" << rgbError << " " << a.norm() << " " << t.norm() << std::endl;
 		NextFrame->pose = lastPose;
 		return false;
 	}
@@ -545,15 +576,14 @@ void Tracker::FilterMatching() {
 	trainKeys.upload(mapKeySelected);
 	queryKeys.upload(frameKeySelected);
 
-	// the idx of all query key points
+	// index of all query key points
 	queryIdx.upload((void*) queryKeyIdx.data(), queryKeyIdx.size());
-
-	cuda::GpuMat AdjecencyMatrix(refined.size(), refined.size(), CV_32FC1);
+	cuda::GpuMat AdjecencyMatrix(frameKeySelected.size(), frameKeySelected.size(), CV_32FC1);
 
 	// build adjacency matrix from raw key point matches
 	DeviceArray<int> SelectedIdx;
 	DeviceArray<SURF> queryFiltered, trainFiltered;
-	BuildAdjecencyMatrix(AdjecencyMatrix, trainKeys, queryKeys, matchDist);
+	BuildAdjecencyMatrix(AdjecencyMatrix, queryKeys, trainKeys, matchDist);
 
 	// filtered out useful key points
 	FilterKeyMatching(AdjecencyMatrix, trainKeys, queryKeys, trainFiltered,

@@ -56,7 +56,8 @@ public:
 			float cy, uint & no);
 
 	void FuseColor(const DeviceArray2D<float> & depth,
-			const DeviceArray2D<uchar3> & color, Matrix3f Rview,
+			const DeviceArray2D<uchar3> & color,
+			const DeviceArray2D<float4> & normal, Matrix3f Rview,
 			Matrix3f RviewInv, float3 tview, uint & no);
 
 	void RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
@@ -97,6 +98,9 @@ public:
 	uint * noVisibleEntriesRAM;
 	HashEntry * hashEntriesRAM;
 	HashEntry * visibleEntriesRAM;
+
+	int * mutexKeysRAM;
+	SURF * mapKeysRAM;
 
 protected:
 

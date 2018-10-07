@@ -203,11 +203,13 @@ void System::WriteMapToDisk() {
 	const int NumVoxels = DeviceMap::NumVoxels;
 	const int NumEntries = DeviceMap::NumEntries;
 
+	// begin writing of general map info
 	file.write((const char*)&NumSdfBlocks, sizeof(int));
 	file.write((const char*)&NumBuckets, sizeof(int));
 	file.write((const char*)&NumVoxels, sizeof(int));
 	file.write((const char*)&NumEntries, sizeof(int));
 
+	// begin writing of dense map
 	file.write((char*) map->heapCounterRAM, sizeof(int));
 	file.write((char*) map->hashCounterRAM, sizeof(int));
 	file.write((char*) map->noVisibleEntriesRAM, sizeof(uint));
@@ -217,6 +219,11 @@ void System::WriteMapToDisk() {
 	file.write((char*) map->hashEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
 	file.write((char*) map->visibleEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
 
+	// begin writing of feature map
+	file.write((char*) map->mutexKeysRAM, sizeof(int) * KeyMap::MaxKeys);
+	file.write((char*) map->mapKeysRAM, sizeof(SURF) * KeyMap::maxEntries);
+
+	// clean up
 	file.close();
 	map->ReleaseRAM();
 }
@@ -230,6 +237,7 @@ void System::ReadMapFromDisk() {
 
 	auto file = std::fstream("/home/xyang/map.bin", std::ios::in | std::ios::binary);
 
+	// begin reading of general map info
 	file.read((char *) &NumSdfBlocks, sizeof(int));
 	file.read((char *) &NumBuckets, sizeof(int));
 	file.read((char *) &NumVoxels, sizeof(int));
@@ -237,6 +245,7 @@ void System::ReadMapFromDisk() {
 
 	map->CreateRAM();
 
+	// begin reading of dense map
 	file.read((char*) map->heapCounterRAM, sizeof(int));
 	file.read((char*) map->hashCounterRAM, sizeof(int));
 	file.read((char*) map->noVisibleEntriesRAM, sizeof(uint));
@@ -246,12 +255,19 @@ void System::ReadMapFromDisk() {
 	file.read((char*) map->hashEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
 	file.read((char*) map->visibleEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
 
+	// begin reading of feature map
+	file.read((char*) map->mutexKeysRAM, sizeof(int) * KeyMap::MaxKeys);
+	file.read((char*) map->mapKeysRAM, sizeof(SURF) * KeyMap::maxEntries);
+
 	map->UploadFromRAM();
 	map->ReleaseRAM();
 
 	file.close();
 
 	map->CreateModel();
+	tracker->mappingDisabled = true;
+	tracker->state = 1;
+	tracker->lastState = 1;
 }
 
 void System::RebootSystem() {

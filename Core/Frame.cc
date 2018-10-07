@@ -154,7 +154,12 @@ float4 Frame::InterpNormal(cv::Mat & map, float & x, float & y) {
 
 	float4 d0 = d01 * coeff.x + d00 * (1 - coeff.x);
 	float4 d1 = d11 * coeff.x + d10 * (1 - coeff.x);
-	return d0 * (1 - coeff.y) + d1 * coeff.y;
+	float4 final = d0 * (1 - coeff.y) + d1 * coeff.y;
+
+	if(norm(final - d00) <= 0.1)
+		return final;
+	else
+		return make_float4(std::nanf("0x7fffffff"));
 }
 
 void Frame::ExtractKeyPoints() {
@@ -177,7 +182,6 @@ void Frame::ExtractKeyPoints() {
 	descriptors.download(rawDescriptors);
 
 	cv::Mat desc;
-
 	N = rawKeyPoints.size();
 	for(int i = 0; i < N; ++i) {
 		cv::KeyPoint & kp = rawKeyPoints[i];

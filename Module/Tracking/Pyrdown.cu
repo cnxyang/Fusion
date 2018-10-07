@@ -54,7 +54,9 @@ void FilterDepth(const DeviceArray2D<unsigned short> & depth,
 }
 
 __global__ void ComputeVMapKernel(const PtrStepSz<float> depth,
-		PtrStep<float4> vmap, float invfx, float invfy, float cx, float cy,
+		PtrStep<float4> vmap,
+		float invfx, float invfy,
+		float cx, float cy,
 		float depthCutoff) {
 
 	int x = blockDim.x * blockIdx.x + threadIdx.x;
@@ -88,7 +90,7 @@ void ComputeVMap(const DeviceArray2D<float> & depth,
 	SafeCall(cudaGetLastError());
 }
 
-__global__ void ComputeNMapKernel(const PtrStepSz<float4> vmap,
+__global__ void ComputeNMapKernel(PtrStepSz<float4> vmap,
 		PtrStepSz<float4> nmap) {
 
 	const int x = blockDim.x * blockIdx.x + threadIdx.x;
@@ -106,7 +108,7 @@ __global__ void ComputeNMapKernel(const PtrStepSz<float4> vmap,
 	float4 vdown = vmap.ptr(y + 1)[x];
 
 	if (!isnan(vcentre.x) && !isnan(vright.x) && !isnan(vdown.x)) {
-		nmap.ptr(y)[x] = normalised(cross(vright - vcentre, vdown - vcentre));
+		nmap.ptr(y)[x] = make_float4(normalised(cross(vright - vcentre, vdown - vcentre)), 1.0f);
 	} else
 		nmap.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
 }

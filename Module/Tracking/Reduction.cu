@@ -316,6 +316,12 @@ struct RGBReduction {
 
 		if (res.valid) {
 
+			float w = sigma + abs(res.diff);
+			w = w < 1e-3 ? 1.0f : 1.0f / w;
+
+			if(sigma < 1e-6)
+				w = 1.0f;
+
 			float4 vlast = lastVMap.ptr(res.last.y)[res.last.x];
 			float3 point = RcurrInv * (Rlast * vlast + tlast - tcurr);
 			float gx = (float)dIdx.ptr(res.curr.y)[res.curr.x] / 9.0;
@@ -327,9 +333,9 @@ struct RGBReduction {
 			left.y = gy * fy * invz;
 			left.z = -(left.x * point.x + left.y * point.y) * invz;
 
-			*(float3*) &row[0] = left;
-			*(float3*) &row[3] = cross(point, left);
-			row[6] = -res.diff;
+			*(float3*) &row[0] = w * left;
+			*(float3*) &row[3] = w * cross(point, left);
+			row[6] = -w * res.diff;
 		}
 
 		int count = 0;
@@ -400,7 +406,6 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 	int rows = nextImage.rows;
 
 	RGBReduction rgb;
-
 	DeviceArray<Residual> rgbResidual(cols * rows);
 
 	rgb.cols = cols;
@@ -437,11 +442,8 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 
 	int res_host[2];
 	outRes.download(res_host);
-
 	rgb.sigma = sqrt((float) res_host[1] / (res_host[0] == 0 ? 1 : res_host[0]));
 	rgb.out = sum;
-
-	std::cout << res_host[0] << " " << res_host[1] << std::endl;
 
 	RgbStepKernel<<<96, 224>>>(rgb);
 
