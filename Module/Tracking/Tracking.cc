@@ -37,6 +37,8 @@ Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) {
 
 	sumSE3.create(29, 96);
 	outSE3.create(29);
+	sumSO3.create(11, 96);
+	outSO3.create(11);
 	sumRes.create(2, 96);
 	outRes.create(2);
 
@@ -174,6 +176,7 @@ bool Tracker::TrackFrame() {
 		return false;
 	}
 
+//	ComputeSO3();
 	valid = ComputeSE3();
 	return valid;
 }
@@ -339,6 +342,48 @@ void Tracker::SwapFrame() {
 	std::swap(NextFrame, LastFrame);
 }
 
+void Tracker::ComputeSO3() {
+
+	Eigen::Matrix<double, 3, 3, Eigen::RowMajorBit> matA;
+	Eigen::Vector3d vecb;
+	Eigen::Vector3d result;
+	Eigen::Matrix3d lastRot = LastFrame->Rotation();
+	Eigen::Matrix3d nextRot = NextFrame->Rotation();
+	Eigen::Matrix3d rot = nextRot;
+	Eigen::Matrix3d delta = Eigen::Matrix3d::Identity();
+
+	float so3Error = 0;
+	int so3Count = 0;
+	int pyrLevel = 2;
+
+	for(int i = 0; i < 10; ++i) {
+
+		SO3Step(NextFrame->image[pyrLevel],
+				LastFrame->image[pyrLevel],
+				NextFrame->dIdx[pyrLevel],
+				NextFrame->dIdy[pyrLevel],
+				NextFrame->GpuInvRotation(),
+				LastFrame->GpuRotation(),
+				K(pyrLevel),
+				sumSO3,
+				outSO3,
+				so3Residual,
+				matA.data(),
+				vecb.data());
+
+		so3Error = sqrt(so3Residual[0]) / so3Residual[1];
+		so3Count = (int) so3Residual[1];
+
+		result = matA.ldlt().solve(vecb);
+		auto e = Sophus::SO3d::exp(result);
+		auto dT = e.matrix();
+
+		delta = dT * delta;
+		nextRot = lastRot * delta.inverse();
+		NextFrame->pose.topLeftCorner(3, 3) = nextRot;
+	}
+}
+
 bool Tracker::ComputeSE3() {
 
 	Eigen::Matrix<double, 6, 6, Eigen::RowMajor> matA;
@@ -362,6 +407,7 @@ bool Tracker::ComputeSE3() {
 	for(int i = Frame::NUM_PYRS - 1; i >= 0; --i) {
 		for(int j = 0; j < iteration[i]; ++j) {
 
+			// TODO: convoluted transformation
 			RGBStep(NextFrame->image[i],
 					LastFrame->image[i],
 					NextFrame->vmap[i],
@@ -416,8 +462,9 @@ bool Tracker::ComputeSE3() {
 				return false;
 			}
 
-			matA = matA_rgb * 1e-7 + matA_icp;
-			vecb = vecb_rgb * 1e-7 + vecb_icp;
+			float w = 1e-5;
+			matA = matA_rgb * w + matA_icp;
+			vecb = vecb_rgb * w + vecb_icp;
 
 			result = matA.ldlt().solve(vecb);
 			auto e = Sophus::SE3d::exp(result);
@@ -429,7 +476,6 @@ bool Tracker::ComputeSE3() {
 		}
 	}
 
-	std::cout << rgbError << std::endl;
 	Eigen::Matrix4d p = pose.inverse() * NextFrame->pose;
 	Eigen::Matrix3d r = p.topLeftCorner(3, 3);
 	Eigen::Vector3d t = p.topRightCorner(3, 1);

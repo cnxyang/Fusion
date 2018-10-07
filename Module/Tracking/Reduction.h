@@ -57,6 +57,13 @@ void ForwardWarping(const DeviceArray2D<float4> & srcVMap,
 		float3 srcTrans, float3 dstTrans, float fx, float fy, float cx,
 		float cy);
 
+void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
+		const DeviceArray2D<unsigned char> & lastImage,
+		const DeviceArray2D<short> & dIdx, const DeviceArray2D<short> & dIdy,
+		Matrix3f RcurrInv, Matrix3f Rlast, Intrinsics K,
+		DeviceArray2D<float> & sum, DeviceArray<float> & out, float * residual,
+		double * matrixA_host, double * vectorB_host);
+
 void ICPStep(DeviceArray2D<float4> & nextVMap, DeviceArray2D<float4> & lastVMap,
 		DeviceArray2D<float4> & nextNMap, DeviceArray2D<float4> & lastNMap,
 		Matrix3f Rcurr, float3 tcurr, Matrix3f Rlast, Matrix3f RlastInv,

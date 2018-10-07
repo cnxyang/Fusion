@@ -57,6 +57,8 @@ protected:
 
 	bool TrackFrame();
 
+	void ComputeSO3();
+
 	bool ComputeSE3();
 
 	void RenderView();
@@ -91,6 +93,9 @@ protected:
 	DeviceArray<int> outRes;
 	DeviceArray2D<int> sumRes;
 
+	DeviceArray<float> outSO3;
+	DeviceArray2D<float> sumSO3;
+
 	const int maxIter = 35;
 	const int maxIterReloc = 100;
 	cv::Ptr<cv::cuda::DescriptorMatcher> matcher;
@@ -103,8 +108,10 @@ protected:
 
 	int iteration[3];
 	int minIcpCount[3];
+
 	float icpResidual[2];
 	float rgbResidual[2];
+	float so3Residual[2];
 
 	bool mappingTurnedOff;
 	std::vector<bool> outliers;
