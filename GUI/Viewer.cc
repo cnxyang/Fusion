@@ -428,11 +428,12 @@ void Viewer::drawCamera() {
 	bool lost = (tracker->state == -1);
 	if (lost)
 		glColor3f(1.0, 0.0, 0.0);
-	else
+	else {
 		glColor3f(0.0, 1.0, 0.0);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_TRIANGLES, 3);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_TRIANGLES, 3);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	}
 }
 
 void Viewer::drawKeys() {
@@ -449,6 +450,18 @@ void Viewer::drawKeys() {
 
 	glColor3f(1.0, 0.0, 0.0);
 	glPointSize(3.0);
+	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_POINTS, 3);
+	glPointSize(1.0);
+
+	points.clear();
+	for (int i = 0; i < tracker->output.size(); ++i) {
+		points.push_back(tracker->output[i](0));
+		points.push_back(tracker->output[i](1));
+		points.push_back(tracker->output[i](2));
+	}
+
+	glColor3f(0.0, 1.0, 0.0);
+	glPointSize(10.0);
 	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_POINTS, 3);
 	glPointSize(1.0);
 }

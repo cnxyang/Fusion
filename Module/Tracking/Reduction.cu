@@ -16,9 +16,9 @@ template<int rows, int cols> void inline CreateMatrix(float* host_data, double* 
 }
 
 template<typename T, int size> __device__ inline void WarpReduce(T* val) {
-#pragma unroll
+	#pragma unroll
 	for (int offset = WarpSize / 2; offset > 0; offset /= 2) {
-#pragma unroll
+		#pragma unroll
 		for (int i = 0; i < size; ++i) {
 			val[i] += __shfl_down_sync(0xffffffff, val[i], offset);
 		}

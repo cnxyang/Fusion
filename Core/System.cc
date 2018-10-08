@@ -296,6 +296,7 @@ void System::FilterMessage(bool finished) {
 
 	if(requestReadMap) {
 		ReadMapFromDisk();
+		tracker->ResetTracking();
 		requestReadMap = false;
 	}
 
@@ -309,17 +310,8 @@ void System::FilterMessage(bool finished) {
 
 void System::JoinViewer() {
 
-	std::set<const KeyFrame *>::const_iterator iter = map->keyFrames.begin();
-	std::set<const KeyFrame *>::const_iterator lend = map->keyFrames.end();
-	for(; iter != lend; ++iter) {
-		const KeyFrame * kf = *iter;
-		std::cout << kf->pose << kf->newPose << std::endl;
-	}
-
 	while(true) {
-
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
 		FilterMessage(true);
 	}
 }

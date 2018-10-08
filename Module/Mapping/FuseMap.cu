@@ -168,17 +168,20 @@ struct Fusion {
 			if (sdf >= -thresh) {
 
 				sdf = fmin(1.0f, sdf / thresh);
-				uchar3 color = rgb.ptr(uv.y)[uv.x];
-				float4 normal = nmap.ptr(uv.y)[uv.x];
-				float4 dir = normalised(make_float4(pos));
-				float w = (normal * dir / (norm(normal) * norm(dir)));
-				w = w > 0 ? w : 0;
+				float4 nl = nmap.ptr(uv.y)[uv.x];
+				if(isnan(nl.x))
+					continue;
+
+				float w = nl * normalised(make_float4(pos));
+				float3 val = make_float3(rgb.ptr(uv.y)[uv.x]);
 				Voxel & prev = map.voxelBlocks[entry.ptr + locId];
 				if(prev.weight == 0) {
-					prev = Voxel(sdf, 1, color);
-				}
-				else {
-					float3 res = w * 0.3f * make_float3(color) + (1 - w * 0.3f) * make_float3(prev.color);
+					prev = Voxel(sdf, 1, make_uchar3(val));
+				} else {
+					val = val / 255.f;
+					float3 old = make_float3(prev.color) / 255.f;
+					float3 res = (w * 0.1f * val + (1 - w * 0.1f) * old) * 255.f;
+
 					prev.sdf = (prev.sdf * prev.weight + w * sdf) / (prev.weight + w);
 					prev.weight = min(255, prev.weight + 1);
 					prev.color = make_uchar3(res);

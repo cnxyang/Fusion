@@ -49,6 +49,8 @@ public:
 	DeviceArray2D<uchar4> renderedDepth;
 	DeviceArray2D<uchar4> rgbaImage;
 
+	std::vector<Eigen::Vector3d> output;
+
 protected:
 
 	bool Track();

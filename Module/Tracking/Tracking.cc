@@ -155,9 +155,8 @@ void Tracker::CheckOutliers() {
 void Tracker::RenderView() {
 
 	if (updateImageMutex.try_lock()) {
-		if (state != -1 && state != 1)
-			RenderImage(LastFrame->vmap[0], LastFrame->nmap[0], make_float3(0),
-					renderedImage);
+		if (state == 0 && lastState != -1)
+			RenderImage(LastFrame->vmap[0], LastFrame->nmap[0], make_float3(0), renderedImage);
 		DepthToImage(LastFrame->range, renderedDepth);
 		RgbImageToRgba(LastFrame->color, rgbaImage);
 		imageUpdated = true;
@@ -176,7 +175,7 @@ bool Tracker::TrackFrame() {
 		return false;
 	}
 
-//	ComputeSO3();
+	ComputeSO3();
 	valid = ComputeSE3();
 	return valid;
 }
@@ -429,8 +428,19 @@ bool Tracker::ComputeSE3() {
 					matA_rgb.data(),
 					vecb_rgb.data());
 
+//			cv::Mat img1(480, 640, CV_32FC4);
+//			cv::Mat img2(480, 640, CV_32FC4);
+//			NextFrame->vmap[0].download(img1.data, img1.step);
+//			LastFrame->vmap[0].download(img2.data, img2.step);
+//
+//			cv::imshow("img1", img1);
+//			cv::imshow("img2", img2);
+//			cv::waitKey(1);
+//
 			rgbError = sqrt(rgbResidual[0]) / rgbResidual[1];
 			rgbCount = (int) rgbResidual[1];
+//			std::cout << rgbError << " : " << rgbCount << std::endl;
+
 			if (std::isnan(rgbError) || rgbCount < minIcpCount[i]) {
 					std::cout << "track rgb failed" << std::endl;
 					NextFrame->pose = lastPose;
@@ -480,7 +490,7 @@ bool Tracker::ComputeSE3() {
 	Eigen::Matrix3d r = p.topLeftCorner(3, 3);
 	Eigen::Vector3d t = p.topRightCorner(3, 1);
 	Eigen::Vector3d a = r.eulerAngles(0, 1, 2).array().sin();
-	if ((icpError < 1e-4 && rgbError < 0.01) && (a.norm() <= 0.1 && t.norm() <= 0.1)) {
+	if ((icpError < 1e-4/* && rgbError < 0.01*/) && (a.norm() <= 0.1 && t.norm() <= 0.1)) {
 		return true;
 	} else {
 		std::cout << "bad : " << icpError << "/" << rgbError << " " << a.norm() << " " << t.norm() << std::endl;
@@ -516,13 +526,17 @@ bool Tracker::Relocalise() {
 	std::vector<std::vector<cv::DMatch>> matches;
 	matcher->knnMatch(NextFrame->descriptors, descriptors, matches, 2);
 	for (int i = 0; i < matches.size(); ++i) {
-		if (matches[i][0].distance < 0.8 * matches[i][1].distance) {
+		std::cout << matches[i][0].distance / matches[i][1].distance << std::endl;
+		if (matches[i][0].distance < 0.95 * matches[i][1].distance) {
 			refined.push_back(matches[i][0]);
-		} else if(useGraphMatching) {
-			refined.push_back(matches[i][0]);
-			refined.push_back(matches[i][1]);
 		}
+			//else if(useGraphMatching) {
+//			refined.push_back(matches[i][0]);
+//			refined.push_back(matches[i][1]);
+//		}
 	}
+
+	std::cout << refined.size() << std::endl;
 
 	if (refined.size() < 3)
 		return false;
@@ -538,7 +552,7 @@ bool Tracker::Relocalise() {
 			refPoints.push_back(mapKeys[refined[i].trainIdx]);
 		}
 	}
-
+	output = refPoints;
 	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
 	bool bOK = Solver::PoseEstimate(framePoints, refPoints, outliers, delta, maxIterReloc);
 
@@ -548,35 +562,35 @@ bool Tracker::Relocalise() {
 
 	// try to find a closest Key Frame in the map
 	// TODO: should consider topological relations
-	KeyFrame * CandidateKF = NULL;
-	float norm_rot, norm_trans;
-	std::set<const KeyFrame *>::iterator iter = map->keyFrames.begin();
-	std::set<const KeyFrame *>::iterator lend = map->keyFrames.end();
-	for(; iter != lend; ++iter) {
-		const KeyFrame * kf = *iter;
-		Eigen::Matrix4d pose = delta * kf->pose.cast<double>();
-		Eigen::Matrix3d r = pose.topLeftCorner(3, 3);
-		Eigen::Vector3d t = pose.topRightCorner(3, 1);
-		Eigen::Vector3d angle = r.eulerAngles(0, 1, 2).array().sin();
-		if(!CandidateKF) {
-			CandidateKF = const_cast<KeyFrame *>(kf);
-			norm_rot = angle.norm();
-			norm_trans = t.norm();
-			continue;
-		}
-
-		float nrot = angle.norm();
-		float ntrans = t.norm();
-		if((nrot + ntrans) < (norm_rot + norm_trans)) {
-			CandidateKF = const_cast<KeyFrame *>(kf);
-			norm_rot = angle.norm();
-			norm_trans = t.norm();
-		}
-	}
+//	KeyFrame * CandidateKF = NULL;
+//	float norm_rot, norm_trans;
+//	std::set<const KeyFrame *>::iterator iter = map->keyFrames.begin();
+//	std::set<const KeyFrame *>::iterator lend = map->keyFrames.end();
+//	for(; iter != lend; ++iter) {
+//		const KeyFrame * kf = *iter;
+//		Eigen::Matrix4d pose = delta * kf->pose.cast<double>();
+//		Eigen::Matrix3d r = pose.topLeftCorner(3, 3);
+//		Eigen::Vector3d t = pose.topRightCorner(3, 1);
+//		Eigen::Vector3d angle = r.eulerAngles(0, 1, 2).array().sin();
+//		if(!CandidateKF) {
+//			CandidateKF = const_cast<KeyFrame *>(kf);
+//			norm_rot = angle.norm();
+//			norm_trans = t.norm();
+//			continue;
+//		}
+//
+//		float nrot = angle.norm();
+//		float ntrans = t.norm();
+//		if((nrot + ntrans) < (norm_rot + norm_trans)) {
+//			CandidateKF = const_cast<KeyFrame *>(kf);
+//			norm_rot = angle.norm();
+//			norm_trans = t.norm();
+//		}
+//	}
 
 	std::cout << "Reloc Sucess." << std::endl;
 	NextFrame->pose = delta.inverse();
-	ReferenceKF = CandidateKF;
+//	ReferenceKF = CandidateKF;
 
 	return true;
 }
@@ -605,7 +619,7 @@ void Tracker::FilterMatching() {
 
 		SURF queryKey;
 		Eigen::Vector3f & p = NextFrame->mapPoints[queryIdx];
-		queryKey.pos = {p(0), p(1), p(2)};
+		queryKey.pos = { p(0), p(1), p(2) };
 		queryKey.normal = NextFrame->pointNormal[queryIdx];
 		frameKeySelected.push_back(queryKey);
 		mapKeySelected.push_back(trainKey);

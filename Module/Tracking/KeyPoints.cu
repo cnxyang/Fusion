@@ -3,25 +3,26 @@
 #include <opencv.hpp>
 #include <cudaarithm.hpp>
 
-__device__ __forceinline__ float clamp(float a, float min = -1, float max = 1) {
-	a = a > min ? a : min;
-	a = a < max ? a : max;
+__device__ __forceinline__ float clamp(float a) {
+	a = a > -1.f ? a : -1.f;
+	a = a < 1.f ? a : 1.f;
 	return a;
 }
 
-__global__ void BuildAdjecencyMatrixKernel(
-		cv::cuda::PtrStepSz<float> adjecencyMatrix, PtrSz<SURF> frameKeys,
-		PtrSz<SURF> mapKeys, PtrSz<float> dist) {
+__global__ void BuildAdjecencyMatrixKernel(cv::cuda::PtrStepSz<float> adjecencyMatrix,
+										   PtrSz<SURF> frameKeys,
+										   PtrSz<SURF> mapKeys,
+										   PtrSz<float> dist) {
 
-	int x = blockDim.x * blockIdx.x + threadIdx.x;
-	int y = blockDim.y * blockIdx.y + threadIdx.y;
+	int x = threadIdx.x + blockDim.x * blockIdx.x;
+	int y = threadIdx.y + blockDim.y * blockIdx.y;
 	if(x >= adjecencyMatrix.cols || y >= adjecencyMatrix.rows)
 		return;
 
 	float score = 0;
-//	if(x == y) {
-//		score = exp(-dist[x]);
-//	} else {
+	if(x == y) {
+		score = exp(-dist[x]);
+	} else {
 
 		SURF * mapKey00 = &mapKeys[x];
 		SURF * mapKey01 = &mapKeys[y];
@@ -47,7 +48,7 @@ __global__ void BuildAdjecencyMatrixKernel(
 		float gamma01 = acos(clamp(d11 * mapKey01->normal));
 
 		score = exp(-(fabs(d00 - d01) + fabs(alpha00 - alpha01) + fabs(beta00 - beta01) + fabs(gamma00 - gamma01)));
-//	}
+	}
 
 	if(isnan(score))
 		score = 0;
@@ -56,8 +57,9 @@ __global__ void BuildAdjecencyMatrixKernel(
 }
 
 void BuildAdjecencyMatrix(cv::cuda::GpuMat & adjecencyMatrix,
-		DeviceArray<SURF> & frameKeys, DeviceArray<SURF> & mapKeys,
-		DeviceArray<float> & dist) {
+						  DeviceArray<SURF> & frameKeys,
+						  DeviceArray<SURF> & mapKeys,
+						  DeviceArray<float> & dist) {
 
 	int cols = adjecencyMatrix.cols;
 	int rows = adjecencyMatrix.rows;
@@ -75,9 +77,12 @@ void BuildAdjecencyMatrix(cv::cuda::GpuMat & adjecencyMatrix,
 }
 
 __global__ void FilterKeyMatchingKernel(PtrSz<SURF> trainKeys,
-		PtrSz<SURF> queryKeys, PtrSz<SURF> trainKeysFiltered,
-		PtrSz<SURF> queryKeysFiltered, PtrSz<int> matchesFiltered,
-		PtrSz<int> queryIdx, PtrSz<int> keyIdxFiltered) {
+									    PtrSz<SURF> queryKeys,
+									    PtrSz<SURF> trainKeysFiltered,
+									    PtrSz<SURF> queryKeysFiltered,
+									    PtrSz<int> matchesFiltered,
+									    PtrSz<int> queryIdx,
+									    PtrSz<int> keyIdxFiltered) {
 
 	int x = blockDim.x * blockIdx.x + threadIdx.x;
 	if (x < matchesFiltered.size) {
@@ -93,90 +98,73 @@ __global__ void FilterKeyMatchingKernel(PtrSz<SURF> trainKeys,
 	}
 }
 
-__global__ void ApplyContraintKernel(PtrStepSz<float> am, PtrSz<int> idx,
-		PtrSz<int> flag) {
-
-	int x = threadIdx.x + blockDim.x * blockIdx.x;
-	int y = threadIdx.y + blockDim.y * blockIdx.y;
-	if(x == y || x >= flag.size || y >= flag.size)
-		return;
-
-	int first = idx[x + 1];
-	int second = idx[y + 1];
-	if(am.ptr(first)[second] < 0.001f || am.ptr(second)[first] < 0.001f) {
-		int headIdx = idx[0];
-		if(am.ptr(first)[headIdx] < am.ptr(second)[headIdx])
-			flag[x + 1] = 0;
-	}
-}
-
 void FilterKeyMatching(cv::cuda::GpuMat & adjecencyMatrix,
-		DeviceArray<SURF> & trainKey, DeviceArray<SURF> & queryKey,
-		DeviceArray<SURF> & trainKeyFiltered,
-		DeviceArray<SURF> & queryKeyFiltered, DeviceArray<int> & QueryIdx,
-		DeviceArray<int> & keyIdxFiltered) {
+					   DeviceArray<SURF> & mapKey,
+					   DeviceArray<SURF> & frameKey,
+					   DeviceArray<SURF> & mapKeySelected,
+					   DeviceArray<SURF> & frameKeySelected,
+					   DeviceArray<int> & frameKeyIdx,
+					   DeviceArray<int> & keyIdxSelected) {
 
 	cv::cuda::GpuMat result;
 	cv::cuda::reduce(adjecencyMatrix, result, 0, CV_REDUCE_SUM);
-	cv::Mat cpuResult, indexMat;
+	cv::Mat cpuResult, index;
 	result.download(cpuResult);
 
-	cv::sortIdx(cpuResult, indexMat, CV_SORT_EVERY_ROW + CV_SORT_DESCENDING);
-	int selection = indexMat.cols >= 400 ? 400 : indexMat.cols;
+	cv::sortIdx(cpuResult, index, CV_SORT_DESCENDING);
+	int selection = index.cols >= 100 ? 100 : index.cols;
 
 //	cv::Mat am_cpu(adjecencyMatrix);
 //	std::vector<cv::Mat> vmSelectedIdx;
 //	cv::Mat cvNoSelected;
-//	for(int i = 0; i < 10; ++i) {
+//
+//	for (int i = 0; i < 1; ++i) {
 //
 //		cv::Mat mSelectedIdx;
 //		int headIdx = 0;
 //		int nSelected = 0;
 //
-//		for(int j = i; j < indexMat.cols; ++j) {
+//		for (int j = i; j < index.cols; ++j) {
 //
-//			int idx = indexMat.at<int>(j);
-//			if(nSelected == 0) {
+//			int idx = index.at<int>(j);
+//			if (nSelected == 0) {
 //				mSelectedIdx.push_back(idx);
 //				headIdx = idx;
 //				nSelected++;
 //			} else {
 //				float score = am_cpu.at<float>(headIdx, idx);
-//				if(score > 0.1f) {
+//				if (score > 0.1f) {
 //					mSelectedIdx.push_back(idx);
 //					nSelected++;
 //				}
 //			}
 //
-//			if(nSelected >= 100)
+//			if (nSelected >= 100)
 //				break;
 //		}
 //
-//		if(nSelected >= 4) {
+//		if (nSelected >= 4) {
 //			cvNoSelected.push_back(nSelected);
 //			vmSelectedIdx.push_back(mSelectedIdx);
 //		}
 //	}
-//
 //	cv::Mat tmp;
 //	cv::sortIdx(cvNoSelected, tmp, CV_SORT_DESCENDING);
-//	indexMat = vmSelectedIdx[tmp.at<int>(0)];
-//	selection = indexMat.cols;
-//	std::cout << indexMat << std::endl;
+//	index = vmSelectedIdx[0];
+//	selection = index.cols;
 
-	DeviceArray<int> matchFiltered(selection);
-	matchFiltered.upload((void*) indexMat.data, selection);
+	DeviceArray<int> MatchIdxSelected(selection);
+	MatchIdxSelected.upload((void*) index.data, selection);
 
-	trainKeyFiltered.create(selection);
-	queryKeyFiltered.create(selection);
-	keyIdxFiltered.create(selection);
+	mapKeySelected.create(selection);
+	frameKeySelected.create(selection);
+	keyIdxSelected.create(selection);
 
 	dim3 thread(MaxThread);
 	dim3 block(DivUp(selection, thread.x));
 
-	FilterKeyMatchingKernel<<<block, thread>>>(trainKey, queryKey,
-			trainKeyFiltered, queryKeyFiltered, matchFiltered, QueryIdx,
-			keyIdxFiltered);
+	FilterKeyMatchingKernel<<<block, thread>>>(mapKey, frameKey, mapKeySelected,
+			frameKeySelected, MatchIdxSelected, frameKeyIdx, keyIdxSelected);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
