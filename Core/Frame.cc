@@ -297,6 +297,14 @@ Eigen::Matrix3d Frame::Rotation() const {
 	return pose.topLeftCorner(3, 3);
 }
 
+Eigen::Matrix3d Frame::RotationInv() const {
+	return Rotation().transpose();
+}
+
 Eigen::Vector3d Frame::Translation() const {
 	return pose.topRightCorner(3, 1);
+}
+
+Eigen::Vector3d Frame::TranslationInv() const {
+	return -RotationInv() * Translation();
 }

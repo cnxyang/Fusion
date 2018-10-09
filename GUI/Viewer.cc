@@ -405,15 +405,6 @@ void Viewer::drawCamera() {
 
 	Insert(cam, p[0]);
 	Insert(cam, p[1]);
-	Insert(cam, p[2]);
-	Insert(cam, p[1]);
-	Insert(cam, p[2]);
-	Insert(cam, p[3]);
-	Insert(cam, p[0]);
-	Insert(cam, p[2]);
-	Insert(cam, p[3]);
-	Insert(cam, p[0]);
-	Insert(cam, p[1]);
 	Insert(cam, p[4]);
 	Insert(cam, p[0]);
 	Insert(cam, p[2]);

@@ -69,6 +69,8 @@ protected:
 
 	bool TrackLastFrame();
 
+	bool TrackLastFrame_g2o();
+
 	void CheckOutliers();
 
 	bool Relocalise();

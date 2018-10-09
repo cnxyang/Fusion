@@ -21,7 +21,7 @@ template<class T> struct PtrStep {
 
 	__device__ inline T * ptr(int y = 0) const;
 
-	T* data;
+	T * data;
 
 	size_t step;
 };
@@ -30,7 +30,7 @@ template<class T> struct PtrStepSz {
 
 	__device__ inline T * ptr(int y = 0) const;
 
-	T* data;
+	T * data;
 
 	int cols;
 
@@ -46,6 +46,8 @@ template<class T> struct DeviceArray {
 	~DeviceArray();
 
 	DeviceArray(size_t size_);
+
+	DeviceArray(const std::vector<T> & vec);
 
 	void create(size_t size_);
 
@@ -158,6 +160,12 @@ template<class T> DeviceArray<T>::DeviceArray() :
 template<class T> DeviceArray<T>::DeviceArray(size_t size_) :
 		data(0), ref(0), size(size_) {
 	create(size_);
+}
+
+template<class T> DeviceArray<T>::DeviceArray(const std::vector<T> & vec) :
+		data(0), ref(0), size(vec.size()) {
+	create(size);
+	upload(vec);
 }
 
 template<class T> DeviceArray<T>::~DeviceArray() {
@@ -356,7 +364,7 @@ template<class T> DeviceArray2D<T>& DeviceArray2D<T>::operator=(const DeviceArra
 		ref = other.ref;
 	}
 
-	return *this;
+	return * this;
 }
 
 template<class T> DeviceArray2D<T>::operator T*() const {

@@ -225,6 +225,8 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 	keyFrames.insert(kf);
 	hasNewKFFlag = true;
 
+	std::cout << keyFrames.size() << std::endl;
+
 	cv::Mat desc;
 	std::vector<int> index;
 	std::vector<int> keyIndex;
@@ -236,7 +238,7 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 
 	for (int i = 0; i < noK; ++i) {
 
-		if (kf->observations[i] > 1) {
+		if (kf->observations[i] > 0) {
 
 			SURF key;
 			Eigen::Vector3f pt = kf->GetWorldPoint(i);

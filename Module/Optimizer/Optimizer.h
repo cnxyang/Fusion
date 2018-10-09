@@ -19,6 +19,8 @@ public:
 
 	void GetLocalMap();
 
+	static int OptimizePose(Frame * f, std::vector<Eigen::Vector3d> & points, Eigen::Matrix4d & dt);
+
 	void SetMap(Mapping * map_);
 
 protected:

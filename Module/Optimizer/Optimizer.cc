@@ -36,6 +36,88 @@ void Optimizer::run() {
 	}
 }
 
+int Optimizer::OptimizePose(Frame * f, std::vector<Eigen::Vector3d> & points, Eigen::Matrix4d & dt) {
+
+	g2o::SparseOptimizer optimizer;
+	std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver;
+	linearSolver = g2o::make_unique<g2o::LinearSolverDense<g2o::BlockSolver_6_3::PoseMatrixType>>();
+	g2o::OptimizationAlgorithmLevenberg * solver = new g2o::OptimizationAlgorithmLevenberg(
+		g2o::make_unique<g2o::BlockSolver_6_3>(std::move(linearSolver))
+	);
+	optimizer.setAlgorithm(solver);
+
+	g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
+	g2o::SE3Quat pose(Eigen::Matrix3d::Identity(), Eigen::Vector3d::Zero());
+	vSE3->setEstimate(pose);
+	vSE3->setId(0);
+	vSE3->setFixed(false);
+	optimizer.addVertex(vSE3);
+
+	const int N = f->N;
+	const float delta = sqrt(7.815);
+	std::vector<g2o::EdgeSE3ProjectXYZOnlyPose *> edges;
+
+	for(int i = 0; i < N; ++i) {
+		f->outliers[i] = false;
+
+		Eigen::Vector2d obs;
+		const cv::KeyPoint & kp = f->keyPoints[i];
+		obs << kp.pt.x, kp.pt.y;
+
+        g2o::EdgeSE3ProjectXYZOnlyPose * e = new g2o::EdgeSE3ProjectXYZOnlyPose();
+        e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(0)));
+        e->setMeasurement(obs);
+        e->information() = Eigen::Matrix2d::Identity();
+        g2o::RobustKernelHuber * rk = new g2o::RobustKernelHuber;
+        e->setRobustKernel(rk);
+        rk->setDelta(delta);
+
+        e->fx = Frame::fx(0);
+        e->fy = Frame::fy(0);
+        e->cx = Frame::cx(0);
+        e->cy = Frame::cy(0);
+        e->Xw = points[i];
+
+        optimizer.addEdge(e);
+        edges.push_back(e);
+	}
+
+	const float chi2thresh[4] = { 10.815f, 10.815f, 10.815f, 10.815f };
+	const int iteration[4] = { 10, 10, 10, 10 };
+	int nBad = 0;
+	for(size_t it = 0; it < 4; it++) {
+		vSE3->setEstimate(g2o::SE3Quat(pose));
+		optimizer.initializeOptimization(0);
+		optimizer.optimize(iteration[it]);
+
+		for(size_t i = 0, iend = edges.size(); i < iend; ++i) {
+			g2o::EdgeSE3ProjectXYZOnlyPose * e = edges[i];
+			if(f->outliers[i]) {
+				e->computeError();
+			}
+
+			const float chi2 = e->chi2();
+			if(chi2 > chi2thresh[it]) {
+				f->outliers[i] = true;
+				e->setLevel(1);
+				nBad++;
+			} else {
+				e->setLevel(0);
+				f->outliers[i] = false;
+			}
+
+			if(it == 2)
+				e->setRobustKernel(0);
+		}
+	}
+
+	g2o::VertexSE3Expmap * vSE3_recov = static_cast<g2o::VertexSE3Expmap *>(optimizer.vertex(0));
+	g2o::SE3Quat pose_recov = vSE3_recov->estimate();
+	dt = pose_recov.to_homogeneous_matrix();
+
+	return N - nBad;
+}
+
 void Optimizer::LocalBA() {
 
 	g2o::SparseOptimizer optimizer;

@@ -16,20 +16,11 @@ float3 eigen_to_float3(Eigen::Vector3d & vec) {
 	return make_float3((float) vec(0), (float) vec(1), (float) vec(2));
 }
 
-Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) {
-
-	map = NULL;
-	viewer = NULL;
-	noInliers = 0;
-	mappingTurnedOff = NULL;
-	noMissedFrames = 0;
-	state = lastState = 1;
-	useGraphMatching = false;
-	imageUpdated = false;
-	mappingDisabled = false;
-	needImages = false;
-	ReferenceKF = NULL;
-	LastKeyFrame = NULL;
+Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) :
+		map(NULL), viewer(NULL), noInliers(0), mappingTurnedOff(NULL),
+		state(1), lastState(1), noMissedFrames(0), useGraphMatching(false),
+		imageUpdated(false), mappingDisabled(false), needImages(false),
+		ReferenceKF(NULL), LastKeyFrame(NULL) {
 
 	renderedImage.create(cols_, rows_);
 	renderedDepth.create(cols_, rows_);
@@ -108,7 +99,7 @@ bool Tracker::Track() {
 
 		lastState = 0;
 		noMissedFrames++;
-		if(noMissedFrames > 10) {
+		if(noMissedFrames > 9) {
 			lastState = -1;
 		}
 
@@ -167,6 +158,7 @@ void Tracker::RenderView() {
 bool Tracker::TrackFrame() {
 
 	bool valid = false;
+	NextFrame->pose = LastFrame->pose;
 
 	valid = TrackLastFrame();
 
@@ -175,7 +167,7 @@ bool Tracker::TrackFrame() {
 		return false;
 	}
 
-	ComputeSO3();
+//	ComputeSO3();
 	valid = ComputeSE3();
 	return valid;
 }
@@ -266,6 +258,32 @@ bool Tracker::TrackLastFrame() {
 	return result;
 }
 
+bool Tracker::TrackLastFrame_g2o() {
+
+	refPoints.clear();
+	std::vector<std::vector<cv::DMatch>> matches;
+	matcher->knnMatch(NextFrame->descriptors, LastFrame->descriptors, matches, 2);
+	for (int i = 0; i < matches.size(); ++i) {
+		if (matches[i][0].distance < 0.95 * matches[i][1].distance) {
+			refined.push_back(matches[i][0]);
+		}
+	}
+
+	for(int i = 0; i < refined.size(); ++i) {
+		refPoints.push_back(LastFrame->mapPoints[refined[i].trainIdx].cast<double>());
+	}
+
+	Eigen::Matrix4d dt;
+	NextFrame->outliers.resize(NextFrame->N);
+	std::fill(NextFrame->outliers.begin(), NextFrame->outliers.end(), false);
+	int n = Optimizer::OptimizePose(NextFrame, refPoints, dt);
+
+	NextFrame->pose = dt.inverse() * LastFrame->pose;
+
+	std::cout << refined.size() << std::endl;
+	return true;
+}
+
 void Tracker::FindNearestKF() {
 
 	KeyFrame * CandidateKF = NULL;
@@ -354,6 +372,7 @@ void Tracker::ComputeSO3() {
 	float so3Error = 0;
 	int so3Count = 0;
 	int pyrLevel = 2;
+	float lastSO3Error = std::numeric_limits<float>::max();
 
 	for(int i = 0; i < 10; ++i) {
 
@@ -373,6 +392,9 @@ void Tracker::ComputeSO3() {
 		so3Error = sqrt(so3Residual[0]) / so3Residual[1];
 		so3Count = (int) so3Residual[1];
 
+		if(lastSO3Error < so3Error)
+			return;
+
 		result = matA.ldlt().solve(vecb);
 		auto e = Sophus::SO3d::exp(result);
 		auto dT = e.matrix();
@@ -380,6 +402,7 @@ void Tracker::ComputeSO3() {
 		delta = dT * delta;
 		nextRot = lastRot * delta.inverse();
 		NextFrame->pose.topLeftCorner(3, 3) = nextRot;
+		lastSO3Error = so3Error;
 	}
 }
 
@@ -428,18 +451,8 @@ bool Tracker::ComputeSE3() {
 					matA_rgb.data(),
 					vecb_rgb.data());
 
-//			cv::Mat img1(480, 640, CV_32FC4);
-//			cv::Mat img2(480, 640, CV_32FC4);
-//			NextFrame->vmap[0].download(img1.data, img1.step);
-//			LastFrame->vmap[0].download(img2.data, img2.step);
-//
-//			cv::imshow("img1", img1);
-//			cv::imshow("img2", img2);
-//			cv::waitKey(1);
-//
 			rgbError = sqrt(rgbResidual[0]) / rgbResidual[1];
 			rgbCount = (int) rgbResidual[1];
-//			std::cout << rgbError << " : " << rgbCount << std::endl;
 
 			if (std::isnan(rgbError) || rgbCount < minIcpCount[i]) {
 					std::cout << "track rgb failed" << std::endl;
@@ -472,9 +485,12 @@ bool Tracker::ComputeSE3() {
 				return false;
 			}
 
-			float w = 1e-5;
+			float w = 1e-4;
 			matA = matA_rgb * w + matA_icp;
 			vecb = vecb_rgb * w + vecb_icp;
+
+//			matA = matA_icp;
+//			vecb = vecb_icp;
 
 			result = matA.ldlt().solve(vecb);
 			auto e = Sophus::SE3d::exp(result);
@@ -490,7 +506,7 @@ bool Tracker::ComputeSE3() {
 	Eigen::Matrix3d r = p.topLeftCorner(3, 3);
 	Eigen::Vector3d t = p.topRightCorner(3, 1);
 	Eigen::Vector3d a = r.eulerAngles(0, 1, 2).array().sin();
-	if ((icpError < 1e-4/* && rgbError < 0.01*/) && (a.norm() <= 0.1 && t.norm() <= 0.1)) {
+	if ((icpError < 1e-4/* && rgbError < 0.01*/) && (a.norm() <= 0.3 && t.norm() <= 0.3)) {
 		return true;
 	} else {
 		std::cout << "bad : " << icpError << "/" << rgbError << " " << a.norm() << " " << t.norm() << std::endl;
@@ -526,14 +542,12 @@ bool Tracker::Relocalise() {
 	std::vector<std::vector<cv::DMatch>> matches;
 	matcher->knnMatch(NextFrame->descriptors, descriptors, matches, 2);
 	for (int i = 0; i < matches.size(); ++i) {
-		std::cout << matches[i][0].distance / matches[i][1].distance << std::endl;
 		if (matches[i][0].distance < 0.95 * matches[i][1].distance) {
 			refined.push_back(matches[i][0]);
+		}	else if(useGraphMatching) {
+			refined.push_back(matches[i][0]);
+			refined.push_back(matches[i][1]);
 		}
-			//else if(useGraphMatching) {
-//			refined.push_back(matches[i][0]);
-//			refined.push_back(matches[i][1]);
-//		}
 	}
 
 	std::cout << refined.size() << std::endl;
@@ -627,17 +641,11 @@ void Tracker::FilterMatching() {
 		queryKeyIdx.push_back(queryIdx);
 	}
 
-	DeviceArray<SURF> trainKeys(mapKeySelected.size());
-	DeviceArray<SURF> queryKeys(frameKeySelected.size());
-	DeviceArray<float> matchDist(keyDistance.size());
-	DeviceArray<int> queryIdx(queryKeyIdx.size());
+	DeviceArray<SURF> trainKeys(mapKeySelected);
+	DeviceArray<SURF> queryKeys(frameKeySelected);
+	DeviceArray<float> matchDist(keyDistance);
+	DeviceArray<int> queryIdx(queryKeyIdx);
 
-	matchDist.upload(keyDistance);
-	trainKeys.upload(mapKeySelected);
-	queryKeys.upload(frameKeySelected);
-
-	// index of all query key points
-	queryIdx.upload((void*) queryKeyIdx.data(), queryKeyIdx.size());
 	cuda::GpuMat AdjecencyMatrix(frameKeySelected.size(), frameKeySelected.size(), CV_32FC1);
 
 	// build adjacency matrix from raw key point matches
@@ -646,8 +654,7 @@ void Tracker::FilterMatching() {
 	BuildAdjecencyMatrix(AdjecencyMatrix, queryKeys, trainKeys, matchDist);
 
 	// filtered out useful key points
-	FilterKeyMatching(AdjecencyMatrix, trainKeys, queryKeys, trainFiltered,
-			queryFiltered, queryIdx, SelectedIdx);
+	FilterKeyMatching(AdjecencyMatrix, trainKeys, queryKeys, trainFiltered, queryFiltered, queryIdx, SelectedIdx);
 
 	std::vector<int> keyIdxFiltered_cpu;
 	std::vector<SURF> trainKeyFiltered_cpu;

@@ -44,7 +44,11 @@ struct Frame {
 
 	Eigen::Matrix3d Rotation() const;
 
+	Eigen::Matrix3d RotationInv() const;
+
 	Eigen::Vector3d Translation() const;
+
+	Eigen::Vector3d TranslationInv() const;
 
 	Matrix3f GpuRotation() const;
 
