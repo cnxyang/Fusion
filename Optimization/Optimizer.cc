@@ -36,7 +36,8 @@ void Optimizer::run() {
 	}
 }
 
-int Optimizer::OptimizePose(Frame * f, std::vector<Eigen::Vector3d> & points, Eigen::Matrix4d & dt) {
+int Optimizer::OptimizePose(Frame * f, std::vector<Eigen::Vector3d> & points,
+							std::vector<Eigen::Vector2d> & obs, Eigen::Matrix4d & dt) {
 
 	g2o::SparseOptimizer optimizer;
 	std::unique_ptr<g2o::BlockSolver_6_3::LinearSolverType> linearSolver;
@@ -59,14 +60,9 @@ int Optimizer::OptimizePose(Frame * f, std::vector<Eigen::Vector3d> & points, Ei
 
 	for(int i = 0; i < N; ++i) {
 		f->outliers[i] = false;
-
-		Eigen::Vector2d obs;
-		const cv::KeyPoint & kp = f->keyPoints[i];
-		obs << kp.pt.x, kp.pt.y;
-
         g2o::EdgeSE3ProjectXYZOnlyPose * e = new g2o::EdgeSE3ProjectXYZOnlyPose();
         e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(0)));
-        e->setMeasurement(obs);
+        e->setMeasurement(obs[i]);
         e->information() = Eigen::Matrix2d::Identity();
         g2o::RobustKernelHuber * rk = new g2o::RobustKernelHuber;
         e->setRobustKernel(rk);

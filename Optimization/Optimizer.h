@@ -19,7 +19,8 @@ public:
 
 	void GetLocalMap();
 
-	static int OptimizePose(Frame * f, std::vector<Eigen::Vector3d> & points, Eigen::Matrix4d & dt);
+	static int OptimizePose(Frame * f, std::vector<Eigen::Vector3d> & points,
+			std::vector<Eigen::Vector2d> & obs, Eigen::Matrix4d & dt);
 
 	void SetMap(Mapping * map_);
 

@@ -148,6 +148,7 @@ struct Fusion {
 			return;
 
 		int3 block_pos = map.blockPosToVoxelPos(entry.pos);
+
 		#pragma unroll
 		for(int i = 0; i < 8; ++i) {
 			int3 localPos = make_int3(threadIdx.x, threadIdx.y, i);
@@ -180,8 +181,7 @@ struct Fusion {
 				} else {
 					val = val / 255.f;
 					float3 old = make_float3(prev.color) / 255.f;
-					float3 res = (w * 0.1f * val + (1 - w * 0.1f) * old) * 255.f;
-
+					float3 res = (w * 0.2f * val + (1 - w * 0.2f) * old) * 255.f;
 					prev.sdf = (prev.sdf * prev.weight + w * sdf) / (prev.weight + w);
 					prev.weight = min(255, prev.weight + 1);
 					prev.color = make_uchar3(res);

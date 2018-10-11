@@ -20,6 +20,7 @@ __global__ void BuildAdjecencyMatrixKernel(cv::cuda::PtrStepSz<float> adjecencyM
 		return;
 
 	float score = 0;
+
 	if(x == y) {
 		score = exp(-dist[x]);
 	} else {
@@ -30,24 +31,23 @@ __global__ void BuildAdjecencyMatrixKernel(cv::cuda::PtrStepSz<float> adjecencyM
 		SURF * frameKey00 = &frameKeys[x];
 		SURF * frameKey01 = &frameKeys[y];
 
-		float d00 = norm(frameKey00->pos - mapKey00->pos);
-		float d01 = norm(frameKey01->pos - mapKey01->pos);
+		float d00 = norm(frameKey00->pos - frameKey01->pos);
+		float d01 = norm(mapKey00->pos - mapKey01->pos);
 
-		float4 d10 = make_float4(frameKey00->pos - mapKey00->pos) / d00;
-		float4 d11 = make_float4(frameKey01->pos - mapKey01->pos) / d01;
+		float4 d10 = make_float4(normalised(frameKey00->pos - frameKey01->pos));
+		float4 d11 = make_float4(normalised(mapKey00->pos - mapKey01->pos));
 
-		if(d00 <= 1e-2 || d01 <= 1e-2)
+		if(d00 <= 1e-2 || d01 <= 1e-2) {
 			score = 0;
-
-		float alpha00 = acos(clamp(frameKey00->normal * mapKey00->normal));
-		float beta00 = acos(clamp(d10 * frameKey00->normal));
-		float gamma00 = acos(clamp(d10 * mapKey00->normal));
-
-		float alpha01 = acos(clamp(frameKey01->normal * mapKey01->normal));
-		float beta01 = acos(clamp(d11 * frameKey01->normal));
-		float gamma01 = acos(clamp(d11 * mapKey01->normal));
-
-		score = exp(-(fabs(d00 - d01) + fabs(alpha00 - alpha01) + fabs(beta00 - beta01) + fabs(gamma00 - gamma01)));
+		} else {
+			float alpha00 = acos(clamp(frameKey00->normal * frameKey01->normal));
+			float beta00 = acos(clamp(d10 * frameKey00->normal));
+			float gamma00 = acos(clamp(d10 * frameKey01->normal));
+			float alpha01 = acos(clamp(mapKey00->normal * mapKey01->normal));
+			float beta01 = acos(clamp(d11 * mapKey00->normal));
+			float gamma01 = acos(clamp(d11 * mapKey01->normal));
+			score = exp(-(fabs(d00 - d01) + fabs(alpha00 - alpha01) + fabs(beta00 - beta01) + fabs(gamma00 - gamma01)));
+		}
 	}
 
 	if(isnan(score))
@@ -111,47 +111,72 @@ void FilterKeyMatching(cv::cuda::GpuMat & adjecencyMatrix,
 	cv::Mat cpuResult, index;
 	result.download(cpuResult);
 
-	cv::sortIdx(cpuResult, index, CV_SORT_DESCENDING);
-	int selection = index.cols >= 100 ? 100 : index.cols;
+	if(cpuResult.cols == 0)
+		return;
 
-//	cv::Mat am_cpu(adjecencyMatrix);
-//	std::vector<cv::Mat> vmSelectedIdx;
-//	cv::Mat cvNoSelected;
-//
-//	for (int i = 0; i < 1; ++i) {
-//
-//		cv::Mat mSelectedIdx;
-//		int headIdx = 0;
-//		int nSelected = 0;
-//
-//		for (int j = i; j < index.cols; ++j) {
-//
-//			int idx = index.at<int>(j);
-//			if (nSelected == 0) {
-//				mSelectedIdx.push_back(idx);
-//				headIdx = idx;
-//				nSelected++;
-//			} else {
-//				float score = am_cpu.at<float>(headIdx, idx);
-//				if (score > 0.1f) {
-//					mSelectedIdx.push_back(idx);
-//					nSelected++;
-//				}
-//			}
-//
-//			if (nSelected >= 100)
-//				break;
-//		}
-//
-//		if (nSelected >= 4) {
-//			cvNoSelected.push_back(nSelected);
-//			vmSelectedIdx.push_back(mSelectedIdx);
-//		}
-//	}
-//	cv::Mat tmp;
-//	cv::sortIdx(cvNoSelected, tmp, CV_SORT_DESCENDING);
-//	index = vmSelectedIdx[0];
-//	selection = index.cols;
+	cv::sortIdx(cpuResult, index, CV_SORT_EVERY_ROW + CV_SORT_DESCENDING);
+
+	cv::Mat am_cpu(adjecencyMatrix);
+	std::vector<cv::Mat> vmSelectedIdx;
+	cv::Mat cvNoSelected;
+
+	for (int i = 0; i < 10; ++i) {
+
+		cv::Mat mSelectedIdx;
+		int headIdx = 0;
+		int nSelected = 0;
+
+		for (int j = i; j < index.cols; ++j) {
+
+			int idx = index.at<int>(j);
+			if (nSelected == 0) {
+				mSelectedIdx.push_back(idx);
+				headIdx = idx;
+				nSelected++;
+			} else {
+				float score = am_cpu.at<float>(headIdx, idx);
+				if (score > 0.1f) {
+					mSelectedIdx.push_back(idx);
+					nSelected++;
+				}
+			}
+
+			if (nSelected >= 400)
+				break;
+		}
+
+		if (nSelected >= 3) {
+			cv::Mat refined;
+			for (int k = 1; k < nSelected; ++k) {
+				int a = mSelectedIdx.at<int>(k);
+				int l = k + 1;
+				for (; l < nSelected; ++l) {
+					int b = mSelectedIdx.at<int>(l);
+					if(k != l && (am_cpu.at<float>(a, b) < 0.005f || am_cpu.at<float>(b, a) < 0.005f)) {
+						if(am_cpu.at<float>(headIdx, b) > am_cpu.at<float>(headIdx, a))
+							break;
+					}
+				}
+				if(l >= nSelected) {
+					refined.push_back(a);
+				}
+			}
+
+			cvNoSelected.push_back(refined.rows);
+			vmSelectedIdx.push_back(refined.t());
+		}
+	}
+
+	cv::Mat tmp;
+	if(cvNoSelected.rows == 0)
+		return;
+
+	cv::sortIdx(cvNoSelected, tmp, CV_SORT_DESCENDING);
+	index = vmSelectedIdx[tmp.at<int>(0)];
+	int selection = index.cols;
+
+	if(selection <= 3)
+		return;
 
 	DeviceArray<int> MatchIdxSelected(selection);
 	MatchIdxSelected.upload((void*) index.data, selection);

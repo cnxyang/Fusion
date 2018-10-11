@@ -67,6 +67,8 @@ protected:
 
 	bool TrackReferenceKF();
 
+	bool TrackReferenceKF_g2o();
+
 	bool TrackLastFrame();
 
 	bool TrackLastFrame_g2o();
@@ -84,6 +86,8 @@ protected:
 	bool NeedKeyFrame();
 
 	void CreateKeyFrame();
+
+	bool ValidateHypotheses();
 
 	Mapping * map;
 	Viewer * viewer;
@@ -112,6 +116,9 @@ protected:
 
 	int iteration[3];
 	int minIcpCount[3];
+
+	float icpLastError;
+	float rgbLastError;
 
 	float icpResidual[2];
 	float rgbResidual[2];

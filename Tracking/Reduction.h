@@ -83,13 +83,16 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 		double * vectorB_host);
 
 void BuildAdjecencyMatrix(cv::cuda::GpuMat & adjecencyMatrix,
-		DeviceArray<SURF> & frameKeys, DeviceArray<SURF> & mapKeys,
+		DeviceArray<SURF> & frameKeys,
+		DeviceArray<SURF> & mapKeys,
 		DeviceArray<float> & dist);
 
 void FilterKeyMatching(cv::cuda::GpuMat & adjecencyMatrix,
-		DeviceArray<SURF> & trainKey, DeviceArray<SURF> & queryKey,
+		DeviceArray<SURF> & trainKey,
+		DeviceArray<SURF> & queryKey,
 		DeviceArray<SURF> & trainKeyFiltered,
-		DeviceArray<SURF> & queryKeyFiltered, DeviceArray<int> & QueryIdx,
+		DeviceArray<SURF> & queryKeyFiltered,
+		DeviceArray<int> & QueryIdx,
 		DeviceArray<int> & keyIdxFiltered);
 
 #endif

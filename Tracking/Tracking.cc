@@ -158,13 +158,12 @@ void Tracker::RenderView() {
 bool Tracker::TrackFrame() {
 
 	bool valid = false;
-	NextFrame->pose = LastFrame->pose;
 
 	valid = TrackLastFrame();
 
 	if(!valid) {
-		std::cout << "track last frame failed" << std::endl;
-		return false;
+		std::cout << "Bootstrap failed. Rolling back." << std::endl;
+		NextFrame->pose = LastFrame->pose;
 	}
 
 //	ComputeSO3();
@@ -218,6 +217,28 @@ bool Tracker::TrackReferenceKF() {
 	return result;
 }
 
+bool Tracker::TrackReferenceKF_g2o() {
+
+//	refPoints.clear();
+//	std::vector<cv::DMatch> matches;
+//	matcher->match(NextFrame->descriptors, ReferenceKF->descriptors, matches);
+//
+//	for(int i = 0; i < matches.size(); ++i) {
+//		refPoints.push_back(ReferenceKF->mapPoints[refined[i].trainIdx].cast<double>());
+//	}
+//
+//	Eigen::Matrix4d dt;
+//	NextFrame->outliers.resize(NextFrame->N);
+//	std::fill(NextFrame->outliers.begin(), NextFrame->outliers.end(), false);
+//
+//	int n = Optimizer::OptimizePose(NextFrame, refPoints, dt);
+//	noInliers = std::count(outliers.begin(), outliers.end(), false);
+//
+//	NextFrame->pose = dt.inverse() * ReferenceKF->pose.cast<double>();
+//
+//	return true;
+}
+
 //-----------------------------------------
 // Track Current Frame w.r.t Last Frame
 //-----------------------------------------
@@ -258,32 +279,37 @@ bool Tracker::TrackLastFrame() {
 	return result;
 }
 
+
+/*
+ * Experimental Feature
+ * Testing of Key Frame based Tracking
+ */
 bool Tracker::TrackLastFrame_g2o() {
 
 	refPoints.clear();
-	std::vector<std::vector<cv::DMatch>> matches;
-	matcher->knnMatch(NextFrame->descriptors, LastFrame->descriptors, matches, 2);
-	for (int i = 0; i < matches.size(); ++i) {
-		if (matches[i][0].distance < 0.95 * matches[i][1].distance) {
-			refined.push_back(matches[i][0]);
-		}
-	}
+	std::vector<cv::DMatch> matches;
+	matcher->match(NextFrame->descriptors, LastFrame->descriptors, matches);
 
-	for(int i = 0; i < refined.size(); ++i) {
-		refPoints.push_back(LastFrame->mapPoints[refined[i].trainIdx].cast<double>());
+	std::vector<Eigen::Vector2d> obs;
+	for(int i = 0; i < matches.size(); ++i) {
+		Eigen::Vector2d ob;
+		int idx = matches[i].queryIdx;
+		ob << NextFrame->keyPoints[idx].pt.x, NextFrame->keyPoints[idx].pt.y;
+		obs.push_back(ob);
+		refPoints.push_back(LastFrame->mapPoints[matches[i].trainIdx].cast<double>());
 	}
 
 	Eigen::Matrix4d dt;
 	NextFrame->outliers.resize(NextFrame->N);
 	std::fill(NextFrame->outliers.begin(), NextFrame->outliers.end(), false);
-	int n = Optimizer::OptimizePose(NextFrame, refPoints, dt);
+	int n = Optimizer::OptimizePose(NextFrame, refPoints, obs, dt);
 
 	NextFrame->pose = dt.inverse() * LastFrame->pose;
-
-	std::cout << refined.size() << std::endl;
 	return true;
 }
 
+// try to find a closest Key Frame in the map
+// TODO: should consider topological relations
 void Tracker::FindNearestKF() {
 
 	KeyFrame * CandidateKF = NULL;
@@ -485,6 +511,8 @@ bool Tracker::ComputeSE3() {
 				return false;
 			}
 
+			icpLastError = icpError;
+
 			float w = 1e-4;
 			matA = matA_rgb * w + matA_icp;
 			vecb = vecb_rgb * w + vecb_icp;
@@ -506,7 +534,7 @@ bool Tracker::ComputeSE3() {
 	Eigen::Matrix3d r = p.topLeftCorner(3, 3);
 	Eigen::Vector3d t = p.topRightCorner(3, 1);
 	Eigen::Vector3d a = r.eulerAngles(0, 1, 2).array().sin();
-	if ((icpError < 1e-4/* && rgbError < 0.01*/) && (a.norm() <= 0.3 && t.norm() <= 0.3)) {
+	if ((icpError < 1e-4) && (a.norm() <= 0.1 && t.norm() <= 0.1)) {
 		return true;
 	} else {
 		std::cout << "bad : " << icpError << "/" << rgbError << " " << a.norm() << " " << t.norm() << std::endl;
@@ -542,22 +570,19 @@ bool Tracker::Relocalise() {
 	std::vector<std::vector<cv::DMatch>> matches;
 	matcher->knnMatch(NextFrame->descriptors, descriptors, matches, 2);
 	for (int i = 0; i < matches.size(); ++i) {
-		if (matches[i][0].distance < 0.95 * matches[i][1].distance) {
+		if (matches[i][0].distance < 0.90 * matches[i][1].distance) {
 			refined.push_back(matches[i][0]);
-		}	else if(useGraphMatching) {
+		} else if (useGraphMatching) {
 			refined.push_back(matches[i][0]);
 			refined.push_back(matches[i][1]);
 		}
 	}
-
-	std::cout << refined.size() << std::endl;
 
 	if (refined.size() < 3)
 		return false;
 
 	framePoints.clear();
 	refPoints.clear();
-
 	if(useGraphMatching) {
 		FilterMatching();
 	} else {
@@ -566,6 +591,7 @@ bool Tracker::Relocalise() {
 			refPoints.push_back(mapKeys[refined[i].trainIdx]);
 		}
 	}
+
 	output = refPoints;
 	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
 	bool bOK = Solver::PoseEstimate(framePoints, refPoints, outliers, delta, maxIterReloc);
@@ -574,37 +600,8 @@ bool Tracker::Relocalise() {
 		return false;
 	}
 
-	// try to find a closest Key Frame in the map
-	// TODO: should consider topological relations
-//	KeyFrame * CandidateKF = NULL;
-//	float norm_rot, norm_trans;
-//	std::set<const KeyFrame *>::iterator iter = map->keyFrames.begin();
-//	std::set<const KeyFrame *>::iterator lend = map->keyFrames.end();
-//	for(; iter != lend; ++iter) {
-//		const KeyFrame * kf = *iter;
-//		Eigen::Matrix4d pose = delta * kf->pose.cast<double>();
-//		Eigen::Matrix3d r = pose.topLeftCorner(3, 3);
-//		Eigen::Vector3d t = pose.topRightCorner(3, 1);
-//		Eigen::Vector3d angle = r.eulerAngles(0, 1, 2).array().sin();
-//		if(!CandidateKF) {
-//			CandidateKF = const_cast<KeyFrame *>(kf);
-//			norm_rot = angle.norm();
-//			norm_trans = t.norm();
-//			continue;
-//		}
-//
-//		float nrot = angle.norm();
-//		float ntrans = t.norm();
-//		if((nrot + ntrans) < (norm_rot + norm_trans)) {
-//			CandidateKF = const_cast<KeyFrame *>(kf);
-//			norm_rot = angle.norm();
-//			norm_trans = t.norm();
-//		}
-//	}
-
-	std::cout << "Reloc Sucess." << std::endl;
+	std::cout << "Relocalisation Success." << std::endl;
 	NextFrame->pose = delta.inverse();
-//	ReferenceKF = CandidateKF;
 
 	return true;
 }
@@ -668,16 +665,6 @@ void Tracker::FilterMatching() {
 	Eigen::Vector3d p, q;
 	for (int i = 0; i < queryFiltered.size; ++i) {
 		if (!queryKeyFiltered_cpu[i].valid || !trainKeyFiltered_cpu[i].valid)
-			continue;
-
-		bool redundant = false;
-		for (int j = 0; j < i; j++) {
-			if (keyIdxFiltered_cpu[j] == keyIdxFiltered_cpu[i]) {
-				redundant = true;
-				break;
-			}
-		}
-		if (redundant)
 			continue;
 
 		p << queryKeyFiltered_cpu[i].pos.x, queryKeyFiltered_cpu[i].pos.y, queryKeyFiltered_cpu[i].pos.z;
