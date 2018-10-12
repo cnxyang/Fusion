@@ -90,6 +90,7 @@ public:
 	std::vector<const KeyFrame *> localMap;
 	std::set<const KeyFrame *> keyFrames;
 
+	// Host Memory Spaces
 	int * heapRAM;
 	int * heapCounterRAM;
 	int * hashCounterRAM;
@@ -104,6 +105,7 @@ public:
 
 protected:
 
+	// General map structure
 	DeviceArray<int> heap;
 	DeviceArray<int> heapCounter;
 	DeviceArray<int> hashCounter;
@@ -113,6 +115,7 @@ protected:
 	DeviceArray<HashEntry> hashEntries;
 	DeviceArray<HashEntry> visibleEntries;
 
+	// Used for rendering
 	DeviceArray<uint> noRenderingBlocks;
 	DeviceArray<RenderingBlock> renderingBlockList;
 	DeviceArray2D<float> zRangeMin;
@@ -120,6 +123,7 @@ protected:
 	DeviceArray2D<float> zRangeMinEnlarged;
 	DeviceArray2D<float> zRangeMaxEnlarged;
 
+	// Used for meshing
 	DeviceArray<uint> nBlocks;
 	DeviceArray<int3> blockPoses;
 	DeviceArray<uint> noTriangles;
@@ -127,6 +131,7 @@ protected:
 	DeviceArray<int> vertexTable;
 	DeviceArray2D<int> triangleTable;
 
+	// Key Points and Re-localisation
 	DeviceArray<uint> noKeys;
 	DeviceArray<int> mutexKeys;
 	DeviceArray<int> mapKeyIndex;
