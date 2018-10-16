@@ -8,33 +8,51 @@ using openni::Device;
 using openni::VideoStream;
 using openni::VideoFrameRef;
 
-class camera
-{
+class PrimeSense {
+
 public:
-	camera();
-	camera(int, int, int);
-	~camera();
 
-	void initCamera();
-	void startStreaming();
-	void stopStreaming();
-	bool fetchFrame(cv::Mat&, cv::Mat&);
+	PrimeSense();
 
-	int rows() const;
-	int cols() const;
-	int fps() const;
+	PrimeSense(int cols_, int rows_, int fps_);
 
-private:
+	~PrimeSense();
 
-	void fetchColorFrame(cv::Mat&);
-	void fetchDepthFrame(cv::Mat&);
-	int mCols, mRows, mFPS;
+	void Initialization();
 
-	Device* 			mpDevice;
-	VideoStream* 		mpColorStream;
-	VideoStream* 		mpDepthStream;
-	VideoFrameRef* 		mpColorFrame;
-	VideoFrameRef* 		mpDepthFrame;
+	void StartStreaming();
+
+	void StopStreaming();
+
+	bool FetchFrame(cv::Mat & depth, cv::Mat & rgb);
+
+	void SetAutoExposure(bool value);
+
+	void SetAutoWhiteBalance(bool value);
+
+protected:
+
+	void FetchRGBFrame(cv::Mat & rgb);
+
+	void FetchDepthFrame(cv::Mat & depth);
+
+	openni::Device * device;
+
+	openni::VideoStream * colorStream;
+
+	openni::VideoStream * depthStream;
+
+	openni::VideoFrameRef * colorFrame;
+
+	openni::VideoFrameRef * depthFrame;
+
+	openni::CameraSettings * setting;
+
+	int cols;
+
+	int rows;
+
+	int fps;
 };
 
 #endif

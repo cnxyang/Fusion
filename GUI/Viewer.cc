@@ -90,8 +90,8 @@ void Viewer::spin() {
 	Var<bool> btnSaveMesh("UI.Save as Mesh", false, false);
 	Var<bool> btnDrawWireFrame("UI.WireFrame Mode", false, true);
 	Var<bool> btnShowColorImage("UI.Color Image", true, true);
-	Var<bool> btnShowDepthImage("UI.Depth Image", false, true);
-	Var<bool> btnShowRenderedImage("UI.Rendered Image", false, true);
+	Var<bool> btnShowDepthImage("UI.Depth Image", true, true);
+	Var<bool> btnShowRenderedImage("UI.Rendered Image", true, true);
 	Var<bool> btnPauseSystem("UI.Pause System", false, false);
 	Var<bool> btnUseGraphMatching("UI.Graph Matching", false, true);
 	Var<bool> btnLocalisationMode("UI.Localisation Only", false, true);
@@ -318,7 +318,9 @@ void Viewer::followCam() {
 	up = rotation * up + translation;
 	eye = rotation * eye + translation;
 	look = rotation * look + translation;
-	sCam.SetModelViewMatrix(ModelViewLookAtRUB(eye(0), eye(1), eye(2), look(0), look(1), look(2), up(0), up(1), up(2)));
+	sCam.SetModelViewMatrix(ModelViewLookAtRUB( eye(0),  eye(1),  eye(2),
+											   look(0), look(1), look(2),
+											     up(0),   up(1),   up(2)));
 }
 
 void Viewer::drawMesh(bool bNormal) {
