@@ -56,7 +56,8 @@ public:
 			float cy, uint & no);
 
 	void FuseColor(const DeviceArray2D<float> & depth,
-			const DeviceArray2D<uchar3> & color, Matrix3f Rview,
+			const DeviceArray2D<uchar3> & color,
+			const DeviceArray2D<float4> & normal, Matrix3f Rview,
 			Matrix3f RviewInv, float3 tview, uint & no);
 
 	void RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
@@ -68,9 +69,14 @@ public:
 
 	operator DeviceMap() const;
 
+	std::vector<KeyFrame *> LocalMap() const;
+
+	std::vector<KeyFrame *> GlobalMap() const;
+
 	std::atomic<bool> meshUpdated;
 	std::atomic<bool> mapPointsUpdated;
 	std::atomic<bool> mapUpdated;
+	std::atomic<bool> hasNewKFFlag;
 	bool lost;
 
 	uint noKeysHost;
@@ -79,9 +85,12 @@ public:
 	DeviceArray<float3> modelVertex;
 	DeviceArray<float3> modelNormal;
 	DeviceArray<uchar3> modelColor;
-	std::vector<SurfKey> hostKeys;
+	std::vector<SURF> hostKeys;
+
+	std::vector<const KeyFrame *> localMap;
 	std::set<const KeyFrame *> keyFrames;
 
+	// Host Memory Spaces
 	int * heapRAM;
 	int * heapCounterRAM;
 	int * hashCounterRAM;
@@ -91,8 +100,12 @@ public:
 	HashEntry * hashEntriesRAM;
 	HashEntry * visibleEntriesRAM;
 
+	int * mutexKeysRAM;
+	SURF * mapKeysRAM;
+
 protected:
 
+	// General map structure
 	DeviceArray<int> heap;
 	DeviceArray<int> heapCounter;
 	DeviceArray<int> hashCounter;
@@ -102,6 +115,7 @@ protected:
 	DeviceArray<HashEntry> hashEntries;
 	DeviceArray<HashEntry> visibleEntries;
 
+	// Used for rendering
 	DeviceArray<uint> noRenderingBlocks;
 	DeviceArray<RenderingBlock> renderingBlockList;
 	DeviceArray2D<float> zRangeMin;
@@ -109,6 +123,7 @@ protected:
 	DeviceArray2D<float> zRangeMinEnlarged;
 	DeviceArray2D<float> zRangeMaxEnlarged;
 
+	// Used for meshing
 	DeviceArray<uint> nBlocks;
 	DeviceArray<int3> blockPoses;
 	DeviceArray<uint> noTriangles;
@@ -116,13 +131,13 @@ protected:
 	DeviceArray<int> vertexTable;
 	DeviceArray2D<int> triangleTable;
 
+	// Key Points and Re-localisation
 	DeviceArray<uint> noKeys;
 	DeviceArray<int> mutexKeys;
-	DeviceArray<SurfKey> mapKeys;
-	DeviceArray<SurfKey> tmpKeys;
-	DeviceArray<SurfKey> surfKeys;
-
-	bool hasNewKFFlag;
+	DeviceArray<int> mapKeyIndex;
+	DeviceArray<SURF> mapKeys;
+	DeviceArray<SURF> tmpKeys;
+	DeviceArray<SURF> surfKeys;
 };
 
 #endif

@@ -45,6 +45,7 @@ void Mapping::Create() {
 	mapKeys.create(KeyMap::maxEntries);
 	tmpKeys.create(KeyMap::maxEntries);
 	surfKeys.create(2000);
+	mapKeyIndex.create(2000);
 
 	Reset();
 }
@@ -73,14 +74,16 @@ void Mapping::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 }
 
 void Mapping::FuseColor(const Frame * f, uint & no) {
-	FuseColor(f->range, f->color, f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
+	FuseColor(f->range, f->color, f->nmap[0], f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
 }
 
 void Mapping::FuseColor(const DeviceArray2D<float> & depth,
-		const DeviceArray2D<uchar3> & color, Matrix3f Rview, Matrix3f RviewInv,
+		const DeviceArray2D<uchar3> & color,
+		const DeviceArray2D<float4> & normal,
+		Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, uint & no) {
 
-	FuseMapColor(depth, color, noVisibleEntries, Rview, RviewInv, tview, *this,
+	FuseMapColor(depth, color, normal, noVisibleEntries, Rview, RviewInv, tview, *this,
 			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0),
 			DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
 
@@ -103,6 +106,26 @@ void Mapping::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 		Raycast(*this, vmap, nmap, zRangeMin, zRangeMax, Rview, RviewInv, tview,
 				1.0 / fx, 1.0 / fy, cx, cy);
 	}
+}
+
+std::vector<KeyFrame *> Mapping::LocalMap() const {
+
+	std::vector<KeyFrame *> tmp;
+	std::vector<const KeyFrame *>::const_iterator iter = localMap.begin();
+	std::vector<const KeyFrame *>::const_iterator lend = localMap.end();
+	for(; iter != lend; ++iter)
+		tmp.push_back(const_cast<KeyFrame *>(*iter));
+	return tmp;
+}
+
+std::vector<KeyFrame *> Mapping::GlobalMap() const {
+
+	std::vector<KeyFrame *> tmp;
+	std::set<const KeyFrame *>::const_iterator iter = keyFrames.begin();
+	std::set<const KeyFrame *>::const_iterator lend = keyFrames.end();
+	for(; iter != lend; ++iter)
+		tmp.push_back(const_cast<KeyFrame *>(*iter));
+	return tmp;
 }
 
 void Mapping::CreateModel() {
@@ -137,6 +160,9 @@ void Mapping::CreateRAM() {
 	sdfBlockRAM = new Voxel[DeviceMap::NumVoxels];
 	hashEntriesRAM = new HashEntry[DeviceMap::NumEntries];
 	visibleEntriesRAM = new HashEntry[DeviceMap::NumEntries];
+
+	mutexKeysRAM = new int[KeyMap::MaxKeys];
+	mapKeysRAM = new SURF[KeyMap::maxEntries];
 }
 
 void Mapping::DownloadToRAM() {
@@ -151,6 +177,9 @@ void Mapping::DownloadToRAM() {
 	sdfBlock.download(sdfBlockRAM);
 	hashEntries.download(hashEntriesRAM);
 	visibleEntries.download(visibleEntriesRAM);
+
+	mutexKeys.download(mutexKeysRAM);
+	mapKeys.download(mapKeysRAM);
 }
 
 void Mapping::UploadFromRAM() {
@@ -163,6 +192,9 @@ void Mapping::UploadFromRAM() {
 	sdfBlock.upload(sdfBlockRAM);
 	hashEntries.upload(hashEntriesRAM);
 	visibleEntries.upload(visibleEntriesRAM);
+
+	mutexKeys.upload(mutexKeysRAM);
+	mapKeys.upload(mapKeysRAM);
 }
 
 void Mapping::ReleaseRAM() {
@@ -175,6 +207,9 @@ void Mapping::ReleaseRAM() {
 	delete [] sdfBlockRAM;
 	delete [] hashEntriesRAM;
 	delete [] visibleEntriesRAM;
+
+	delete [] mutexKeysRAM;
+	delete [] mapKeysRAM;
 }
 
 bool Mapping::HasNewKF() {
@@ -184,58 +219,74 @@ bool Mapping::HasNewKF() {
 
 void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 
-	if(keyFrames.count(kf))
+	if (keyFrames.count(kf))
 		return;
 
 	keyFrames.insert(kf);
 	hasNewKFFlag = true;
 
-	cv::Mat desc;
-	std::vector<SurfKey> keyChain;
-	kf->descriptors.download(desc);
-	int noK = std::min(kf->N, (int)surfKeys.size);
+	std::cout << keyFrames.size() << std::endl;
 
-	for(int i = 0; i < noK; ++i) {
-		if(kf->observations[i] > -1) {
-			SurfKey key;
+	cv::Mat desc;
+	std::vector<int> index;
+	std::vector<int> keyIndex;
+	std::vector<SURF> keyChain;
+	kf->descriptors.download(desc);
+	kf->outliers.resize(kf->N);
+	std::fill(kf->outliers.begin(), kf->outliers.end(), true);
+	int noK = std::min(kf->N, (int) surfKeys.size);
+
+	for (int i = 0; i < noK; ++i) {
+
+		if (kf->observations[i] > 0) {
+
+			SURF key;
 			Eigen::Vector3f pt = kf->GetWorldPoint(i);
-			key.pos = {pt(0), pt(1), pt(2)};
+			key.pos = { pt(0), pt(1), pt(2) };
 			key.normal = kf->pointNormal[i];
 			key.valid = true;
+
 			for (int j = 0; j < 64; ++j) {
 				key.descriptor[j] = desc.at<float>(i, j);
 			}
+
+			index.push_back(i);
 			keyChain.push_back(key);
+			keyIndex.push_back(kf->keyIndex[i]);
+			kf->outliers[i] = false;
 		}
 	}
 
 	surfKeys.upload(keyChain.data(), keyChain.size());
-	InsertKeyPoints(*this, surfKeys, keyChain.size());
+	mapKeyIndex.upload(keyIndex.data(), keyIndex.size());
+
+	InsertKeyPoints(*this, surfKeys, mapKeyIndex, keyChain.size());
+
+	mapKeyIndex.download(keyIndex.data(), keyIndex.size());
+	surfKeys.download(keyChain.data(), keyChain.size());
+
+	for(int i = 0; i < index.size(); ++i) {
+		int idx = index[i];
+		kf->keyIndex[idx] = keyIndex[i];
+		float3 pos = keyChain[i].pos;
+		kf->mapPoints[idx] << pos.x, pos.y, pos.z;
+	}
+
+	if(localMap.size() > 0) {
+		if(localMap.size() >= 7) {
+			localMap.erase(localMap.begin());
+			localMap.push_back(kf);
+		}
+		else
+			localMap.push_back(kf);
+	}
+	else
+		localMap.push_back(kf);
 }
 
 void Mapping::FuseKeyPoints(const Frame * f) {
 
-	cv::Mat desc;
-	std::vector<SurfKey> keyChain;
-	f->descriptors.download(desc);
-	int noK = std::min(f->N, (int)surfKeys.size);
-
-	for(int i = 0; i < noK; ++i) {
-		if(!f->outliers[i]) {
-			SurfKey key;
-			Eigen::Vector3f pt = f->GetWorldPoint(i);
-			key.pos = { pt(0), pt(1), pt(2) };
-			key.normal = f->pointNormal[i];
-			key.valid = true;
-			for(int j = 0; j < 64; ++j) {
-				key.descriptor[j] = desc.at<float>(i, j);
-			}
-			keyChain.push_back(key);
-		}
-	}
-
-	surfKeys.upload(keyChain.data(), keyChain.size());
-	InsertKeyPoints(*this, surfKeys, keyChain.size());
+	std::cout << "NOT IMPLEMENTED" << std::endl;
 }
 
 void Mapping::Reset() {

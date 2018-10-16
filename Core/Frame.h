@@ -18,6 +18,7 @@ struct KeyFrame;
 struct Frame {
 
 	static const int NUM_PYRS = 3;
+	static const int MIN_KEY_POINTS = 500;
 
 	Frame();
 
@@ -43,7 +44,11 @@ struct Frame {
 
 	Eigen::Matrix3d Rotation() const;
 
+	Eigen::Matrix3d RotationInv() const;
+
 	Eigen::Vector3d Translation() const;
+
+	Eigen::Vector3d TranslationInv() const;
 
 	Matrix3f GpuRotation() const;
 
@@ -61,6 +66,8 @@ struct Frame {
 	DeviceArray2D<float4> nmap[NUM_PYRS];
 	DeviceArray2D<float> depth[NUM_PYRS];
 	DeviceArray2D<unsigned char> image[NUM_PYRS];
+	DeviceArray2D<short> dIdx[NUM_PYRS];
+	DeviceArray2D<short> dIdy[NUM_PYRS];
 
 	unsigned long frameId;
 	static unsigned long nextId;
@@ -71,6 +78,7 @@ struct Frame {
 	Eigen::Matrix4d pose;
 
 	int N;
+	bool bad;
 	cv::cuda::GpuMat descriptors;
 	std::vector<float4> pointNormal;
 	std::vector<Eigen::Vector3f> mapPoints;

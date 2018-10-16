@@ -164,6 +164,10 @@ __host__ __device__ __forceinline__ float3 operator-(float3 b) {
 	return make_float3(-b.x, -b.y, -b.z);
 }
 
+__host__ __device__ __forceinline__ float4 operator-(float4 b) {
+	return make_float4(-b.x, -b.y, -b.z, -b.w);
+}
+
 __host__ __device__ __forceinline__ float3 operator-(float3 a, float b) {
 	return make_float3(a.x - b, a.y - b, a.z - b);
 }
@@ -307,10 +311,10 @@ __host__  __device__  __forceinline__ float3 cross(float3 a, float3 b) {
 			           a.x * b.y - a.y * b.x);
 }
 
-__host__  __device__  __forceinline__ float4 cross(float4 a, float4 b) {
-	return make_float4(a.y * b.z - a.z * b.y,
+__host__  __device__  __forceinline__ float3 cross(float4 a, float4 b) {
+	return make_float3(a.y * b.z - a.z * b.y,
 			           a.z * b.x - a.x * b.z,
-			           a.x * b.y - a.y * b.x, 1.0f);
+			           a.x * b.y - a.y * b.x);
 }
 
 __host__ __device__ __forceinline__ float norm(float3 a) {

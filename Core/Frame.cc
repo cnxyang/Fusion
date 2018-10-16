@@ -18,7 +18,7 @@ unsigned long Frame::nextId = 0;
 cv::cuda::SURF_CUDA Frame::surfExt;
 cv::Ptr<cv::BRISK> Frame::briskExt;
 
-Frame::Frame():frameId(0), N(0) {}
+Frame::Frame():frameId(0), N(0), bad(false) {}
 
 Frame::Frame(const Frame * other):frameId(other->frameId), N(0) {
 
@@ -47,6 +47,8 @@ void Frame::Create(int cols_, int rows_) {
 		nmap[i].create(cols, rows);
 		depth[i].create(cols, rows);
 		image[i].create(cols, rows);
+		dIdx[i].create(cols, rows);
+		dIdy[i].create(cols, rows);
 	}
 }
 
@@ -68,9 +70,11 @@ void Frame::FillImages(const cv::Mat & range_, const cv::Mat & color_) {
 	for(int i = 0; i < NUM_PYRS; ++i) {
 		ComputeVMap(depth[i], vmap[i], fx(i), fy(i), cx(i), cy(i), mDepthCutoff);
 		ComputeNMap(vmap[i], nmap[i]);
+		ComputeDerivativeImage(image[i], dIdx[i], dIdy[i]);
 	}
 
 	frameId = nextId++;
+	bad = false;
 }
 
 void Frame::ResizeImages() {
@@ -150,7 +154,12 @@ float4 Frame::InterpNormal(cv::Mat & map, float & x, float & y) {
 
 	float4 d0 = d01 * coeff.x + d00 * (1 - coeff.x);
 	float4 d1 = d11 * coeff.x + d10 * (1 - coeff.x);
-	return d0 * (1 - coeff.y) + d1 * coeff.y;
+	float4 final = d0 * (1 - coeff.y) + d1 * coeff.y;
+
+	if(norm(final - d00) <= 0.1)
+		return final;
+	else
+		return make_float4(std::nanf("0x7fffffff"));
 }
 
 void Frame::ExtractKeyPoints() {
@@ -173,7 +182,6 @@ void Frame::ExtractKeyPoints() {
 	descriptors.download(rawDescriptors);
 
 	cv::Mat desc;
-
 	N = rawKeyPoints.size();
 	for(int i = 0; i < N; ++i) {
 		cv::KeyPoint & kp = rawKeyPoints[i];
@@ -196,6 +204,9 @@ void Frame::ExtractKeyPoints() {
 	}
 
 	N = mapPoints.size();
+	if(N < MIN_KEY_POINTS)
+		bad = true;
+
 	descriptors.upload(desc);
 	pose = Eigen::Matrix4d::Identity();
 }
@@ -286,6 +297,14 @@ Eigen::Matrix3d Frame::Rotation() const {
 	return pose.topLeftCorner(3, 3);
 }
 
+Eigen::Matrix3d Frame::RotationInv() const {
+	return Rotation().transpose();
+}
+
 Eigen::Vector3d Frame::Translation() const {
 	return pose.topRightCorner(3, 1);
+}
+
+Eigen::Vector3d Frame::TranslationInv() const {
+	return -RotationInv() * Translation();
 }

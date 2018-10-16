@@ -31,12 +31,16 @@ struct KeyFrame {
 	unsigned long frameId;
 
 	Eigen::Matrix4f pose;
+	Eigen::Matrix4f newPose;
 
 	cv::cuda::GpuMat descriptors;
 	std::vector<float4> pointNormal;
 	std::vector<cv::KeyPoint> keyPoints;
-	std::vector<Eigen::Vector3f> mapPoints;
 	std::vector<int> observations;
+
+	mutable std::vector<bool> outliers;
+	mutable std::vector<int> keyIndex;
+	mutable std::vector<Eigen::Vector3f> mapPoints;
 
 	DeviceArray2D<float> depth;
 	DeviceArray2D<float4> vmap;

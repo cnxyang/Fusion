@@ -3,8 +3,11 @@
 
 #include "Solver.h"
 
-bool Solver::PoseEstimate(std::vector<Eigen::Vector3d> & src, std::vector<Eigen::Vector3d> & ref,
-				          std::vector<bool> & outlier, Eigen::Matrix4d & Tlastcurr, int iteration, bool checkAngle) {
+bool Solver::PoseEstimate(std::vector<Eigen::Vector3d> & src,
+						  std::vector<Eigen::Vector3d> & ref,
+						  std::vector<bool> & outlier,
+						  Eigen::Matrix4d & Tlastcurr,
+						  int iteration, bool checkAngle) {
 
 	Eigen::Matrix3d R_best = Eigen::Matrix3d::Identity();
 	Eigen::Vector3d t_best = Eigen::Vector3d::Zero();
@@ -139,6 +142,39 @@ bool Solver::PoseEstimate(std::vector<Eigen::Vector3d> & src, std::vector<Eigen:
 			outlier[i] = false;
 		}
 	}
+
+	int N = 0;
+	Eigen::Vector3d src_mean = Eigen::Vector3d::Zero();
+	Eigen::Vector3d dst_mean = Eigen::Vector3d::Zero();
+	for (int i = 0; i < src.size(); ++i) {
+		if(!outlier[i]) {
+			src_mean += src[i];
+			dst_mean += ref[i];
+			N++;
+		}
+	}
+
+	src_mean /= N;
+	dst_mean /= N;
+
+	Eigen::Matrix3d Ab = Eigen::Matrix3d::Zero();
+	for (int i = 0; i < src.size(); ++i) {
+		if(!outlier[i]) {
+			Ab += (src[i] - src_mean) * (ref[i] - dst_mean).transpose();
+		}
+	}
+
+	Eigen::JacobiSVD<Eigen::Matrix3d> svd(Ab, Eigen::ComputeFullU | Eigen::ComputeFullV);
+	Eigen::Matrix3d V = svd.matrixV();
+	Eigen::Matrix3d U = svd.matrixU();
+	R_best = (V * U.transpose()).transpose();
+	if(R_best.determinant() < 0) {
+		std::cout << "final check failed." << std::endl;
+		return false;
+	}
+
+	t_best = src_mean - R_best * dst_mean;
+	inliers_best = N;
 
 	if(checkAngle && confidence < 0.8) {
 		Eigen::Vector3d angles = R_best.eulerAngles(0, 1, 2).array().sin();

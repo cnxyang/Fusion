@@ -16,6 +16,9 @@ KeyFrame::KeyFrame(const Frame * f) {
 	pose = f->pose.cast<float>();
 	observations.resize(mapPoints.size());
 	std::fill(observations.begin(), observations.end(), 0);
+
+	keyIndex.resize(mapPoints.size());
+	std::fill(keyIndex.begin(), keyIndex.end(), -1);
 }
 
 Matrix3f KeyFrame::GpuRotation() const {

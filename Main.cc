@@ -13,7 +13,7 @@
 int main(int argc, char** argv) {
 
 	SysDesc desc;
-	camera cam;
+	PrimeSense cam;
 	cv::Mat imD, imRGB;
 
 	desc.DepthCutoff = 3.0f;
@@ -28,12 +28,14 @@ int main(int argc, char** argv) {
 	desc.bUseDataset = false;
 
 	System slam(&desc);
+//	cam.SetAutoExposure(false);
+//	cam.SetAutoWhiteBalance(false);
 
 	while (1) {
-		if (cam.fetchFrame(imD, imRGB)) {
+		if (cam.FetchFrame(imD, imRGB)) {
 			bool valid = slam.GrabImage(imRGB, imD);
 			if(!valid) {
-				cam.stopStreaming();
+				cam.StopStreaming();
 				return 0;
 			}
 		}

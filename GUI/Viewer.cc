@@ -90,8 +90,8 @@ void Viewer::spin() {
 	Var<bool> btnSaveMesh("UI.Save as Mesh", false, false);
 	Var<bool> btnDrawWireFrame("UI.WireFrame Mode", false, true);
 	Var<bool> btnShowColorImage("UI.Color Image", true, true);
-	Var<bool> btnShowDepthImage("UI.Depth Image", false, true);
-	Var<bool> btnShowRenderedImage("UI.Rendered Image", false, true);
+	Var<bool> btnShowDepthImage("UI.Depth Image", true, true);
+	Var<bool> btnShowRenderedImage("UI.Rendered Image", true, true);
 	Var<bool> btnPauseSystem("UI.Pause System", false, false);
 	Var<bool> btnUseGraphMatching("UI.Graph Matching", false, true);
 	Var<bool> btnLocalisationMode("UI.Localisation Only", false, true);
@@ -136,6 +136,7 @@ void Viewer::spin() {
 
 		if (Pushed(btnReadMapFromDisk)) {
 			system->requestReadMap = true;
+			btnLocalisationMode = true;
 		}
 
 		if (btnLocalisationMode) {
@@ -317,7 +318,9 @@ void Viewer::followCam() {
 	up = rotation * up + translation;
 	eye = rotation * eye + translation;
 	look = rotation * look + translation;
-	sCam.SetModelViewMatrix(ModelViewLookAtRUB(eye(0), eye(1), eye(2), look(0), look(1), look(2), up(0), up(1), up(2)));
+	sCam.SetModelViewMatrix(ModelViewLookAtRUB( eye(0),  eye(1),  eye(2),
+											   look(0), look(1), look(2),
+											     up(0),   up(1),   up(2)));
 }
 
 void Viewer::drawMesh(bool bNormal) {
@@ -404,15 +407,6 @@ void Viewer::drawCamera() {
 
 	Insert(cam, p[0]);
 	Insert(cam, p[1]);
-	Insert(cam, p[2]);
-	Insert(cam, p[1]);
-	Insert(cam, p[2]);
-	Insert(cam, p[3]);
-	Insert(cam, p[0]);
-	Insert(cam, p[2]);
-	Insert(cam, p[3]);
-	Insert(cam, p[0]);
-	Insert(cam, p[1]);
 	Insert(cam, p[4]);
 	Insert(cam, p[0]);
 	Insert(cam, p[2]);
@@ -427,11 +421,12 @@ void Viewer::drawCamera() {
 	bool lost = (tracker->state == -1);
 	if (lost)
 		glColor3f(1.0, 0.0, 0.0);
-	else
+	else {
 		glColor3f(0.0, 1.0, 0.0);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_TRIANGLES, 3);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_TRIANGLES, 3);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	}
 }
 
 void Viewer::drawKeys() {
@@ -448,6 +443,18 @@ void Viewer::drawKeys() {
 
 	glColor3f(1.0, 0.0, 0.0);
 	glPointSize(3.0);
+	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_POINTS, 3);
+	glPointSize(1.0);
+
+	points.clear();
+	for (int i = 0; i < tracker->output.size(); ++i) {
+		points.push_back(tracker->output[i](0));
+		points.push_back(tracker->output[i](1));
+		points.push_back(tracker->output[i](2));
+	}
+
+	glColor3f(0.0, 1.0, 0.0);
+	glPointSize(10.0);
 	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_POINTS, 3);
 	glPointSize(1.0);
 }

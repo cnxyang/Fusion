@@ -3,6 +3,7 @@
 
 #include "SafeCall.h"
 
+#include <vector>
 #include <atomic>
 
 template<class T> struct PtrSz {
@@ -20,7 +21,7 @@ template<class T> struct PtrStep {
 
 	__device__ inline T * ptr(int y = 0) const;
 
-	T* data;
+	T * data;
 
 	size_t step;
 };
@@ -29,7 +30,7 @@ template<class T> struct PtrStepSz {
 
 	__device__ inline T * ptr(int y = 0) const;
 
-	T* data;
+	T * data;
 
 	int cols;
 
@@ -46,15 +47,21 @@ template<class T> struct DeviceArray {
 
 	DeviceArray(size_t size_);
 
+	DeviceArray(const std::vector<T> & vec);
+
 	void create(size_t size_);
 
 	void upload(const void * data_);
 
+	void upload(const std::vector<T> & vec);
+
 	void upload(const void * data_, size_t size_);
 
-	void download(void * data_);
+	void download(void * data_) const;
 
-	void download(void * data_, size_t size_);
+	void download(std::vector<T> & vec) const;
+
+	void download(void * data_, size_t size_) const;
 
 	void clear();
 
@@ -155,6 +162,12 @@ template<class T> DeviceArray<T>::DeviceArray(size_t size_) :
 	create(size_);
 }
 
+template<class T> DeviceArray<T>::DeviceArray(const std::vector<T> & vec) :
+		data(0), ref(0), size(vec.size()) {
+	create(size);
+	upload(vec);
+}
+
 template<class T> DeviceArray<T>::~DeviceArray() {
 	release();
 }
@@ -170,17 +183,27 @@ template<class T> void DeviceArray<T>::upload(const void * data_) {
 	upload(data_, size);
 }
 
+template<class T> void DeviceArray<T>::upload(const std::vector<T> & vec) {
+	upload(vec.data(), vec.size());
+}
+
 template<class T> void DeviceArray<T>::upload(const void * data_, size_t size_) {
 	if (size_ > size) return;
 	SafeCall(cudaMemcpy(data, data_, sizeof(T) * size_, cudaMemcpyHostToDevice));
 }
 
-template<class T> void DeviceArray<T>::download(void * host_ptr) {
-	SafeCall(cudaMemcpy(host_ptr, data, sizeof(T) * size,	cudaMemcpyDeviceToHost));
+template<class T> void DeviceArray<T>::download(void * data_) const {
+	download(data_, size);
 }
 
-template<class T> void DeviceArray<T>::download(void * host_ptr, size_t size) {
-	SafeCall(cudaMemcpy(host_ptr, data, sizeof(T) * size,	cudaMemcpyDeviceToHost));
+template<class T> void DeviceArray<T>::download(std::vector<T> & vec) const {
+	if(vec.size() != size)
+		vec.resize(size);
+	download((void*) vec.data(), vec.size());
+}
+
+template<class T> void DeviceArray<T>::download(void * data_, size_t size_) const {
+	SafeCall(cudaMemcpy(data_, data, sizeof(T) * size_,	cudaMemcpyDeviceToHost));
 }
 
 template<class T> void DeviceArray<T>::clear() {
@@ -341,7 +364,7 @@ template<class T> DeviceArray2D<T>& DeviceArray2D<T>::operator=(const DeviceArra
 		ref = other.ref;
 	}
 
-	return *this;
+	return * this;
 }
 
 template<class T> DeviceArray2D<T>::operator T*() const {

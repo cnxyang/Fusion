@@ -13,9 +13,10 @@ struct Fusion {
 	float3 tview;
 
 	uint* noVisibleBlocks;
+
+	PtrStep<float4> nmap;
 	PtrStep<float> depth;
 	PtrStep<uchar3> rgb;
-	PtrStep<float4> bundle;
 
 	__device__ inline float2 project(float3& pt3d) {
 		float2 pt2d;
@@ -147,6 +148,7 @@ struct Fusion {
 			return;
 
 		int3 block_pos = map.blockPosToVoxelPos(entry.pos);
+
 		#pragma unroll
 		for(int i = 0; i < 8; ++i) {
 			int3 localPos = make_int3(threadIdx.x, threadIdx.y, i);
@@ -167,14 +169,20 @@ struct Fusion {
 			if (sdf >= -thresh) {
 
 				sdf = fmin(1.0f, sdf / thresh);
-				uchar3 color = rgb.ptr(uv.y)[uv.x];
+				float4 nl = nmap.ptr(uv.y)[uv.x];
+				if(isnan(nl.x))
+					continue;
+
+				float w = nl * normalised(make_float4(pos));
+				float3 val = make_float3(rgb.ptr(uv.y)[uv.x]);
 				Voxel & prev = map.voxelBlocks[entry.ptr + locId];
 				if(prev.weight == 0) {
-					prev = Voxel(sdf, 1, color);
-				}
-				else {
-					float3 res = 0.2f * make_float3(color) + 0.8f * make_float3(prev.color);
-					prev.sdf = (prev.sdf * prev.weight + sdf) / (prev.weight + 1);
+					prev = Voxel(sdf, 1, make_uchar3(val));
+				} else {
+					val = val / 255.f;
+					float3 old = make_float3(prev.color) / 255.f;
+					float3 res = (w * 0.2f * val + (1 - w * 0.2f) * old) * 255.f;
+					prev.sdf = (prev.sdf * prev.weight + w * sdf) / (prev.weight + w);
 					prev.weight = min(255, prev.weight + 1);
 					prev.color = make_uchar3(res);
 				}
@@ -242,6 +250,7 @@ void CheckBlockVisibility(DeviceMap map,
 
 void FuseMapColor(const DeviceArray2D<float> & depth,
 				  const DeviceArray2D<uchar3> & color,
+				  const DeviceArray2D<float4> & nmap,
 				  DeviceArray<uint> & noVisibleBlocks,
 				  Matrix3f Rview,
 				  Matrix3f RviewInv,
@@ -272,6 +281,7 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 	fuse.invfy = 1.0 / fy;
 	fuse.depth = depth;
 	fuse.rgb = color;
+	fuse.nmap = nmap;
 	fuse.rows = rows;
 	fuse.cols = cols;
 	fuse.noVisibleBlocks = noVisibleBlocks;
@@ -355,13 +365,7 @@ void ResetMap(DeviceMap map) {
 
 __global__ void ResetKeyPointsKernel(KeyMap map) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	if(x < KeyMap::maxEntries) {
-		map.Keys[x].valid = false;
-	}
-
-	if(x < KeyMap::nBuckets) {
-		map.Mutex[x] = EntryAvailable;
-	}
+	map.ResetKeys(x);
 }
 
 void ResetKeyPoints(KeyMap map) {
@@ -387,7 +391,7 @@ struct KeyFusion {
 		uint val = 0;
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
 		if(x < map.Keys.size) {
-			SurfKey * key = &map.Keys[x];
+			SURF * key = &map.Keys[x];
 			if(key->valid) {
 				scan = true;
 				val = 1;
@@ -398,7 +402,7 @@ struct KeyFusion {
 		if(scan) {
 			int offset = ComputeOffset<1024>(val, nokeys);
 			if(offset > 0 && x < map.Keys.size) {
-				memcpy(&keys[offset], &map.Keys[x], sizeof(SurfKey));
+				memcpy(&keys[offset], &map.Keys[x], sizeof(SURF));
 			}
 		}
 	}
@@ -406,18 +410,19 @@ struct KeyFusion {
 	__device__ __forceinline__ void InsertKeys() {
 
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
-		if (x < size) {
-			map.InsertKey(&keys[x]);
-		}
+		if (x < size)
+			map.InsertKey(&keys[x], index[x]);
 	}
 
 	KeyMap map;
 
 	uint * nokeys;
 
-	PtrSz<SurfKey> keys;
+	PtrSz<SURF> keys;
 
 	size_t size;
+
+	PtrSz<int> index;
 };
 
 __global__ void CollectKeyPointsKernel(KeyFusion fuse) {
@@ -428,7 +433,7 @@ __global__ void InsertKeyPointsKernel(KeyFusion fuse) {
 	fuse.InsertKeys();
 }
 
-void CollectKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys, DeviceArray<uint> & noKeys) {
+void CollectKeyPoints(KeyMap map, DeviceArray<SURF> & keys, DeviceArray<uint> & noKeys) {
 
 	KeyFusion fuse;
 	fuse.map = map;
@@ -444,15 +449,18 @@ void CollectKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys, DeviceArray<uint>
 	SafeCall(cudaGetLastError());
 }
 
-void InsertKeyPoints(KeyMap map, DeviceArray<SurfKey> & keys, size_t size) {
+void InsertKeyPoints(KeyMap map, DeviceArray<SURF> & keys,
+		DeviceArray<int> & keyIndex, size_t size) {
 
 	if(size == 0)
 		return;
 
 	KeyFusion fuse;
+
 	fuse.map = map;
 	fuse.keys = keys;
 	fuse.size = size;
+	fuse.index = keyIndex;
 
 	dim3 thread(1024);
 	dim3 block(DivUp(size, thread.x));

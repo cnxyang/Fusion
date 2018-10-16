@@ -1,72 +1,78 @@
 #include "Camera.h"
 
-camera::camera() :
-		camera(640, 480, 30) {
+PrimeSense::PrimeSense() :
+		PrimeSense(640, 480, 30) {
 }
 
-camera::camera(int cols, int rows, int fps) :
-		mCols(cols), mRows(rows), mFPS(fps), mpDevice(nullptr), mpColorStream(
-				nullptr), mpColorFrame(nullptr), mpDepthStream(nullptr), mpDepthFrame(
-				nullptr) {
+PrimeSense::PrimeSense(int cols_, int rows_, int fps_)
+: cols(cols_), rows(rows_), fps(fps_), device(NULL),
+  colorStream(NULL), colorFrame(NULL), depthStream(NULL),
+  depthFrame(NULL), setting(NULL) {
 
-	initCamera();
-	startStreaming();
+	Initialization();
+	StartStreaming();
 }
 
-camera::~camera() {
-
-	stopStreaming();
+PrimeSense::~PrimeSense() {
+	StopStreaming();
 }
 
-void camera::initCamera() {
+void PrimeSense::SetAutoExposure(bool value) {
+	if(!setting)
+		setting = colorStream->getCameraSettings();
+
+	setting->setAutoExposureEnabled(value);
+}
+
+void PrimeSense::SetAutoWhiteBalance(bool value) {
+	if(!setting)
+		setting = colorStream->getCameraSettings();
+
+	setting->setAutoWhiteBalanceEnabled(value);
+}
+
+void PrimeSense::Initialization() {
+
 	if (openni::OpenNI::initialize() != openni::STATUS_OK) {
-		printf("OpenNI Initialisation Failed with Error Message : %s\n",
-				openni::OpenNI::getExtendedError());
+		printf("OpenNI Initialisation Failed with Error Message : %s\n", openni::OpenNI::getExtendedError());
 		exit(0);
 	}
 
-	mpDevice = new openni::Device();
-	if (mpDevice->open(openni::ANY_DEVICE) != openni::STATUS_OK) {
-		printf("Couldn't open device\n%s\n",
-				openni::OpenNI::getExtendedError());
+	device = new openni::Device();
+	if (device->open(openni::ANY_DEVICE) != openni::STATUS_OK) {
+		printf("Couldn't open device\n%s\n", openni::OpenNI::getExtendedError());
 		exit(0);
 	}
 
-	mpDepthStream = new openni::VideoStream();
-	mpColorStream = new openni::VideoStream();
-	if (mpDepthStream->create(*mpDevice, openni::SENSOR_DEPTH)
-			!= openni::STATUS_OK
-			|| mpColorStream->create(*mpDevice, openni::SENSOR_COLOR)
-					!= openni::STATUS_OK) {
-
-		printf("Couldn't create streaming service\n%s\n",
-				openni::OpenNI::getExtendedError());
+	depthStream = new openni::VideoStream();
+	colorStream = new openni::VideoStream();
+	if (depthStream->create(*device, openni::SENSOR_DEPTH) != openni::STATUS_OK	||
+	    colorStream->create(*device, openni::SENSOR_COLOR) != openni::STATUS_OK) {
+		printf("Couldn't create streaming service\n%s\n", openni::OpenNI::getExtendedError());
 		exit(0);
 	}
 
-	// change pixel format, resolution and FPS
-	openni::VideoMode depth_video_mode = mpDepthStream->getVideoMode();
-	depth_video_mode.setResolution(mCols, mRows);
-	depth_video_mode.setFps(mFPS);
+	openni::VideoMode depth_video_mode = depthStream->getVideoMode();
+	depth_video_mode.setResolution(cols, rows);
+	depth_video_mode.setFps(fps);
 	depth_video_mode.setPixelFormat(openni::PIXEL_FORMAT_DEPTH_1_MM);
 
-	openni::VideoMode color_video_mode = mpColorStream->getVideoMode();
-	color_video_mode.setResolution(mCols, mRows);
-	color_video_mode.setFps(mFPS);
+	openni::VideoMode color_video_mode = colorStream->getVideoMode();
+	color_video_mode.setResolution(cols, rows);
+	color_video_mode.setFps(fps);
 	color_video_mode.setPixelFormat(openni::PIXEL_FORMAT_RGB888);
 
 	// save customised mode
-	mpDepthStream->setVideoMode(depth_video_mode);
-	mpColorStream->setVideoMode(color_video_mode);
+	depthStream->setVideoMode(depth_video_mode);
+	colorStream->setVideoMode(color_video_mode);
 
-	// Note: Doing image registration earlier than this seems to fail
-	if (mpDevice->isImageRegistrationModeSupported(
-			openni::IMAGE_REGISTRATION_DEPTH_TO_COLOR)) {
-		if (mpDevice->setImageRegistrationMode(
-				openni::IMAGE_REGISTRATION_DEPTH_TO_COLOR) == openni::STATUS_OK)
+	// Note: Doing image registration earlier than this point seems to fail
+	if (device->isImageRegistrationModeSupported(openni::IMAGE_REGISTRATION_DEPTH_TO_COLOR)) {
+		if (device->setImageRegistrationMode(openni::IMAGE_REGISTRATION_DEPTH_TO_COLOR) == openni::STATUS_OK) {
 			printf("Depth To Colour Image Registration Set Success\n");
-		else
+		} else {
 			printf("Depth To Colour Image Registration Set FAILED\n");
+		}
 	} else {
 		printf("Depth To Colour Image Registration is NOT Supported!!!\n");
 	}
@@ -74,40 +80,43 @@ void camera::initCamera() {
 	printf("OpenNI Camera Initialisation Complete!\n");
 }
 
-void camera::startStreaming() {
-	mpDepthStream->setMirroringEnabled(false);
-	mpColorStream->setMirroringEnabled(false);
+void PrimeSense::StartStreaming() {
 
-	if (mpDepthStream->start() != openni::STATUS_OK) {
-		printf("Couldn't start depth streaming service\n%s\n",
-				openni::OpenNI::getExtendedError());
+	depthStream->setMirroringEnabled(false);
+	colorStream->setMirroringEnabled(false);
+
+	if (depthStream->start() != openni::STATUS_OK) {
+		printf("Couldn't start depth streaming service\n%s\n", openni::OpenNI::getExtendedError());
 		exit(0);
 	}
 
-	if (mpColorStream->start() != openni::STATUS_OK) {
-		printf("Couldn't start rgb streaming service\n%s\n",
-				openni::OpenNI::getExtendedError());
+	if (colorStream->start() != openni::STATUS_OK) {
+		printf("Couldn't start colour streaming service\n%s\n", openni::OpenNI::getExtendedError());
 		exit(0);
 	}
 
-	mpDepthFrame = new openni::VideoFrameRef();
-	mpColorFrame = new openni::VideoFrameRef();
+	depthFrame = new openni::VideoFrameRef();
+	colorFrame = new openni::VideoFrameRef();
 
 	printf("OpenNI Camera Streaming Started!\n");
 }
 
-void camera::stopStreaming() {
-	mpDepthStream->stop();
-	mpColorStream->stop();
-	mpColorStream->destroy();
-	mpDepthStream->destroy();
-	mpDevice->close();
+void PrimeSense::StopStreaming() {
+
+	depthStream->stop();
+	colorStream->stop();
+
+	depthStream->destroy();
+	colorStream->destroy();
+
+	device->close();
+
 	openni::OpenNI::shutdown();
 }
 
-bool camera::fetchFrame(cv::Mat& depth, cv::Mat& rgb) {
+bool PrimeSense::FetchFrame(cv::Mat& depth, cv::Mat& rgb) {
 
-	openni::VideoStream * streams[] = { mpDepthStream, mpColorStream };
+	openni::VideoStream * streams[] = { depthStream, colorStream };
 	int streamReady = -1;
 	auto state = openni::STATUS_OK;
 	while (state == openni::STATUS_OK) {
@@ -116,10 +125,10 @@ bool camera::fetchFrame(cv::Mat& depth, cv::Mat& rgb) {
 		if (state == openni::STATUS_OK) {
 			switch (streamReady) {
 			case 0:
-				fetchDepthFrame(depth);
+				FetchDepthFrame(depth);
 				break;
 			case 1:
-				fetchColorFrame(rgb);
+				FetchRGBFrame(rgb);
 				break;
 			default:
 				printf("Unexpected stream number!\n");
@@ -128,37 +137,22 @@ bool camera::fetchFrame(cv::Mat& depth, cv::Mat& rgb) {
 		}
 	}
 
-	if (!mpColorFrame || !mpDepthFrame || !mpColorFrame->isValid()
-			|| !mpDepthFrame->isValid())
+	if (!colorFrame || !depthFrame || !colorFrame->isValid() || !depthFrame->isValid())
 		return false;
 
 	return true;
 }
 
-void camera::fetchColorFrame(cv::Mat& rgb) {
-	if (mpColorStream->readFrame(mpColorFrame) != openni::STATUS_OK) {
+void PrimeSense::FetchRGBFrame(cv::Mat& rgb) {
+	if (colorStream->readFrame(colorFrame) != openni::STATUS_OK) {
 		printf("Read failed!\n%s\n", openni::OpenNI::getExtendedError());
 	}
-	rgb = cv::Mat(mRows, mCols, CV_8UC3,
-			const_cast<void*>(mpColorFrame->getData()));
+	rgb = cv::Mat(rows, cols, CV_8UC3, const_cast<void*>(colorFrame->getData()));
 }
 
-void camera::fetchDepthFrame(cv::Mat& depth) {
-	if (mpDepthStream->readFrame(mpDepthFrame) != openni::STATUS_OK) {
+void PrimeSense::FetchDepthFrame(cv::Mat& depth) {
+	if (depthStream->readFrame(depthFrame) != openni::STATUS_OK) {
 		printf("Read failed!\n%s\n", openni::OpenNI::getExtendedError());
 	}
-	depth = cv::Mat(mRows, mCols, CV_16UC1,
-			const_cast<void*>(mpDepthFrame->getData()));
-}
-
-int camera::rows() const {
-	return mRows;
-}
-
-int camera::fps() const {
-	return mFPS;
-}
-
-int camera::cols() const {
-	return mCols;
+	depth = cv::Mat(rows, cols, CV_16UC1, const_cast<void*>(depthFrame->getData()));
 }
