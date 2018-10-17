@@ -23,7 +23,7 @@ struct Projection {
 	mutable PtrStep<float> zRangeY;
 	mutable PtrSz<RenderingBlock> renderingBlockList;
 
-	__device__ __forceinline__ float2 project(const float3 & pt3d) const {
+	__device__ __inline__ float2 project(const float3 & pt3d) const {
 
 		float2 pt2d;
 		pt2d.x = fx * pt3d.x / pt3d.z + cx;
@@ -31,7 +31,7 @@ struct Projection {
 		return pt2d;
 	}
 
-	__device__ __forceinline__ void atomicMax(float* add, float val) const {
+	__device__ __inline__ void atomicMax(float* add, float val) const {
 		int* address_as_i = (int*) add;
 		int old = *address_as_i, assumed;
 		do {
@@ -41,7 +41,7 @@ struct Projection {
 		} while (assumed != old);
 	}
 
-	__device__ __forceinline__ void atomicMin(float* add, float val) const {
+	__device__ __inline__ void atomicMin(float* add, float val) const {
 		int* address_as_i = (int*) add;
 		int old = *address_as_i, assumed;
 		do {
@@ -51,7 +51,7 @@ struct Projection {
 		} while (assumed != old);
 	}
 
-	__device__ __forceinline__ bool projectBlock(const int3 & pos,
+	__device__ __inline__ bool projectBlock(const int3 & pos,
 										RenderingBlock & block) const {
 
 		block.upperLeft = make_short2(zRangeX.cols, zRangeX.rows);
@@ -103,7 +103,7 @@ struct Projection {
 		return true;
 	}
 
-	__device__ __forceinline__ void createRenderingBlockList(int & offset,
+	__device__ __inline__ void createRenderingBlockList(int & offset,
 			const RenderingBlock & block, int & nx, int & ny) const {
 
 		for (int y = 0; y < ny; ++y)
@@ -123,7 +123,7 @@ struct Projection {
 			}
 	}
 
-	__device__ __forceinline__ void operator()() const {
+	__device__ __inline__ void operator()() const {
 
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -153,7 +153,7 @@ struct Projection {
 			createRenderingBlockList(offset, block, nx, ny);
 	}
 
-	__device__ __forceinline__ void fillBlocks() const {
+	__device__ __inline__ void fillBlocks() const {
 
 		int x = threadIdx.x;
 		int y = threadIdx.y;
@@ -287,14 +287,14 @@ struct Rendering {
 	Matrix3f Rview, RviewInv;
 	float3 tview;
 
-	__device__ __forceinline__ float readSdf(const float3 & pt3d, HashEntry & cache, bool & valid) {
+	__device__ __inline__ float readSdf(const float3 & pt3d, HashEntry & cache, bool & valid) {
 		Voxel voxel = map.FindVoxel(pt3d, cache, valid);
 		if (voxel.weight == 0)
 			valid = false;
 		return voxel.sdf;
 	}
 
-	__device__ __forceinline__ float readSdfInterped(const float3 & pt, HashEntry & cache, bool & valid) {
+	__device__ __inline__ float readSdfInterped(const float3 & pt, HashEntry & cache, bool & valid) {
 
 		float3 xyz = pt - floor(pt);
 		float sdf[2], result[4];
@@ -318,7 +318,7 @@ struct Rendering {
 		return (1.0f - xyz.z) * result[2] + xyz.z * result[3];
 	}
 
-	__device__ __forceinline__ bool readNormal(const float3 & pt, HashEntry & cache, float3 & n) {
+	__device__ __inline__ bool readNormal(const float3 & pt, HashEntry & cache, float3 & n) {
 
 		bool valid;
 		float sdf[6];
@@ -351,7 +351,7 @@ struct Rendering {
 		return true;
 	}
 
-	__device__ __forceinline__ void operator()() {
+	__device__ __inline__ void operator()() {
 
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
 		int y = blockDim.y * blockIdx.y + threadIdx.y;

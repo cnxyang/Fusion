@@ -41,10 +41,6 @@ struct KeyFrame {
 	mutable std::vector<bool> outliers;
 	mutable std::vector<int> keyIndex;
 	mutable std::vector<Eigen::Vector3f> mapPoints;
-
-	DeviceArray2D<float> depth;
-	DeviceArray2D<float4> vmap;
-	DeviceArray2D<float4> nmap;
 };
 
 #endif

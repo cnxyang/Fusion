@@ -528,20 +528,26 @@ bool Tracker::GenerateGraph(int N) {
 	std::vector<cv::Mat> vmSelectedIdx;
 	cv::Mat cvNoSelected;
 
+	// Select multiple sub-graphs
 	for (int i = 0; i < N_LISTS_SUB_GRAPH; ++i) {
 
 		cv::Mat mSelectedIdx;
 		int headIdx = 0;
 		int nSelected = 0;
 
+		// for every sub-graph, select as many key pairs as we can
 		for (int j = i; j < rankIndex.cols; ++j) {
 
 			int idx = rankIndex.at<int>(j);
+			// always push the first pair in the sub-graph
 			if (nSelected == 0) {
 				mSelectedIdx.push_back(idx);
 				headIdx = idx;
 				nSelected++;
 			} else {
+				// check confidence score associated with the first pair in the sub-graph
+				// this is essentially the consistency check to make sure every pair in
+				// the graph is consistent with each other;
 				float score = conMatrix.at<float>(headIdx, idx);
 				if (score > THRESH_MIN_SCORE) {
 					mSelectedIdx.push_back(idx);
@@ -553,6 +559,9 @@ bool Tracker::GenerateGraph(int N) {
 				break;
 		}
 
+		// ao* needs at least 3 points to run
+		// although it should be noticed that
+		// more points generally means better.
 		if (nSelected >= 3) {
 			cv::Mat refined;
 			for (int k = 1; k < nSelected; ++k) {
@@ -560,6 +569,9 @@ bool Tracker::GenerateGraph(int N) {
 				int l = k + 1;
 				for (; l < nSelected; ++l) {
 					int b = mSelectedIdx.at<int>(l);
+					// check if the score is close to 0
+					// essentially it means multiple points has been matched to the same one
+					// or vice versa
 					if(conMatrix.at<float>(a, b) < 5e-3f || conMatrix.at<float>(b, a) < 5e-3f) {
 						if(conMatrix.at<float>(headIdx, b) > conMatrix.at<float>(headIdx, a)) {
 							break;
@@ -585,6 +597,7 @@ bool Tracker::GenerateGraph(int N) {
 	const int M = (cvNoSelected.rows > N) ? N : cvNoSelected.rows;
 	cv::sortIdx(cvNoSelected, tmp, CV_SORT_DESCENDING);
 
+	// building a list of sub-graphs we are using
 	for(int i = 0; i < M; ++i) {
 
 		rankIndex = vmSelectedIdx[tmp.at<int>(i)];
