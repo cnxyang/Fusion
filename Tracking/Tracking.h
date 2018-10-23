@@ -50,6 +50,8 @@ public:
 	DeviceArray2D<uchar4> rgbaImage;
 
 	std::vector<Eigen::Vector3d> output;
+	KeyFrame * ReferenceKF;
+	KeyFrame * LastKeyFrame;
 
 protected:
 
@@ -81,12 +83,11 @@ protected:
 
 	void CreateKeyFrame();
 
+	void InsertFrame();
+
 	Mapping * map;
+
 	Viewer * viewer;
-
-	KeyFrame * ReferenceKF;
-	KeyFrame * LastKeyFrame;
-
 
 	const int maxIter = 35;
 	const int maxIterReloc = 100;
@@ -142,6 +143,9 @@ protected:
 	std::vector<Eigen::Vector3d> framePoints;
 	std::vector<float> distance;
 	std::vector<int> queryKeyIdx;
+
+	// Optimization
+	std::vector<int> kfMatches;
 };
 
 #endif

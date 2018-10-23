@@ -75,3 +75,52 @@ void BuildAdjacencyMatrix(cv::cuda::GpuMat & adjecencyMatrix,
 	cv::cuda::GpuMat result;
 	cv::cuda::reduce(adjecencyMatrix, result, 0, CV_REDUCE_SUM);
 }
+
+__global__ void CheckVisibilityKernel(PtrSz<float3> pt3d,
+		PtrSz<float2> pt2d, PtrSz<int> match, Matrix3f RcurrInv, float3 tcurr,
+		Matrix3f Rlast, float3 tlast, float fx, float fy, float cx, float cy,
+		int cols, int rows) {
+
+	int x = threadIdx.x + blockIdx.x * blockDim.x;
+	if(x >= pt3d.size)
+		return;
+
+	float3 pt3dWarped = RcurrInv * (Rlast * pt3d[x] + tlast - tcurr);
+	float u = fx * pt3dWarped.x / pt3dWarped.z + cx;
+	float v = fy * pt3dWarped.y / pt3dWarped.z + cy;
+
+	if(u < 0 || u >= cols || v < 0 || v >= rows) {
+		match[x] = -1;
+		return;
+	}
+
+	int flag = -1;
+	float shortest = 1000;
+	for(int i = 0; i < pt2d.size; ++i) {
+		float2 pt = pt2d[i];
+		float dist = sqrtf((pt.x - u) * (pt.x - u) + (pt.y - v) * (pt.y - v));
+		if(dist < shortest && dist < 3.f) {
+			flag = i;
+			shortest = dist;
+		}
+	}
+
+	match[x] = flag;
+}
+
+
+
+void CheckVisibility(DeviceArray<float3> & pt3d, DeviceArray<float2> & pt2d,
+		DeviceArray<int> & match, Matrix3f RcurrInv, float3 tcurr, Matrix3f Rlast,
+		float3 tlast, float fx, float fy, float cx, float cy, int cols,
+		int rows) {
+
+	dim3 thread(MaxThread);
+	dim3 block(DivUp(pt3d.size, thread.x));
+
+	CheckVisibilityKernel<<<block, thread>>>(pt3d, pt2d, match, RcurrInv, tcurr,
+			Rlast, tlast, fx, fy, cx, cy, cols, rows);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
+}

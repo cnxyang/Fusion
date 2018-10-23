@@ -1,7 +1,10 @@
 #ifndef OPTIMIZER_H__
 #define OPTIMIZER_H__
 
+#include "System.h"
 #include "Mapping.h"
+
+class System;
 
 class Optimizer {
 
@@ -24,15 +27,27 @@ public:
 
 	void SetMap(Mapping * map_);
 
+	void SetSystem(System * sys_);
+
 protected:
+
+	bool CheckLoop();
+
+	void CloseLoop();
 
 	Mapping * map;
 
+	System * sys;
+
 	size_t noKeyFrames;
+
+	KeyFrame * currentKF;
 
 	std::vector<KeyFrame *> localMap;
 
 	std::vector<KeyFrame *> globalMap;
+
+	std::vector<MapPoint *> mapPoints;
 };
 
 #endif

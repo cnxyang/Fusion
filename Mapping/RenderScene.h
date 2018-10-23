@@ -50,3 +50,9 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 		float3 tview, DeviceMap map,
 		float fx, float fy, float cx, float cy,
 		float depthMax, float depthMin, uint * host_data);
+
+void DefuseMapColor(const DeviceArray2D<float> & depth,
+		const DeviceArray2D<uchar3> & color, const DeviceArray2D<float4> & nmap,
+		DeviceArray<uint> & noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
+		float3 tview, DeviceMap map, float fx, float fy, float cx, float cy,
+		float depthMax, float depthMin, uint * host_data);

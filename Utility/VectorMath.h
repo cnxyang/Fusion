@@ -21,6 +21,10 @@ __host__ __device__ __forceinline__ uchar4 make_uchar4(float4 a) {
 	return make_uchar4((int) a.x, (int) a.y, (int) a.z, (int) a.w);
 }
 
+__host__ __device__ __forceinline__ uchar4 make_uchar4(uchar3 a, int b) {
+	return make_uchar4(a.x, a.y, a.z, b);
+}
+
 __host__ __device__ __forceinline__ int2 make_int2(int a) {
 	return make_int2(a, a);
 }

@@ -1,24 +1,28 @@
 #include "KeyFrame.h"
 
+int KeyFrame::nextId = 0;
+
 KeyFrame::KeyFrame() {
 	N = 0;
 	frameId = 0;
 }
 
-KeyFrame::KeyFrame(const Frame * f) {
+KeyFrame::KeyFrame(const Frame * f):
+	poseChanged(0), N(f->N), frameId(nextId++),
+	mapPoints(f->mapPoints), keyPoints(f->keyPoints),
+	pointNormal(f->pointNormal), pose(f->pose.cast<float>()),
+	newPose(f->pose.cast<float>()) {
 
-	N = f->N;
-	frameId = f->frameId;
 	f->descriptors.copyTo(descriptors);
-	mapPoints = f->mapPoints;
-	keyPoints = f->keyPoints;
-	pointNormal = f->pointNormal;
-	pose = f->pose.cast<float>();
 	observations.resize(mapPoints.size());
 	std::fill(observations.begin(), observations.end(), 0);
 
 	keyIndex.resize(mapPoints.size());
 	std::fill(keyIndex.begin(), keyIndex.end(), -1);
+
+	pt3d.clear();
+	pt3d.resize(f->N);
+	std::fill(pt3d.begin(), pt3d.end(), static_cast<MapPoint *>(NULL));
 }
 
 Matrix3f KeyFrame::GpuRotation() const {
@@ -54,4 +58,12 @@ Eigen::Vector3f KeyFrame::GetWorldPoint(int i) const {
 	Eigen::Matrix3f r = Rotation();
 	Eigen::Vector3f t = Translation();
 	return r * mapPoints[i] + t;
+}
+
+void KeyFrame::ComputePoseChange() {
+	Eigen::Matrix4f Td = newPose.inverse() * pose;
+	Eigen::Matrix3f Rot = Td.topLeftCorner(3, 3);
+	Eigen::Vector3f trans = Td.topRightCorner(3, 1);
+	Eigen::Vector3f angle = Rot.eulerAngles(0, 1, 2).array().sin();
+	poseChanged = angle.norm() + trans.norm();
 }

@@ -44,8 +44,8 @@ void Mapping::Create() {
 	mutexKeys.create(KeyMap::MaxKeys);
 	mapKeys.create(KeyMap::maxEntries);
 	tmpKeys.create(KeyMap::maxEntries);
-	surfKeys.create(2000);
-	mapKeyIndex.create(2000);
+	surfKeys.create(3000);
+	mapKeyIndex.create(3000);
 
 	Reset();
 }
@@ -55,6 +55,14 @@ void Mapping::ForwardWarp(const Frame * last, Frame * next) {
 			last->GpuRotation(), next->GpuInvRotation(), last->GpuTranslation(),
 			next->GpuTranslation(), Frame::fx(0), Frame::fy(0), Frame::cx(0),
 			Frame::cy(0));
+}
+
+void Mapping::UpdateVisibility(const KeyFrame * kf, uint & no) {
+
+	CheckBlockVisibility(*this, noVisibleEntries, kf->GpuRotation(),
+			kf->GpuInvRotation(), kf->GpuTranslation(), Frame::cols(0),
+			Frame::rows(0), Frame::fx(0), Frame::fy(0), Frame::cx(0),
+			Frame::cy(0), DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
 }
 
 void Mapping::UpdateVisibility(const Frame * f, uint & no) {
@@ -75,6 +83,22 @@ void Mapping::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 
 void Mapping::FuseColor(const Frame * f, uint & no) {
 	FuseColor(f->range, f->color, f->nmap[0], f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
+}
+
+void Mapping::DefuseColor(const Frame * f, uint & no) {
+	FuseColor(f->range, f->color, f->nmap[0], f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
+}
+
+void Mapping::DefuseColor(const DeviceArray2D<float> & depth,
+		const DeviceArray2D<uchar3> & color,
+		const DeviceArray2D<float4> & normal,
+		Matrix3f Rview, Matrix3f RviewInv,
+		float3 tview, uint & no) {
+
+	DefuseMapColor(depth, color, normal, noVisibleEntries, Rview, RviewInv, tview, *this,
+			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0),
+			DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
+
 }
 
 void Mapping::FuseColor(const DeviceArray2D<float> & depth,
@@ -225,8 +249,6 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 	keyFrames.insert(kf);
 	hasNewKFFlag = true;
 
-	std::cout << keyFrames.size() << std::endl;
-
 	cv::Mat desc;
 	std::vector<int> index;
 	std::vector<int> keyIndex;
@@ -236,13 +258,14 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 	std::fill(kf->outliers.begin(), kf->outliers.end(), true);
 	int noK = std::min(kf->N, (int) surfKeys.size);
 
+	kf->pt3d.resize(kf->N);
+
 	for (int i = 0; i < noK; ++i) {
 
 		if (kf->observations[i] > 0) {
-
 			SURF key;
 			Eigen::Vector3f pt = kf->GetWorldPoint(i);
-			key.pos = { pt(0), pt(1), pt(2) };
+			key.pos = {pt(0), pt(1), pt(2)};
 			key.normal = kf->pointNormal[i];
 			key.valid = true;
 
@@ -256,6 +279,8 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 			kf->outliers[i] = false;
 		}
 	}
+
+	std::cout << "Num KP fused : " << std::count(kf->outliers.begin(), kf->outliers.end(), false) << std::endl;
 
 	surfKeys.upload(keyChain.data(), keyChain.size());
 	mapKeyIndex.upload(keyIndex.data(), keyIndex.size());
@@ -282,6 +307,8 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 	}
 	else
 		localMap.push_back(kf);
+
+	newKF = const_cast<KeyFrame *>(kf);
 }
 
 void Mapping::FuseKeyPoints(const Frame * f) {

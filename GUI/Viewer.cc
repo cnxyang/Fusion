@@ -93,7 +93,7 @@ void Viewer::spin() {
 	Var<bool> btnShowDepthImage("UI.Depth Image", true, true);
 	Var<bool> btnShowRenderedImage("UI.Rendered Image", true, true);
 	Var<bool> btnPauseSystem("UI.Pause System", false, false);
-	Var<bool> btnUseGraphMatching("UI.Graph Matching", false, true);
+	Var<bool> btnUseGraphMatching("UI.Graph Matching", true, true);
 	Var<bool> btnLocalisationMode("UI.Localisation Only", false, true);
 	Var<bool> btnShowTopDownView("UI.Top Down View", false, true);
 	Var<bool> btnWriteMapToDisk("UI.Write Map to Disk", false, false);
@@ -371,21 +371,61 @@ void Viewer::Insert(std::vector<GLfloat>& vPt, Eigen::Vector3f& pt) {
 }
 
 void Viewer::drawKeyFrame() {
-	vector<GLfloat> points;
-	std::set<const KeyFrame *>::iterator iter = map->keyFrames.begin();
-	std::set<const KeyFrame *>::iterator lend = map->keyFrames.end();
 
-	for(; iter != lend; ++iter) {
-		Eigen::Vector3f trans = (*iter)->Translation();
+	vector<GLfloat> points;
+	std::vector<KeyFrame *> allKFs = map->GlobalMap();
+	std::sort(allKFs.begin(), allKFs.end(), [](KeyFrame * a, KeyFrame * b) {return a->frameId < b->frameId;});
+	for(int i = 0; i < allKFs.size(); ++i) {
+		Eigen::Vector3f trans = allKFs[i]->Translation();
 		points.push_back(trans(0));
 		points.push_back(trans(1));
 		points.push_back(trans(2));
 	}
 
-	glColor3f(1.0, 0.0, 0.0);
-	glPointSize(3.0);
-	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_POINTS, 3);
-	glPointSize(1.0);
+	glColor3f(1.0, 0.0, 1.0);
+	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_LINE_STRIP, 3);
+
+	points.clear();
+	for(int i = 0; i < allKFs.size(); ++i) {
+		Eigen::Vector3f trans = allKFs[i]->newPose.topRightCorner(3, 1);
+		points.push_back(trans(0));
+		points.push_back(trans(1));
+		points.push_back(trans(2));
+	}
+
+	glColor3f(0.0, 1.0, 1.0);
+	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_LINE_STRIP, 3);
+
+//	KeyFrame * kf0 = tracker->ReferenceKF;
+//	KeyFrame * kf1 = tracker->LastKeyFrame;
+//
+//	vector<GLfloat> points1;
+//	vector<GLfloat> points2;
+//
+//	for(int i = 0; i < kf0->pt3d.size(); ++i) {
+//		MapPoint * mp = kf0->pt3d[i];
+//		if(mp && mp->observations.count(kf1) > 0) {
+//			float3 pt = kf0->GpuTranslation();
+//			points1.push_back(pt.x);
+//			points1.push_back(pt.y);
+//			points1.push_back(pt.z);
+//			points1.push_back(mp->position(0));
+//			points1.push_back(mp->position(1));
+//			points1.push_back(mp->position(2));
+//			pt = kf1->GpuTranslation();
+//			points2.push_back(pt.x);
+//			points2.push_back(pt.y);
+//			points2.push_back(pt.z);
+//			points2.push_back(mp->position(0));
+//			points2.push_back(mp->position(1));
+//			points2.push_back(mp->position(2));
+//		}
+//	}
+//
+//	glColor3f(0.0, 1.0, 1.0);
+//	glDrawVertices(points1.size() / 3, (GLfloat*) &points1[0], GL_LINES, 3);
+//	glColor3f(1.0, 0.0, 1.0);
+//	glDrawVertices(points2.size() / 3, (GLfloat*) &points2[0], GL_LINES, 3);
 }
 
 void Viewer::drawCamera() {
@@ -435,10 +475,23 @@ void Viewer::drawKeys() {
 		return;
 
 	vector<GLfloat> points;
-	for(int i = 0; i < map->noKeysHost; ++i) {
-		points.push_back(map->hostKeys[i].pos.x);
-		points.push_back(map->hostKeys[i].pos.y);
-		points.push_back(map->hostKeys[i].pos.z);
+//	for(int i = 0; i < map->noKeysHost; ++i) {
+//		points.push_back(map->hostKeys[i].pos.x);
+//		points.push_back(map->hostKeys[i].pos.y);
+//		points.push_back(map->hostKeys[i].pos.z);
+//	}
+
+	std::vector<KeyFrame *> KFs = map->GlobalMap();
+	for(int i = 0; i < KFs.size(); ++i) {
+		KeyFrame * kf = KFs[i];
+		for(int j = 0; j < kf->pt3d.size(); ++j) {
+			MapPoint * mp = kf->pt3d[j];
+			if(mp) {
+				points.push_back(mp->position(0));
+				points.push_back(mp->position(1));
+				points.push_back(mp->position(2));
+			}
+		}
 	}
 
 	glColor3f(1.0, 0.0, 0.0);

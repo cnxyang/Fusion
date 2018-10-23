@@ -279,11 +279,16 @@ struct Rendering {
 
 	int cols, rows;
 	DeviceMap map;
+
 	mutable PtrStep<float4> vmap;
 	mutable PtrStep<float4> nmap;
+	mutable PtrStep<uchar4> color;
+
 	PtrStep<float> zRangeX;
 	PtrStep<float> zRangeY;
+
 	float invfx, invfy, cx, cy;
+
 	Matrix3f Rview, RviewInv;
 	float3 tview;
 
@@ -292,6 +297,12 @@ struct Rendering {
 		if (voxel.weight == 0)
 			valid = false;
 		return voxel.sdf;
+	}
+
+	__device__ __inline__ uchar3 readColor(const float3 & pt3d, HashEntry & cache) {
+		bool valid;
+		Voxel voxel = map.FindVoxel(pt3d, cache, valid);
+		return voxel.color;
 	}
 
 	__device__ __inline__ float readSdfInterped(const float3 & pt, HashEntry & cache, bool & valid) {
@@ -443,6 +454,8 @@ struct Rendering {
 __global__ void __launch_bounds__(32, 16) RayCastKernel(Rendering cast) {
 	cast();
 }
+
+#include <opencv.hpp>
 
 void Raycast(DeviceMap map,
 			 DeviceArray2D<float4> & vmap,

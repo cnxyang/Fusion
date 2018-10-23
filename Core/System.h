@@ -56,6 +56,8 @@ public:
 	std::atomic<bool> requestReboot;
 	std::atomic<bool> requestStop;
 	std::atomic<bool> imageUpdated;
+	std::atomic<bool> poseOptimized;
+
 	DeviceArray2D<float4> vmap;
 	DeviceArray2D<float4> nmap;
 	DeviceArray2D<uchar4> renderedImage;
@@ -65,6 +67,8 @@ public:
 	bool state;
 
 protected:
+
+	void ReIntegration();
 
 	Mapping * map;
 	SysDesc * param;

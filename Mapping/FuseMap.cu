@@ -174,6 +174,7 @@ struct Fusion {
 					continue;
 
 				float w = nl * normalised(make_float4(pos));
+				w = 1;
 				float3 val = make_float3(rgb.ptr(uv.y)[uv.x]);
 				Voxel & prev = map.voxelBlocks[entry.ptr + locId];
 				if(prev.weight == 0) {
@@ -189,6 +190,60 @@ struct Fusion {
 			}
 		}
 	}
+
+	__device__ inline void deIntegrateColor() {
+
+		if(blockIdx.x >= map.visibleEntries.size ||
+		   blockIdx.x >= *noVisibleBlocks)
+			return;
+
+		HashEntry& entry = map.visibleEntries[blockIdx.x];
+		if (entry.ptr == EntryAvailable)
+			return;
+
+		int3 block_pos = map.blockPosToVoxelPos(entry.pos);
+
+		#pragma unroll
+		for(int i = 0; i < 8; ++i) {
+			int3 localPos = make_int3(threadIdx.x, threadIdx.y, i);
+			int locId = map.localPosToLocalIdx(localPos);
+			float3 pos = map.voxelPosToWorldPos(block_pos + localPos);
+			pos = RviewInv * (pos - tview);
+			int2 uv = make_int2(project(pos));
+			if (uv.x < 0 || uv.y < 0 || uv.x >= cols || uv.y >= rows)
+				continue;
+
+			float dp = depth.ptr(uv.y)[uv.x];
+			if (isnan(dp) || dp > maxDepth || dp < minDepth)
+				continue;
+
+			float thresh = DeviceMap::TruncateDist;
+			float sdf = dp - pos.z;
+
+			if (sdf >= -thresh) {
+
+				sdf = fmin(1.0f, sdf / thresh);
+				float4 nl = nmap.ptr(uv.y)[uv.x];
+				if(isnan(nl.x))
+					continue;
+
+				float w = nl * normalised(make_float4(pos));
+				w = 1;
+				float3 val = make_float3(rgb.ptr(uv.y)[uv.x]);
+				Voxel & prev = map.voxelBlocks[entry.ptr + locId];
+				if(prev.weight == 0) {
+					return;
+				} else {
+					val = val / 255.f;
+					float3 old = make_float3(prev.color) / 255.f;
+					float3 res = ((1 - w * 0.2f) * old - w * 0.2f * val) * 255.f;
+					prev.sdf = (prev.sdf * prev.weight - w * sdf) / (prev.weight - w);
+					prev.weight = max(0, prev.weight - 1);
+					prev.color = make_uchar3(res);
+				}
+			}
+		}
+	}
 };
 
 __global__ void CreateBlocksKernel(Fusion fuse) {
@@ -197,6 +252,10 @@ __global__ void CreateBlocksKernel(Fusion fuse) {
 
 __global__ void FuseColorKernal(Fusion fuse) {
 	fuse.integrateColor();
+}
+
+__global__ void DefuseColorKernal(Fusion fuse) {
+	fuse.deIntegrateColor();
 }
 
 __global__ void CheckVisibleBlockKernel(Fusion fuse) {
@@ -313,6 +372,68 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 	block = dim3(host_data[0]);
 
 	FuseColorKernal<<<block, thread>>>(fuse);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
+}
+
+void DefuseMapColor(const DeviceArray2D<float> & depth,
+				  	const DeviceArray2D<uchar3> & color,
+				  	const DeviceArray2D<float4> & nmap,
+				  	DeviceArray<uint> & noVisibleBlocks,
+				  	Matrix3f Rview,
+				  	Matrix3f RviewInv,
+				  	float3 tview,
+				  	DeviceMap map,
+				  	float fx,
+				  	float fy,
+				  	float cx,
+				  	float cy,
+				  	float depthMax,
+				  	float depthMin,
+				  	uint * host_data) {
+
+	int cols = depth.cols;
+	int rows = depth.rows;
+	noVisibleBlocks.clear();
+
+	Fusion fuse;
+	fuse.map = map;
+	fuse.Rview = Rview;
+	fuse.RviewInv = RviewInv;
+	fuse.tview = tview;
+	fuse.fx = fx;
+	fuse.fy = fy;
+	fuse.cx = cx;
+	fuse.cy = cy;
+	fuse.invfx = 1.0 / fx;
+	fuse.invfy = 1.0 / fy;
+	fuse.depth = depth;
+	fuse.rgb = color;
+	fuse.nmap = nmap;
+	fuse.rows = rows;
+	fuse.cols = cols;
+	fuse.noVisibleBlocks = noVisibleBlocks;
+	fuse.maxDepth = DeviceMap::DepthMax;
+	fuse.minDepth = DeviceMap::DepthMin;
+
+	dim3 thread = dim3(1024);
+	dim3 block = dim3(DivUp((int) DeviceMap::NumEntries, thread.x));
+
+	CheckVisibleBlockKernel<<<block, thread>>>(fuse);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
+
+	host_data[0] = 0;
+	noVisibleBlocks.download((void*) host_data);
+	if (host_data[0] == 0)
+		return;
+
+	thread = dim3(8, 8);
+	block = dim3(host_data[0]);
+
+	DefuseColorKernal<<<block, thread>>>(fuse);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());

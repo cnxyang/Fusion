@@ -17,7 +17,7 @@ System::System(SysDesc* pParam) :
 		map(0), viewer(0), tracker(0), requestStop(false), nFrames(0),
 		requestSaveMesh(false), requestReboot(false), paused(false),
 		state(true), requestMesh(false), requestSaveMap(false),
-		requestReadMap(false) {
+		requestReadMap(false), poseOptimized(false) {
 
 	if(pParam) {
 		param = new SysDesc();
@@ -60,6 +60,7 @@ System::System(SysDesc* pParam) :
 	viewerThread->detach();
 
 	optimizer->SetMap(map);
+	optimizer->SetSystem(this);
 	optimizerThd = new std::thread(&Optimizer::run, optimizer);
 	optimizerThd->detach();
 
@@ -134,7 +135,56 @@ bool System::GrabImage(const cv::Mat & image, const cv::Mat & depth) {
 		nFrames++;
 	}
 
+	if(poseOptimized) {
+		ReIntegration();
+	}
+
 	return true;
+}
+
+void System::ReIntegration() {
+
+	std::vector<KeyFrame *> allKFs = map->GlobalMap();
+	std::sort(allKFs.begin(), allKFs.end(), [](KeyFrame * a, KeyFrame * b){ return a->poseChanged > b->poseChanged; });
+	int maxKFNum = std::min(5, (int)allKFs.size());
+
+	for(int i = 0; i < maxKFNum; ++i) {
+
+		KeyFrame * kf = allKFs[i];
+		std::cout << kf->poseChanged << std::endl;
+
+//		if(kf->poseChanged > 0.001f) {
+//			int nFrames = kf->subFrames.size();
+//			int step = nFrames / 10;
+//			step = (step == 0) ? 1 : step;
+//			for(int j = 0; j < nFrames; j += step) {
+//
+//				Frame * tmp = kf->subFrames[j];
+//
+//				tmp->deltaPose = tmp->pose * kf->pose.inverse().cast<double>();
+//
+//				DeviceArray2D<float> depth(Frame::cols(0), Frame::rows(0));
+//				DeviceArray2D<uchar3> color(Frame::cols(0), Frame::rows(0));
+//				DeviceArray2D<float4> nmap(Frame::cols(0), Frame::rows(0));
+//				depth.upload(tmp->matRange.data, tmp->matRange.step);
+//				color.upload(tmp->matColor.data, tmp->matColor.step);
+//				nmap.upload(tmp->matNormal.data, tmp->matNormal.step);
+//				uint no = 0;
+//
+//				map->DefuseColor(depth, color, nmap, tmp->GpuRotation(),
+//						tmp->GpuInvRotation(), tmp->GpuTranslation(), no);
+//
+//				tmp->pose = tmp->deltaPose * kf->newPose.cast<double>();
+//
+//				map->FuseColor(depth, color, nmap, tmp->GpuRotation(),
+//						tmp->GpuInvRotation(), tmp->GpuTranslation(), no);
+//
+//				kf->pose = kf->newPose;
+//			}
+//		}
+	}
+
+	poseOptimized = false;
 }
 
 void System::WriteMeshToDisk() {

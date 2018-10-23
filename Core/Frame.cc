@@ -20,8 +20,21 @@ cv::Ptr<cv::BRISK> Frame::briskExt;
 
 Frame::Frame():frameId(0), N(0), bad(false) {}
 
-Frame::Frame(const Frame * other):frameId(other->frameId), N(0) {
+Frame::Frame(const Frame * other):frameId(other->frameId), N(0), bad(false) {
 
+	matRange.create(Frame::rows(0), Frame::cols(0), CV_32FC1);
+	matColor.create(Frame::rows(0), Frame::cols(0), CV_8UC3);
+	matNormal.create(Frame::rows(0), Frame::cols(0), CV_32FC4);
+	other->range.download(matRange.data, matRange.step);
+	other->color.download(matColor.data, matColor.step);
+	other->nmap[0].download(matNormal.data, matNormal.step);
+}
+
+void Frame::operator=(const Frame & other) {
+	matRange = other.matRange;
+	matColor = other.matColor;
+	matNormal = other.matNormal;
+	frameId = other.frameId;
 }
 
 void Frame::Create(int cols_, int rows_) {

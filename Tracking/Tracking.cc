@@ -40,6 +40,9 @@ Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) :
 	LastFrame = new Frame();
 	NextFrame->Create(cols_, rows_);
 	LastFrame->Create(cols_, rows_);
+
+	lastIcpError = std::numeric_limits<float>::max();
+	lastRgbError = std::numeric_limits<float>::max();
 }
 
 void Tracker::ResetTracking() {
@@ -77,10 +80,10 @@ bool Tracker::Track() {
 			noMissedFrames = 0;
 			if(lastState != -1) {
 				lastState = 0;
+				CheckOutliers();
 				if(NeedKeyFrame())
 					CreateKeyFrame();
-				else
-					CheckOutliers();
+				InsertFrame();
 				SwapFrame();
 				return true;
 			}
@@ -111,28 +114,116 @@ bool Tracker::Track() {
 	}
 }
 
+void Tracker::InsertFrame() {
+
+	if(mappingDisabled)
+		return;
+
+	Frame * tmp = new Frame(NextFrame);
+	tmp->pose = NextFrame->pose * ReferenceKF->pose.inverse().cast<double>();
+	ReferenceKF->subFrames.push_back(tmp);
+}
+
 void Tracker::CheckOutliers() {
 
 	// to prevent system from crushing
 	// when have loaded a pre-built map
 	// TODO: get rid of this dirty hack
-	if(!ReferenceKF)
+	if(!ReferenceKF || mappingDisabled)
 		return;
 
-	Eigen::Matrix4f deltaT = ReferenceKF->pose.inverse() * NextFrame->pose.cast<float>();
-	Eigen::Matrix3f deltaR = deltaT.topLeftCorner(3, 3);
-	Eigen::Vector3f deltat = deltaT.topRightCorner(3, 1);
+	kfMatches.clear();
+	std::vector<float3> pt3d;
+	std::vector<float2> pt2d;
 
+	for(int i = 0; i < ReferenceKF->mapPoints.size(); ++i) {
+		const Eigen::Vector3f & mapPoint = ReferenceKF->mapPoints[i];
+		float3 pt = { mapPoint(0), mapPoint(1), mapPoint(2) };
+		pt3d.push_back(pt);
+		kfMatches.push_back(-1);
+	}
+
+	for(int i = 0; i < NextFrame->keyPoints.size(); ++i) {
+		const cv::KeyPoint & kp = NextFrame->keyPoints[i];
+		float2 pt = { kp.pt.x, kp.pt.y };
+		pt2d.push_back(pt);
+	}
+
+	DeviceArray<float3> cuPt3d(pt3d);
+	DeviceArray<float2> cuPt2d(pt2d);
+	DeviceArray<int> cuMatch(kfMatches);
+
+	CheckVisibility(cuPt3d, cuPt2d, cuMatch,
+					NextFrame->GpuInvRotation(),
+					NextFrame->GpuTranslation(),
+					ReferenceKF->GpuRotation(),
+					ReferenceKF->GpuTranslation(),
+					Frame::fx(0), Frame::fy(0),
+					Frame::cx(0), Frame::cy(0),
+					Frame::cols(0), Frame::rows(0));
+
+	cuMatch.download(kfMatches);
+	noInliers = 0;
 	std::vector<cv::DMatch> matches;
-	matcher->match(NextFrame->descriptors, ReferenceKF->descriptors, matches);
-	for(int i = 0; i < matches.size(); ++i) {
-		Eigen::Vector3f src = NextFrame->mapPoints[matches[i].queryIdx];
-		Eigen::Vector3f ref = ReferenceKF->mapPoints[matches[i].trainIdx];
-		double d = (src - (deltaR * ref + deltat)).norm();
-		if (d <= 0.05f) {
-			ReferenceKF->observations[matches[i].trainIdx]++;
+	for(int i = 0; i < kfMatches.size(); ++i) {
+		int p = kfMatches[i];
+		if(p >= 0) {
+			cv::DMatch m;
+			m.queryIdx = p;
+			m.trainIdx = i;
+			matches.push_back(m);
+			noInliers++;
+			ReferenceKF->observations[i]++;
 		}
 	}
+
+
+	noInliers = kfMatches.size();
+
+//	cv::Mat img0(480, 640, CV_8UC1);
+//	cv::Mat img1(480, 640, CV_8UC1);
+//	cv::Mat img;
+//	NextFrame->image[0].download(img0.data, img0.step);
+////	ReferenceKF->image.download(img1.data, img1.step);
+//	cv::drawMatches(img0, NextFrame->keyPoints, img1, ReferenceKF->subFrames[0]->matColor, matches, img);
+//	cv::imshow("img", img);
+//	cv::waitKey(10);
+
+//	std::vector<std::vector<cv::DMatch>> rawMatches;
+//	std::vector<cv::DMatch> matches;
+//	matcher->knnMatch(NextFrame->descriptors, ReferenceKF->descriptors, rawMatches, 2);
+//	for(int i = 0; i < rawMatches.size(); ++i) {
+//		cv::DMatch & m0 = rawMatches[i][0];
+//		cv::DMatch & m1 = rawMatches[i][1];
+//		if(m0.distance < 0.9 * m1.distance) {
+//			int trainIdx = m0.trainIdx;
+//			int queryIdx = m0.queryIdx;
+//			Eigen::Vector3f pt3d = ReferenceKF->mapPoints[trainIdx];
+//			pt3d = ReferenceKF->Rotation() * pt3d + ReferenceKF->Translation();
+//			pt3d = NextFrame->RotationInv().cast<float>() * (pt3d - NextFrame->Translation().cast<float>());
+//			float u = Frame::fx(0) * pt3d(0) / pt3d(2) + Frame::cx(0);
+//			float v = Frame::fy(0) * pt3d(1) / pt3d(2) + Frame::cy(0);
+//			if(u > 0 && v > 0 && u < Frame::cols(0) && v < Frame::rows(0)) {
+//				cv::KeyPoint & kp = NextFrame->keyPoints[queryIdx];
+//				if(sqrt((u - kp.pt.x) * (u - kp.pt.x) + (v - kp.pt.y) * (v - kp.pt.y)) < 5.f) {
+//					ReferenceKF->observations[trainIdx]++;
+//					matches.push_back(m0);
+//				}
+//			}
+//		}
+//	}
+//
+//	noInliers = matches.size();
+//
+//	std::cout << "num inliers : " << matches.size() << " Inlier ratio : " << noInliers / (float)rawMatches.size() << std::endl;
+//	cv::Mat img0(480, 640, CV_8UC1);
+//	cv::Mat img1(480, 640, CV_8UC1);
+//	cv::Mat img;
+//	NextFrame->image[0].download(img0.data, img0.step);
+//	ReferenceKF->image.download(img1.data, img1.step);
+//	cv::drawMatches(img0, NextFrame->keyPoints, img1, ReferenceKF->keyPoints, matches, img);
+//	cv::imshow("img", img);
+//	cv::waitKey(10);
 }
 
 void Tracker::RenderView() {
@@ -158,7 +249,7 @@ bool Tracker::TrackFrame() {
 		NextFrame->pose = LastFrame->pose;
 	}
 
-//	ComputeSO3();
+	ComputeSO3();
 	valid = ComputeSE3(false, ITERATIONS_SE3, THRESH_ICP_SE3);
 	return valid;
 }
@@ -172,7 +263,7 @@ bool Tracker::TrackLastFrame() {
 	std::vector<std::vector<cv::DMatch>> rawMatches;
 	matcher->knnMatch(NextFrame->descriptors, LastFrame->descriptors, rawMatches, 2);
 	for (int i = 0; i < rawMatches.size(); ++i) {
-		if (rawMatches[i][0].distance < 0.80 * rawMatches[i][1].distance) {
+		if (rawMatches[i][0].distance < 0.9 * rawMatches[i][1].distance) {
 			refined.push_back(rawMatches[i][0]);
 		}
 	}
@@ -193,7 +284,6 @@ bool Tracker::TrackLastFrame() {
 	std::fill(NextFrame->outliers.begin(), NextFrame->outliers.end(), true);
 
 	bool result = Solver::PoseEstimate(framePoints, refPoints, NextFrame->outliers, delta, maxIter, true);
-	noInliers = std::count(outliers.begin(), outliers.end(), false);
 
 	if (result) {
 		nextPose = delta.inverse() * LastFrame->pose;
@@ -208,6 +298,9 @@ bool Tracker::NeedKeyFrame() {
 	if(mappingDisabled)
 		return false;
 
+	if(noInliers < 50)
+		return true;
+
 	Eigen::Matrix4f dT = NextFrame->pose.cast<float>() * ReferenceKF->pose.inverse();
 	Eigen::Matrix3f dR = dT.topLeftCorner(3, 3);
 	Eigen::Vector3f dt = dT.topRightCorner(3, 1);
@@ -220,10 +313,36 @@ bool Tracker::NeedKeyFrame() {
 
 void Tracker::CreateKeyFrame() {
 
-	if (ReferenceKF)
+	if (ReferenceKF) {
 		map->FuseKeyFrame(ReferenceKF);
-	std::swap(ReferenceKF, LastKeyFrame);
-	ReferenceKF = new KeyFrame(NextFrame);
+		ReferenceKF->descriptors.release();
+		ReferenceKF->image.release();
+		std::swap(ReferenceKF, LastKeyFrame);
+		ReferenceKF = new KeyFrame(NextFrame);
+		for (int i = 0; i < kfMatches.size(); ++i) {
+			int p = kfMatches[i];
+			if (p >= 0 && p < ReferenceKF->N) {
+				ReferenceKF->pt3d[p] = LastKeyFrame->pt3d[i];
+				ReferenceKF->pt3d[p]->observations[ReferenceKF] = p;
+			}
+		}
+
+		for (int i = 0; i < ReferenceKF->pt3d.size(); ++i) {
+			if(!ReferenceKF->pt3d[i]) {
+				ReferenceKF->pt3d[i] = new MapPoint();
+				ReferenceKF->pt3d[i]->position = ReferenceKF->GetWorldPoint(i);
+				ReferenceKF->pt3d[i]->observations[ReferenceKF] = i;
+			}
+		}
+	} else {
+		ReferenceKF = new KeyFrame(NextFrame);
+		ReferenceKF->pt3d.resize(ReferenceKF->N);
+		for (int i = 0; i < ReferenceKF->pt3d.size(); ++i) {
+			ReferenceKF->pt3d[i] = new MapPoint();
+			ReferenceKF->pt3d[i]->position = ReferenceKF->GetWorldPoint(i);
+			ReferenceKF->pt3d[i]->observations[ReferenceKF] = i;
+		}
+	}
 }
 
 void Tracker::InitTracking() {
@@ -315,9 +434,8 @@ bool Tracker::ComputeSE3(bool icpOnly, const int * iter, const float thresh_icp)
 
 	for(int i = Frame::NUM_PYRS - 1; i >= 0; --i) {
 		for(int j = 0; j < iter[i]; ++j) {
-
 			if(!icpOnly) {
-				// TODO: convoluted transformation
+				// TODO: convoluted transformation - xingrui
 				RGBStep(NextFrame->image[i],
 						LastFrame->image[i],
 						NextFrame->vmap[i],
@@ -399,10 +517,12 @@ bool Tracker::ComputeSE3(bool icpOnly, const int * iter, const float thresh_icp)
 	Eigen::Matrix3d r = p.topLeftCorner(3, 3);
 	Eigen::Vector3d t = p.topRightCorner(3, 1);
 	Eigen::Vector3d a = r.eulerAngles(0, 1, 2).array().sin();
-	if ((icpError < thresh_icp) && (a.norm() <= 0.1 && t.norm() <= 0.1)) {
+	if ((icpError < thresh_icp || icpCount < 5000)
+			&& (a.norm() <= 0.1 && t.norm() <= 0.1)) {
 		return true;
 	} else {
-		std::cout << "bad : " << icpError << "/" << rgbError << " " << a.norm() << " " << t.norm() << std::endl;
+		std::cout << "bad : " << icpError << "/" << rgbError << " " << a.norm()
+				<< " " << t.norm() << std::endl;
 		NextFrame->pose = lastPose;
 		return false;
 	}

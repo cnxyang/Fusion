@@ -237,10 +237,12 @@
 							</tool>
 							<tool id="nvcc.linker.base.713442356" name="NVCC Linker" superClass="nvcc.linker.base">
 								<option id="nvcc.linker.option.libs.1727743783" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
+									<listOptionValue builtIn="false" value="cholmod"/>
 									<listOptionValue builtIn="false" value="g2o_core"/>
 									<listOptionValue builtIn="false" value="g2o_stuff"/>
 									<listOptionValue builtIn="false" value="g2o_types_sba"/>
 									<listOptionValue builtIn="false" value="g2o_solver_dense"/>
+									<listOptionValue builtIn="false" value="g2o_solver_cholmod"/>
 									<listOptionValue builtIn="false" value="GL"/>
 									<listOptionValue builtIn="false" value="GLEW"/>
 									<listOptionValue builtIn="false" value="OpenNI2"/>
@@ -329,10 +331,12 @@
 							</tool>
 							<tool id="nvcc.linker.base.851681464" name="NVCC Linker" superClass="nvcc.linker.base">
 								<option id="nvcc.linker.option.libs.1278033771" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
+									<listOptionValue builtIn="false" value="cholmod"/>
 									<listOptionValue builtIn="false" value="g2o_core"/>
 									<listOptionValue builtIn="false" value="g2o_stuff"/>
 									<listOptionValue builtIn="false" value="g2o_types_sba"/>
 									<listOptionValue builtIn="false" value="g2o_solver_dense"/>
+									<listOptionValue builtIn="false" value="g2o_solver_cholmod"/>
 									<listOptionValue builtIn="false" value="GL"/>
 									<listOptionValue builtIn="false" value="GLEW"/>
 									<listOptionValue builtIn="false" value="OpenNI2"/>

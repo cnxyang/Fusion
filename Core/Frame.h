@@ -58,6 +58,8 @@ struct Frame {
 
 	Eigen::Vector3f GetWorldPoint(int i) const;
 
+	void operator=(const Frame & other);
+
 	DeviceArray2D<unsigned short> temp;
 	DeviceArray2D<float> range;
 	DeviceArray2D<uchar3> color;
@@ -101,6 +103,13 @@ struct Frame {
 	static bool mbFirstCall;
 	static float mDepthScale;
 	static float mDepthCutoff;
+
+	// used for re-integration
+	cv::Mat matRange;
+	cv::Mat matColor;
+	cv::Mat matNormal;
+
+	Eigen::Matrix4d deltaPose;
 };
 
 #endif

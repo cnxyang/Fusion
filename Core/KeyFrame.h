@@ -2,12 +2,14 @@
 #define KEY_FRAME_HPP__
 
 #include "Frame.h"
+#include "MapPoint.h"
 #include "DeviceArray.h"
 
 #include <Eigen/Dense>
 #include <opencv.hpp>
 
 class Frame;
+struct MapPoint;
 
 struct KeyFrame {
 
@@ -27,6 +29,8 @@ struct KeyFrame {
 
 	Eigen::Vector3f GetWorldPoint(int i) const;
 
+	void ComputePoseChange();
+
 	int N;
 	unsigned long frameId;
 
@@ -41,6 +45,15 @@ struct KeyFrame {
 	mutable std::vector<bool> outliers;
 	mutable std::vector<int> keyIndex;
 	mutable std::vector<Eigen::Vector3f> mapPoints;
+	mutable std::vector<MapPoint *> pt3d;
+
+	DeviceArray2D<unsigned char> image;
+	DeviceArray2D<float> depth;
+
+	std::vector<Frame *> subFrames;
+
+	static int nextId;
+	float poseChanged;
 };
 
 #endif

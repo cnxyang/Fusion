@@ -43,11 +43,19 @@ public:
 
 	void FuseKeyPoints(const Frame * f);
 
+	void UpdateVisibility(const KeyFrame * kf, uint & no);
+
 	void UpdateVisibility(const Frame * f, uint & no);
+
+	void DefuseColor(const Frame * f, uint & no);
 
 	void FuseColor(const Frame * f, uint & no);
 
 	void RayTrace(uint noVisibleBlocks, Frame * f);
+
+	void RayTrace(uint noVisibleBlocks, KeyFrame * f);
+
+	void RayTraceWithColor(uint noVisibleBlocks, Frame * f);
 
 	void ForwardWarp(const Frame * last, Frame * next);
 
@@ -60,17 +68,27 @@ public:
 			const DeviceArray2D<float4> & normal, Matrix3f Rview,
 			Matrix3f RviewInv, float3 tview, uint & no);
 
+	void DefuseColor(const DeviceArray2D<float> & depth,
+			const DeviceArray2D<uchar3> & color,
+			const DeviceArray2D<float4> & normal, Matrix3f Rview,
+			Matrix3f RviewInv, float3 tview, uint & no);
+
 	void RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 			float3 tview, DeviceArray2D<float4> & vmap,
 			DeviceArray2D<float4> & nmap, float depthMin, float depthMax,
 			float fx, float fy, float cx, float cy);
+
+	void RayTraceWithColor(uint noVisibleBlocks, Matrix3f Rview,
+			Matrix3f RviewInv, float3 tview, DeviceArray2D<float4> & vmap,
+			DeviceArray2D<float4> & nmap, DeviceArray2D<uchar3> & color,
+			float depthMin, float depthMax, float fx, float fy, float cx,
+			float cy);
 
 	operator KeyMap() const;
 
 	operator DeviceMap() const;
 
 	std::vector<KeyFrame *> LocalMap() const;
-
 	std::vector<KeyFrame *> GlobalMap() const;
 
 	std::atomic<bool> meshUpdated;
@@ -102,6 +120,8 @@ public:
 
 	int * mutexKeysRAM;
 	SURF * mapKeysRAM;
+
+	KeyFrame * newKF;
 
 protected:
 

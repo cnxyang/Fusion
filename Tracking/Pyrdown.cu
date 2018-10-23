@@ -125,11 +125,11 @@ void ComputeNMap(const DeviceArray2D<float4> & vmap, DeviceArray2D<float4> & nma
 }
 
 __constant__ float gaussKernel[25] = {
-		1, 4, 6, 4, 1, 4,
-		16, 24, 16, 4, 6,
-		24, 36, 24, 6, 4,
-		16, 24, 16, 4, 1,
-		4, 6, 4, 1
+		 1,  4,  6,  4, 1,
+		 4, 16, 24, 16, 4,
+		 6, 24, 36, 24, 6,
+		 4, 16, 24, 16, 4,
+		 1,  4,  6,  4, 1
 };
 template<class T, class U> __global__
 void PyrDownGaussKernel(const PtrStepSz<T> src, PtrStepSz<U> dst) {
@@ -188,8 +188,8 @@ __global__ void ImageToIntensityKernel(PtrStepSz<uchar3> src, PtrStep<unsigned c
 		return;
 
 	uchar3 val = src.ptr(y)[x];
-	int value = (int)(0.2125 * val.y + 0.7154 * val.x + 0.0721 * val.z);
-	dst.ptr(y)[x] = value;
+	int value = (int) (0.2125 * val.y + 0.7154 * val.x + 0.0721 * val.z);
+	dst.ptr(y)[x] = value > 255 ? 255 : value;
 }
 
 void ImageToIntensity(const DeviceArray2D<uchar3> & rgb,

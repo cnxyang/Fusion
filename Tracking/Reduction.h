@@ -87,12 +87,9 @@ void BuildAdjacencyMatrix(cv::cuda::GpuMat & adjecencyMatrix,
 		DeviceArray<SURF> & mapKeys,
 		DeviceArray<float> & dist);
 
-void FilterKeyMatching(cv::cuda::GpuMat & adjecencyMatrix,
-		DeviceArray<SURF> & trainKey,
-		DeviceArray<SURF> & queryKey,
-		DeviceArray<SURF> & trainKeyFiltered,
-		DeviceArray<SURF> & queryKeyFiltered,
-		DeviceArray<int> & QueryIdx,
-		DeviceArray<int> & keyIdxFiltered);
+void CheckVisibility(DeviceArray<float3> & pt3d, DeviceArray<float2> & pt2d,
+		DeviceArray<int> & match, Matrix3f RcurrInv, float3 tcurr, Matrix3f Rlast,
+		float3 tlast, float fx, float fy, float cx, float cy, int cols,
+		int rows);
 
 #endif
