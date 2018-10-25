@@ -146,16 +146,17 @@ void System::ReIntegration() {
 
 	std::vector<KeyFrame *> allKFs = map->GlobalMap();
 	std::sort(allKFs.begin(), allKFs.end(), [](KeyFrame * a, KeyFrame * b){ return a->poseChanged > b->poseChanged; });
-	int maxKFNum = std::min(5, (int)allKFs.size());
+	int maxKFNum = std::min(1, (int)allKFs.size());
 
 	for(int i = 0; i < maxKFNum; ++i) {
 
 		KeyFrame * kf = allKFs[i];
 		std::cout << kf->poseChanged << std::endl;
 
-//		if(kf->poseChanged > 0.001f) {
+		if(kf->poseChanged > 0.2f) {
+
 //			int nFrames = kf->subFrames.size();
-//			int step = nFrames / 10;
+//			int step = nFrames / 5;
 //			step = (step == 0) ? 1 : step;
 //			for(int j = 0; j < nFrames; j += step) {
 //
@@ -173,15 +174,19 @@ void System::ReIntegration() {
 //
 //				map->DefuseColor(depth, color, nmap, tmp->GpuRotation(),
 //						tmp->GpuInvRotation(), tmp->GpuTranslation(), no);
+//				std::cout << "Frame Defused." << std::endl;
 //
 //				tmp->pose = tmp->deltaPose * kf->newPose.cast<double>();
 //
 //				map->FuseColor(depth, color, nmap, tmp->GpuRotation(),
 //						tmp->GpuInvRotation(), tmp->GpuTranslation(), no);
+//				std::cout << "Frame refused." << std::endl;
 //
-//				kf->pose = kf->newPose;
 //			}
-//		}
+//
+//			kf->pose = kf->newPose;
+
+		}
 	}
 
 	poseOptimized = false;

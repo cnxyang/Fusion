@@ -35,6 +35,8 @@ protected:
 
 	void CloseLoop();
 
+	void OptimizeGraph();
+
 	Mapping * map;
 
 	System * sys;

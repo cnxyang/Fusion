@@ -247,7 +247,6 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 		return;
 
 	keyFrames.insert(kf);
-	hasNewKFFlag = true;
 
 	cv::Mat desc;
 	std::vector<int> index;
@@ -309,6 +308,41 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 		localMap.push_back(kf);
 
 	newKF = const_cast<KeyFrame *>(kf);
+
+	FindLocalGraph(newKF);
+	poseGraph.insert(newKF);
+
+	hasNewKFFlag = true;
+}
+
+void Mapping::FindLocalGraph(KeyFrame * kf) {
+
+	const float distTH = 0.5f;
+	const float angleTH = 0.3f;
+	Eigen::Vector3f viewDir = kf->Rotation().rightCols<1>();
+
+	std::vector<KeyFrame *> kfCandidates;
+
+	for(std::set<KeyFrame *>::iterator iter = poseGraph.begin(),lend = poseGraph.end();	iter != lend; ++iter) {
+
+		KeyFrame * candidate = *iter;
+
+		if(candidate->frameId == kf->frameId)
+			continue;
+
+		float dist = candidate->Translation().dot(kf->Translation());
+		if(dist > distTH)
+			continue;
+
+		Eigen::Vector3f dir = candidate->Rotation().rightCols<1>();
+		float angle = viewDir.dot(dir);
+
+		if(angle < angleTH)
+			continue;
+
+		kfCandidates.push_back(candidate);
+		std::cout << angle << "/" << angleTH << "  " << dist << "/" << distTH << std::endl;
+	}
 }
 
 void Mapping::FuseKeyPoints(const Frame * f) {

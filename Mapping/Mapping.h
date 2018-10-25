@@ -123,7 +123,13 @@ public:
 
 	KeyFrame * newKF;
 
+	// test for pose graph optimization
+	std::set<KeyFrame *> poseGraph;
+
+
 protected:
+
+	void FindLocalGraph(KeyFrame * kf);
 
 	// General map structure
 	DeviceArray<int> heap;

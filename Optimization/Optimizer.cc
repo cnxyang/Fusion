@@ -31,8 +31,8 @@ void Optimizer::run() {
 //			if(localMap.size() > 5)
 //				LocalBA();
 
-			if(globalMap.size() > 2)
-				GlobalBA();
+//			if(globalMap.size() > 5)
+//				GlobalBA();
 
 			map->hasNewKFFlag = false;
 		}
@@ -61,6 +61,10 @@ bool Optimizer::CheckLoop() {
 }
 
 void Optimizer::CloseLoop() {
+
+}
+
+void Optimizer::OptimizeGraph() {
 
 }
 
@@ -247,14 +251,14 @@ void Optimizer::GlobalBA() {
 
 			MapPoint * mp = kf->pt3d[j];
 
-			if (mp && mp->observations.size() > 1 && mp->observations.count(kf)) {
+			if (mp && mp->observations.size() > 2 && mp->observations.count(kf)) {
 
 				g2o::VertexSBAPointXYZ * pt = NULL;
 				g2o::OptimizableGraph::Vertex * v = optimizer.vertex(mp->pointId + offset);
 				if (!v) {
 					g2o::VertexSBAPointXYZ * pt = new g2o::VertexSBAPointXYZ();
 					pt->setId(mp->pointId + offset);
-					pt->setEstimate(mp->position.cast<double>());
+					pt->setEstimate(mp->GetWorldPosition().cast<double>());
 					pt->setFixed(true);
 					pt->setMarginalized(true);
 					mapPoints.push_back(mp);
@@ -266,15 +270,15 @@ void Optimizer::GlobalBA() {
 				g2o::EdgeSE3ProjectXYZ * e = new g2o::EdgeSE3ProjectXYZ();
 				e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(mp->pointId + offset)));
 				e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex *>(optimizer.vertex(kf->frameId)));
-				e->information() = Eigen::Matrix2d::Identity();
 				Eigen::Vector2d obs = Eigen::Vector2d::Identity();
 				int p = mp->observations[kf];
 				obs << kf->keyPoints[p].pt.x, kf->keyPoints[p].pt.y;
+				e->information() = Eigen::Matrix2d::Identity() * std::exp(-kf->mapPoints[p](2));
 
 				e->setMeasurement(obs);
-				g2o::RobustKernelHuber * rk = new g2o::RobustKernelHuber;
-				e->setRobustKernel(rk);
-				rk->setDelta(7.815);
+//				g2o::RobustKernelHuber * rk = new g2o::RobustKernelHuber;
+//				e->setRobustKernel(rk);
+//				rk->setDelta(1);
 
 				e->fx = Frame::fx(0);
 				e->fy = Frame::fy(0);
@@ -304,12 +308,12 @@ void Optimizer::GlobalBA() {
 		kf->ComputePoseChange();
 	}
 
-	for(int i = 0; i < mapPoints.size(); ++i) {
-
-		MapPoint * pt = mapPoints[i];
-		g2o::VertexSBAPointXYZ * pt_recov = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pt->pointId + offset));
-		pt->position = pt_recov->estimate().cast<float>();
-	}
+//	for(int i = 0; i < mapPoints.size(); ++i) {
+//
+//		MapPoint * pt = mapPoints[i];
+//		g2o::VertexSBAPointXYZ * pt_recov = static_cast<g2o::VertexSBAPointXYZ *>(optimizer.vertex(pt->pointId + offset));
+//		pt->position = pt_recov->estimate().cast<float>();
+//	}
 
 	sys->poseOptimized = true;
 }

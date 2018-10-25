@@ -10,10 +10,14 @@ class KeyFrame;
 
 struct MapPoint {
 
-	MapPoint();
+	MapPoint(const KeyFrame * kf);
+
+	Eigen::Vector3f GetWorldPosition();
 
 	Eigen::Vector3f position;
 	std::map<const KeyFrame *, int> observations;
+
+	const KeyFrame * RefKF;
 
 	bool bad;
 	int pointId;

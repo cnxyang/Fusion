@@ -486,10 +486,10 @@ void Viewer::drawKeys() {
 		KeyFrame * kf = KFs[i];
 		for(int j = 0; j < kf->pt3d.size(); ++j) {
 			MapPoint * mp = kf->pt3d[j];
-			if(mp) {
-				points.push_back(mp->position(0));
-				points.push_back(mp->position(1));
-				points.push_back(mp->position(2));
+			if(mp && mp->observations.size() > 1) {
+				points.push_back(mp->GetWorldPosition()(0));
+				points.push_back(mp->GetWorldPosition()(1));
+				points.push_back(mp->GetWorldPosition()(2));
 			}
 		}
 	}

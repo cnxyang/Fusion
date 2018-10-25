@@ -83,7 +83,7 @@ bool Tracker::Track() {
 				CheckOutliers();
 				if(NeedKeyFrame())
 					CreateKeyFrame();
-				InsertFrame();
+//				InsertFrame();
 				SwapFrame();
 				return true;
 			}
@@ -120,7 +120,6 @@ void Tracker::InsertFrame() {
 		return;
 
 	Frame * tmp = new Frame(NextFrame);
-	tmp->pose = NextFrame->pose * ReferenceKF->pose.inverse().cast<double>();
 	ReferenceKF->subFrames.push_back(tmp);
 }
 
@@ -176,7 +175,6 @@ void Tracker::CheckOutliers() {
 			ReferenceKF->observations[i]++;
 		}
 	}
-
 
 	noInliers = kfMatches.size();
 
@@ -249,7 +247,7 @@ bool Tracker::TrackFrame() {
 		NextFrame->pose = LastFrame->pose;
 	}
 
-	ComputeSO3();
+//	ComputeSO3();
 	valid = ComputeSE3(false, ITERATIONS_SE3, THRESH_ICP_SE3);
 	return valid;
 }
@@ -319,6 +317,13 @@ void Tracker::CreateKeyFrame() {
 		ReferenceKF->image.release();
 		std::swap(ReferenceKF, LastKeyFrame);
 		ReferenceKF = new KeyFrame(NextFrame);
+
+		for (int i = 0; i < ReferenceKF->N; ++i) {
+
+			if(ReferenceKF->observations[i] < 3)
+				ReferenceKF->pt3d[i] = static_cast<MapPoint *>(NULL);
+		}
+
 		for (int i = 0; i < kfMatches.size(); ++i) {
 			int p = kfMatches[i];
 			if (p >= 0 && p < ReferenceKF->N) {
@@ -329,8 +334,8 @@ void Tracker::CreateKeyFrame() {
 
 		for (int i = 0; i < ReferenceKF->pt3d.size(); ++i) {
 			if(!ReferenceKF->pt3d[i]) {
-				ReferenceKF->pt3d[i] = new MapPoint();
-				ReferenceKF->pt3d[i]->position = ReferenceKF->GetWorldPoint(i);
+				ReferenceKF->pt3d[i] = new MapPoint(ReferenceKF);
+				ReferenceKF->pt3d[i]->position = ReferenceKF->mapPoints[i];
 				ReferenceKF->pt3d[i]->observations[ReferenceKF] = i;
 			}
 		}
@@ -338,8 +343,8 @@ void Tracker::CreateKeyFrame() {
 		ReferenceKF = new KeyFrame(NextFrame);
 		ReferenceKF->pt3d.resize(ReferenceKF->N);
 		for (int i = 0; i < ReferenceKF->pt3d.size(); ++i) {
-			ReferenceKF->pt3d[i] = new MapPoint();
-			ReferenceKF->pt3d[i]->position = ReferenceKF->GetWorldPoint(i);
+			ReferenceKF->pt3d[i] = new MapPoint(ReferenceKF);
+			ReferenceKF->pt3d[i]->position = ReferenceKF->mapPoints[i];
 			ReferenceKF->pt3d[i]->observations[ReferenceKF] = i;
 		}
 	}
@@ -517,8 +522,9 @@ bool Tracker::ComputeSE3(bool icpOnly, const int * iter, const float thresh_icp)
 	Eigen::Matrix3d r = p.topLeftCorner(3, 3);
 	Eigen::Vector3d t = p.topRightCorner(3, 1);
 	Eigen::Vector3d a = r.eulerAngles(0, 1, 2).array().sin();
-	if ((icpError < thresh_icp || icpCount < 5000)
-			&& (a.norm() <= 0.1 && t.norm() <= 0.1)) {
+	if ((icpError < thresh_icp))
+//			&& (a.norm() <= 0.1 && t.norm() <= 0.1))
+	{
 		return true;
 	} else {
 		std::cout << "bad : " << icpError << "/" << rgbError << " " << a.norm()

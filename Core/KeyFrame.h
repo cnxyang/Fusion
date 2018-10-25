@@ -52,6 +52,8 @@ struct KeyFrame {
 
 	std::vector<Frame *> subFrames;
 
+	std::vector<KeyFrame *> visGraph;
+
 	static int nextId;
 	float poseChanged;
 };
