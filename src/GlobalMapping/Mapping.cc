@@ -1,7 +1,6 @@
 #include "Mapping.h"
 #include "Constant.h"
-#include "Reduction.h"
-#include "RenderScene.h"
+#include "DeviceFuncs.h"
 
 Mapping::Mapping() :
 		meshUpdated(false), hasNewKFFlag(false) {

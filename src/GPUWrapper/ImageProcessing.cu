@@ -1,4 +1,4 @@
-#include "Reduction.h"
+#include "DeviceFuncs.h"
 
 __constant__ float sigSpace = 0.5 / (4 * 4);
 __constant__ float sigRange = 0.5 / (0.5 * 0.5);

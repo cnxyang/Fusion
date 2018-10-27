@@ -2,9 +2,9 @@
 #define TRACKING_H__
 
 #include "Frame.h"
-#include "Viewer.h"
+#include "MapViewer.h"
 #include "Mapping.h"
-#include "Reduction.h"
+#include "DeviceFuncs.h"
 #include <mutex>
 
 class Viewer;

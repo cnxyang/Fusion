@@ -1,7 +1,7 @@
 #ifndef SYSTEM_H__
 #define SYSTEM_H__
 
-#include "Viewer.h"
+#include "MapViewer.h"
 #include "Mapping.h"
 #include "Tracking.h"
 #include "Optimizer.h"

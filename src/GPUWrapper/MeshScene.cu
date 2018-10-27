@@ -1,4 +1,4 @@
-#include "RenderScene.h"
+#include "DeviceFuncs.h"
 #include "ParallelScan.h"
 
 struct MeshEngine {

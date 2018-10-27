@@ -1,6 +1,6 @@
 #include "Frame.h"
 #include "KeyFrame.h"
-#include "Reduction.h"
+#include "DeviceFuncs.h"
 
 #include <Eigen/Dense>
 #include <core/cuda.hpp>

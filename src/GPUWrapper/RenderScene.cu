@@ -1,5 +1,5 @@
 #include "Constant.h"
-#include "RenderScene.h"
+#include "DeviceFuncs.h"
 #include "ParallelScan.h"
 
 #define minMaxSubSample 8

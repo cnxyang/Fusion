@@ -1,4 +1,4 @@
-#include "Reduction.h"
+#include "DeviceFuncs.h"
 
 #define WarpSize 32
 #define MaxThread 1024
