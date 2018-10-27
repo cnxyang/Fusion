@@ -1,6 +1,6 @@
 #include "Constant.h"
 #include "DeviceFuncs.h"
-#include "ParallelScan.h"
+#include "GpuParallelScan.h"
 
 #define minMaxSubSample 8
 #define renderingBlockSizeX 16

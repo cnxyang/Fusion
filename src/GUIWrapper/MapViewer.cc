@@ -26,16 +26,16 @@ void Viewer::spin() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	phongShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/OpenGLShaders/VertexShader.phong.glsl");
-	phongShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/OpenGLShaders/FragmentShader.glsl");
+	phongShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/GLSL/VertexShader.phong.glsl");
+	phongShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/GLSL/FragmentShader.glsl");
 	phongShader.Link();
 
-	normalShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/OpenGLShaders/VertexShader.normal.glsl");
-	normalShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/OpenGLShaders/FragmentShader.glsl");
+	normalShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/GLSL/VertexShader.normal.glsl");
+	normalShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/GLSL/FragmentShader.glsl");
 	normalShader.Link();
 
-	colorShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/OpenGLShaders/VertexShader.color.glsl");
-	colorShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/OpenGLShaders/FragmentShader.glsl");
+	colorShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/GLSL/VertexShader.color.glsl");
+	colorShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/GLSL/FragmentShader.glsl");
 	colorShader.Link();
 
 	sCam = OpenGlRenderState(

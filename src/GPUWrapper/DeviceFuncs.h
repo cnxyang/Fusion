@@ -62,15 +62,6 @@ void DefuseMapColor(const DeviceArray2D<float> & depth,
 		float3 tview, DeviceMap map, float fx, float fy, float cx, float cy,
 		float depthMax, float depthMin, uint * host_data);
 
-struct Residual {
-
-	int diff;
-	bool valid;
-	int2 curr;
-	int2 last;
-	float3 point;
-};
-
 void FilterDepth(const DeviceArray2D<unsigned short> & depth,
 		DeviceArray2D<float> & rawDepth, DeviceArray2D<float> & filteredDepth,
 		float depthScale, float depthCutoff);

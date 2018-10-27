@@ -374,6 +374,15 @@ void ICPStep(DeviceArray2D<float4> & nextVMap,
 	residual[1] = host_data[28];
 }
 
+struct Residual {
+
+	int diff;
+	bool valid;
+	int2 curr;
+	int2 last;
+	float3 point;
+};
+
 struct RGBReduction {
 
 	int N;
