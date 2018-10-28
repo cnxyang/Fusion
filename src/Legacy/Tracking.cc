@@ -1,7 +1,7 @@
 #include "Solver.h"
 #include "Tracking.h"
 #include "sophus/se3.hpp"
-
+#include "ICPTracker.h"
 using namespace cv;
 
 Matrix3f eigen_to_mat3f(Eigen::Matrix3d & mat) {
@@ -240,16 +240,26 @@ bool Tracker::TrackFrame() {
 
 	bool valid = false;
 
-	valid = TrackLastFrame();
+//	valid = TrackLastFrame();
 
-	if(!valid) {
-		std::cout << "Bootstrap failed. Rolling back." << std::endl;
-		NextFrame->pose = LastFrame->pose;
-	}
+//	if(!valid) {
+//		std::cout << "Bootstrap failed. Rolling back." << std::endl;
+//		NextFrame->pose = LastFrame->pose;
+//	}
 
 //	ComputeSO3();
-	valid = ComputeSE3(false, ITERATIONS_SE3, THRESH_ICP_SE3);
-	return valid;
+//	valid = ComputeSE3(false, ITERATIONS_SE3, THRESH_ICP_SE3);
+//	return valid;
+
+	ICPTracker SE3Tracker(Frame::cols(0), Frame::rows(0), Eigen::Matrix3f());
+	int iter[3] = { 3, 5, 10 };
+	SE3Tracker.setIterations(iter);
+	SE3Tracker.setTrackingLevel(2, 0);
+	Sophus::SE3d frameToRef_initialEstimate = Sophus::SE3d();
+	Sophus::SE3d frameToRef = SE3Tracker.trackSE3(LastFrame, NextFrame, frameToRef_initialEstimate, true);
+
+	NextFrame->pose = LastFrame->pose * frameToRef.inverse();
+	return SE3Tracker.trackingWasGood;
 }
 
 //-----------------------------------------
@@ -518,10 +528,6 @@ bool Tracker::ComputeSE3(bool icpOnly, const int * iter, const float thresh_icp)
 			std::cout << "ERROR: "<< i << "/" <<j << " : "<<lastIcpError << " " << lastRgbError << std::endl;
 		}
 	}
-
-	cv::Mat img(480, 640, CV_8UC1);
-	cv::imshow("img", img);
-	cv::waitKey(0);
 
 	Eigen::Matrix4d p = (pose.inverse() * NextFrame->pose).matrix();
 	Eigen::Matrix3d r = p.topLeftCorner(3, 3);

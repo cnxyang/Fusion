@@ -8,6 +8,7 @@
 #include <pangolin/pangolin.h>
 #include <pangolin/gl/glcuda.h>
 #include <pangolin/gl/glvbo.h>
+#include <sophus/se3.hpp>
 
 class System;
 class Tracker;
@@ -19,14 +20,12 @@ public:
 
 	SlamViewer();
 	void spin();
+	void run() {}
 
 	void setMap(DenseMapping * pMap);
 	void setSystem(System * pSystem);
 	void setTracker(Tracker * pTracker);
 	void signalQuit();
-
-private:
-
 	void Insert(std::vector<GLfloat> & vPt, Eigen::Vector3f & pt);
 	void drawCamera();
 	void drawKeys();
@@ -68,6 +67,17 @@ private:
 	pangolin::CudaScopedMappedArray * depthImageMaped;
 	pangolin::CudaScopedMappedArray * renderedImageMaped;
 	pangolin::CudaScopedMappedArray * topDownImageMaped;
+
+
+	//============= REFACTORING =============
+
+	Sophus::SE3d currentCamPose;
+	inline void setCurrentCamPose(Sophus::SE3d pose);
 };
+
+inline void SlamViewer::setCurrentCamPose(Sophus::SE3d pose)
+{
+	currentCamPose = pose;
+}
 
 #endif

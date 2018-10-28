@@ -8,7 +8,7 @@
 #include <cudaarithm.hpp>
 #include <xfeatures2d/cuda.hpp>
 #include "Legacy/KeyFrame.h"
-#include "Legacy/DeviceMap.h"
+#include "Utilities/VectorMath.h"
 #include "DataStructure/FramePoseStruct.h"
 #include "GlobalMapping/KeyFrameGraph.h"
 #include "Utilities/DeviceArray.h"
@@ -127,6 +127,8 @@ public:
 	inline int width(int level = 0) const;
 	/** Returns the frame's image height. */
 	inline int height(int level = 0) const;
+	/** Returns the frame's total number of pixels */
+	inline int totalPixel(int level = 0) const;
 	/** Returns the frame's intrinsics matrix. */
 	inline const Eigen::Matrix3f & K(int level = 0) const;
 	/** Returns the frame's inverse intrinsics matrix. */
@@ -150,7 +152,7 @@ public:
 	/** Returns the frame's recording timestamp. */
 	inline double timeStamp() const;
 
-	inline Sophus::SE3d getCamToWorld1() const;
+	inline Sophus::SE3d getCamToWorld() const;
 
 	Sophus::SE3d pose;
 	FramePoseStruct * poseStruct;
@@ -175,7 +177,7 @@ public:
 	std::unordered_map<Frame*, std::hash<Frame*>> neighbors;
 };
 
-inline Sophus::SE3d Frame::getCamToWorld1() const
+inline Sophus::SE3d Frame::getCamToWorld() const
 {
 	return poseStruct->getCamToWorld();
 }
@@ -193,6 +195,11 @@ inline int Frame::width(int level) const
 inline int Frame::height(int level) const
 {
 	return data.height[level];
+}
+
+inline int Frame::totalPixel(int level) const
+{
+	return data.width[level] * data.height[level];
 }
 
 inline const Eigen::Matrix3f& Frame::K(int level) const

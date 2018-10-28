@@ -1,6 +1,6 @@
 #include "SlamSystem.h"
 #include "DataStructure/Frame.h"
-#include "ICPTracking/TrackingReference.h"
+#include "ICPTracking/PointCloud.h"
 #include "GlobalMapping/DenseMapping.h"
 #include "GlobalMapping/KeyFrameGraph.h"
 #include "ICPTracking/ICPTracker.h"
@@ -15,18 +15,40 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K, bool SLAMEnabled) :
 
 	viewer = new SlamViewer();
 
+	// main tracking thread
 	tracker = new ICPTracker(width, height, K);
 	tracker->setTrackingLevel(1, 3);
-	tracker->initTrackingData();
 
+	// icp based tracking for searching constraints for new key frames
 	constraintTracker = new ICPTracker(width, height, K);
 	constraintTracker->setTrackingLevel(1, 2);
-	constraintTracker->initTrackingData();
 
-	thread_constraintSearch = std::thread(&SlamSystem::constraintSearchLoop, this);
-	thread_optimisation = std::thread(&SlamSystem::optimisationLoop, this);
-	thread_mapping = std::thread(&SlamSystem::mappingLoop, this);
-	thread_visualisation = std::thread(&SlamViewer::spin, viewer);
+	// start multi-threading!
+	threadConstraintSearch = std::thread(&SlamSystem::constraintSearchLoop, this);
+	threadOptimisation = std::thread(&SlamSystem::optimisationLoop, this);
+	threadVisualisation = std::thread(&SlamSystem::visualisationLoop, this);
+	threadDenseMapping = std::thread(&SlamSystem::mappingLoop, this);
+
+	keyFrameGraph = new KeyFrameGraph();
+}
+
+SlamSystem::~SlamSystem()
+{
+	keepRunning = false;
+
+	printf("Waiting for other threads to quit.\n");
+	newKeyFrameCreatedSignal.notify_all();
+	threadDenseMapping.join();
+	threadOptimisation.join();
+	threadVisualisation.join();
+	threadConstraintSearch.join();
+	printf("DONE waiting.\n");
+
+	delete map;
+	delete tracker;
+	delete constraintTracker;
+	delete keyFrameGraph;
+	if(viewer != 0) delete viewer;
 }
 
 void SlamSystem::trackFrame(cv::Mat & image, cv::Mat & depth, int id, double timeStamp)
@@ -35,8 +57,8 @@ void SlamSystem::trackFrame(cv::Mat & image, cv::Mat & depth, int id, double tim
 
 	if (id == 0 && !trackingReference)
 	{
-		trackingReference = new TrackingReference(3);
-		trackingReference->populateICPData(currentFrame, true);
+		trackingReference = new PointCloud();
+		trackingReference->importData(currentFrame, true);
 		return;
 	}
 
@@ -49,36 +71,25 @@ void SlamSystem::trackFrame(cv::Mat & image, cv::Mat & depth, int id, double tim
 
 	currentKeyFrameMutex.lock();
 
-//	Sophus::SE3d initialEstimate;
-//	if(lastTrackedFrame)
-//		initialEstimate = lastTrackedFrame->getCamToWorld() * currentKeyFrame->getCamToWorld().inverse();
-
-//	Sophus::SE3d camToRef = tracker->trackFrame(
-//			trackingReference,
-//			currentFrame,
-//			initialEstimate,
-//			true);
-
-//	lastResidual = tracker->lastResidual;
-//	lastUsage = tracker->pointUsage;
-//
-//	if(tracker->diverged || !tracker->trackingWasGood)
-//	{
-//		printf("LOST TRACKING for frame %d\n", newFrame->frameId);
-//		trackingIsGood = false;
-//		nextRelocId = -1;
-//
-//		return;
-//	}
-
-//	keyFrameGraph->addFrame(currentFrame);
 
 	lastTrackedFrame = currentFrame;
+
+	if(viewer)
+	{
+		viewer->setCurrentCamPose(lastTrackedFrame->getCamToWorld());
+	}
 }
 
-void SlamSystem::populateICPData()
+void SlamSystem::visualisationLoop()
 {
+	printf("visualisation thread started\n");
 
+	while(keepRunning)
+	{
+		viewer->run();
+	}
+
+	printf("visualisation thread exited\n");
 }
 
 void SlamSystem::mappingLoop()
@@ -92,6 +103,8 @@ void SlamSystem::mappingLoop()
 
 		}
 	}
+
+	printf("mapping thread exited\n");
 }
 
 void SlamSystem::optimisationLoop()
@@ -135,4 +148,11 @@ void SlamSystem::constraintSearchLoop()
 void SlamSystem::findConstraintForNewKF(Frame* newKF)
 {
 
+}
+
+void SlamSystem::createNewKeyFrame(Frame* newKeyFrameCandidate)
+{
+	currentKeyFrameMutex.lock();
+	currentKeyFrame = newKeyFrameCandidate;
+	currentKeyFrameMutex.unlock();
 }

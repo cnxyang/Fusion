@@ -10,15 +10,17 @@ class DenseMapping;
 class SlamViewer;
 class ICPTracker;
 class KeyFrameGraph;
-class TrackingReference;
+class PointCloud;
 
 class SlamSystem
 {
 public:
 
 	SlamSystem(int w, int h, Eigen::Matrix3f K, bool SLAMEnabled = true);
+	SlamSystem(const SlamSystem&) = delete;
+	SlamSystem& operator=(const SlamSystem&) = delete;
+	~SlamSystem();
 
-	void initSystem();
 	void trackFrame(cv::Mat & image, cv::Mat & depth, int id, double timeStamp);
 
 protected:
@@ -26,8 +28,9 @@ protected:
 	void mappingLoop();
 	void constraintSearchLoop();
 	void optimisationLoop();
-	void findConstraintForNewKF(Frame* newKF);
-	void populateICPData();
+	void visualisationLoop();
+	void findConstraintForNewKF(Frame* newKeyFrame);
+	void createNewKeyFrame(Frame* newKeyFrameCandidate);
 
 	int width, height;
 	Eigen::Matrix3f K;
@@ -38,26 +41,28 @@ protected:
 	ICPTracker * constraintTracker;
 	KeyFrameGraph * keyFrameGraph;
 
-	float lastTrackingScore;
-	bool keepRunning, SLAMEnabled;
+	bool keepRunning;
+	bool SLAMEnabled;
 	bool dumpMapToDisk;
 
-	std::thread thread_constraintSearch;
-	std::thread thread_optimisation;
-	std::thread thread_mapping;
-	std::thread thread_visualisation;
+	// multi-threading variables
+	std::thread threadConstraintSearch;
+	std::thread threadOptimisation;
+	std::thread threadDenseMapping;
+	std::thread threadVisualisation;
 
 	// PUSHED by tracking, READ && CLEARED BY constraint finder
-	std::deque<Frame*> newKeyFrames;
+	std::deque<Frame *> newKeyFrames;
 	std::mutex newKeyFrameMutex;
 	std::condition_variable newKeyFrameCreatedSignal;
 
 	// PROCESSED by tracking && pose graph
-	Frame* currentFrame;
-	Frame* currentKeyFrame;
+	Frame * currentFrame;
+	Frame * currentKeyFrame;
 	std::mutex currentKeyFrameMutex;
 
 	bool trackingIsGood;
-	TrackingReference* trackingReference; // for current key frame
+	float lastTrackingScore;
+	PointCloud * trackingReference;
 	Frame * lastTrackedFrame;
 };
