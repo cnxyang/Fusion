@@ -1,32 +1,29 @@
-#ifndef FRAME_HPP__
-#define FRAME_HPP__
-
-#include "KeyFrame.h"
-#include "DeviceMap.h"
-#include "DeviceArray.h"
-#include "SophusUtil.h"
+#ifndef FRAME__
+#define FRAME__
 
 #include <vector>
 #include <opencv.hpp>
+#include <sophus/se3.hpp>
 #include <features2d.hpp>
 #include <cudaarithm.hpp>
-#include <Eigen/Dense>
-#include <sophus/se3.hpp>
 #include <xfeatures2d/cuda.hpp>
+#include "Legacy/KeyFrame.h"
+#include "Legacy/DeviceMap.h"
+#include "DataStructure/FramePoseStruct.h"
+#include "GlobalMapping/KeyFrameGraph.h"
+#include "Utilities/DeviceArray.h"
 
-struct ORBKey;
-struct KeyFrame;
+#define PYRAMID_LEVELS 3
 
-struct Frame {
+class Frame
+{
+public:
 
 	static const int NUM_PYRS = 3;
 	static const int MIN_KEY_POINTS = 500;
 
 	Frame();
-
 	Frame(const Frame * other);
-
-
 
 	void Create(int cols_, int rows_);
 
@@ -46,24 +43,26 @@ struct Frame {
 
 	float4 InterpNormal(cv::Mat & map, float & x, float & y);
 
-	Eigen::Matrix3d Rotation() const;
+	Eigen::Matrix3d Rotation();
 
-	Eigen::Matrix3d RotationInv() const;
+	Eigen::Matrix3d RotationInv();
 
-	Eigen::Vector3d Translation() const;
+	Eigen::Vector3d Translation();
 
-	Eigen::Vector3d TranslationInv() const;
+	Eigen::Vector3d TranslationInv();
 
-	Matrix3f GpuRotation() const;
+	Matrix3f GpuRotation();
 
-	float3 GpuTranslation() const;
+	float3 GpuTranslation();
 
-	Matrix3f GpuInvRotation() const;
+	Matrix3f GpuInvRotation();
 
-	Eigen::Vector3f GetWorldPoint(int i) const;
+	Eigen::Vector3f GetWorldPoint(int i);
 
 	void operator=(const Frame & other);
 
+	// =============== used for icp ====================
+	// TODO: move this outside of the frame struct
 	DeviceArray2D<unsigned short> temp;
 	DeviceArray2D<float> range;
 	DeviceArray2D<uchar3> color;
@@ -74,25 +73,27 @@ struct Frame {
 	DeviceArray2D<unsigned char> image[NUM_PYRS];
 	DeviceArray2D<short> dIdx[NUM_PYRS];
 	DeviceArray2D<short> dIdy[NUM_PYRS];
-
-	unsigned long frameId;
-	static unsigned long nextId;
-
-	std::vector<bool> outliers;
-
-	Eigen::Matrix4f deltaT;
-//	Eigen::Matrix4d pose;
+	// =============== used for icp ====================
 
 
+	// =============== key points ====================
+	// TODO: get rid of this ASAP
 	int N;
 	bool bad;
 	cv::cuda::GpuMat descriptors;
 	std::vector<float4> pointNormal;
 	std::vector<Eigen::Vector3f> mapPoints;
 	std::vector<cv::KeyPoint> keyPoints;
+	std::vector<bool> outliers;
 
 	static cv::cuda::SURF_CUDA surfExt;
 	static cv::Ptr<cv::BRISK> briskExt;
+	// =============== key points ====================
+
+	// =============== general information ====================
+
+	unsigned long frameId;
+	static unsigned long nextId;
 
 	static cv::Mat mK[NUM_PYRS];
 	static int mCols[NUM_PYRS];
@@ -108,25 +109,145 @@ struct Frame {
 	static bool mbFirstCall;
 	static float mDepthScale;
 	static float mDepthCutoff;
+	// =============== general information ====================
 
-	// used for re-integration
-	cv::Mat matRange;
-	cv::Mat matColor;
-	cv::Mat matNormal;
 
-	Eigen::Matrix4d deltaPose;
+	// ===================== OLD JUNK ends here =====================
 
-	/* ==================== REFACTOR begins here ==================== */
+	// ==================== REFACTOR begins here ====================
 
-	/* constructor */
-	Frame(cv::Mat& image, cv::Mat& depth, Eigen::Matrix3f K);
+	// constructor
+	Frame(cv::Mat & image, cv::Mat & depth, int id, Eigen::Matrix3f K, double timeStamp);
 
-	/* general properties */
-	SE3 pose;
+	void initialize(int w, int h, int id, Eigen::Matrix3f & K, double timeStamp);
 
-	// only used for key frames
-	SE3 poseOptimised;
-	bool poseUpdated;
+	/** Returns the unique frame id. */
+	inline int id() const;
+	/** Returns the frame's image width. */
+	inline int width(int level = 0) const;
+	/** Returns the frame's image height. */
+	inline int height(int level = 0) const;
+	/** Returns the frame's intrinsics matrix. */
+	inline const Eigen::Matrix3f & K(int level = 0) const;
+	/** Returns the frame's inverse intrinsics matrix. */
+	inline const Eigen::Matrix3f & KInv(int level = 0) const;
+	/** Returns K(0, 0). */
+	inline float getfx(int level = 0) const;
+	/** Returns K(1, 1). */
+	inline float getfy(int level = 0) const;
+	/** Returns K(0, 2). */
+	inline float getcx(int level = 0) const;
+	/** Returns K(1, 2). */
+	inline float getcy(int level = 0) const;
+	/** Returns KInv(0, 0). */
+	inline float fxInv(int level = 0) const;
+	/** Returns KInv(1, 1). */
+	inline float fyInv(int level = 0) const;
+	/** Returns KInv(0, 2). */
+	inline float cxInv(int level = 0) const;
+	/** Returns KInv(1, 2). */
+	inline float cyInv(int level = 0) const;
+	/** Returns the frame's recording timestamp. */
+	inline double timeStamp() const;
+
+	inline Sophus::SE3d getCamToWorld1() const;
+
+	Sophus::SE3d pose;
+	FramePoseStruct * poseStruct;
+
+	struct Data {
+		int id;
+		int width[PYRAMID_LEVELS], height[PYRAMID_LEVELS];
+		float fx[PYRAMID_LEVELS], fy[PYRAMID_LEVELS];
+		float cx[PYRAMID_LEVELS], cy[PYRAMID_LEVELS];
+		float fxInv[PYRAMID_LEVELS], fyInv[PYRAMID_LEVELS];
+		float cxInv[PYRAMID_LEVELS], cyInv[PYRAMID_LEVELS];
+		double timeStamp;
+
+		Eigen::Matrix3f K[PYRAMID_LEVELS];
+		Eigen::Matrix3f KInv[PYRAMID_LEVELS];
+
+		cv::Mat image;
+		cv::Mat depth;
+
+	} data;
+
+	std::unordered_map<Frame*, std::hash<Frame*>> neighbors;
 };
+
+inline Sophus::SE3d Frame::getCamToWorld1() const
+{
+	return poseStruct->getCamToWorld();
+}
+
+inline int Frame::id() const
+{
+	return data.id;
+}
+
+inline int Frame::width(int level) const
+{
+	return data.width[level];
+}
+
+inline int Frame::height(int level) const
+{
+	return data.height[level];
+}
+
+inline const Eigen::Matrix3f& Frame::K(int level) const
+{
+	return data.K[level];
+}
+
+inline const Eigen::Matrix3f& Frame::KInv(int level) const
+{
+	return data.KInv[level];
+}
+
+inline float Frame::getfx(int level) const
+{
+	return data.fx[level];
+}
+
+inline float Frame::getfy(int level) const
+{
+	return data.fy[level];
+}
+
+inline float Frame::getcx(int level) const
+{
+	return data.cx[level];
+}
+
+inline float Frame::getcy(int level) const
+{
+	return data.cy[level];
+}
+
+inline float Frame::fxInv(int level) const
+{
+	return data.fxInv[level];
+}
+
+inline float Frame::fyInv(int level) const
+{
+	return data.fyInv[level];
+}
+
+inline float Frame::cxInv(int level) const
+{
+	return data.cxInv[level];
+}
+
+inline float Frame::cyInv(int level) const
+{
+	return data.cyInv[level];
+}
+
+inline double Frame::timeStamp() const
+{
+	return data.timeStamp;
+}
 
 #endif

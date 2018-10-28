@@ -1,4 +1,5 @@
-#pragma once
+#ifndef DEVICE_ARRAY__
+#define DEVICE_ARRAY__
 
 #include <vector>
 #include <atomic>
@@ -388,3 +389,5 @@ template<class T> DeviceArray2D<T>::operator PtrStepSz<T>() const {
 
 	return psz;
 }
+
+#endif

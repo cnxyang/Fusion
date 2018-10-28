@@ -2,15 +2,15 @@
 #define SYSTEM_H__
 
 #include "Tracking.h"
-#include "MapViewer.h"
+#include "SlamViewer.h"
 #include "Optimizer.h"
-#include "DenseMap.h"
+#include "DenseMapping.h"
 
 #include <thread>
 
-class MapViewer;
+class SlamViewer;
 class Tracker;
-class DenseMap;
+class DenseMapping;
 class Optimizer;
 
 struct SysDesc {
@@ -70,9 +70,9 @@ protected:
 
 	void ReIntegration();
 
-	DenseMap * map;
+	DenseMapping * map;
 	SysDesc * param;
-	MapViewer  * viewer;
+	SlamViewer  * viewer;
 	Tracker * tracker;
 	Optimizer * optimizer;
 

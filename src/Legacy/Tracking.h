@@ -4,12 +4,12 @@
 #include <mutex>
 #include <condition_variable>
 #include "Frame.h"
-#include "MapViewer.h"
-#include "DenseMap.h"
+#include "SlamViewer.h"
+#include "DenseMapping.h"
 #include "DeviceFuncs.h"
 
-class MapViewer;
-class DenseMap;
+class SlamViewer;
+class DenseMapping;
 
 class Tracker {
 
@@ -23,9 +23,9 @@ public:
 
 	void ResetTracking();
 
-	void SetMap(DenseMap * map_);
+	void SetMap(DenseMapping * map_);
 
-	void SetViewer(MapViewer * viewer_);
+	void SetViewer(SlamViewer * viewer_);
 
 	Eigen::Matrix4f GetCurrentPose() const;
 
@@ -86,9 +86,9 @@ protected:
 
 	void InsertFrame();
 
-	DenseMap * map;
+	DenseMapping * map;
 
-	MapViewer * viewer;
+	SlamViewer * viewer;
 
 	const int maxIter = 35;
 	const int maxIterReloc = 100;

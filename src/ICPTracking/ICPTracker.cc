@@ -19,22 +19,10 @@ void ICPTracker::initTrackingData()
 }
 
 Sophus::SE3d ICPTracker::trackFrame(
-		TrackingReference* reference,
+		TrackingReference * reference,
 		Frame* frame,
-		Sophus::SE3d r2f_initialGuess,
+		Sophus::SE3d initialEstimate,
 		bool useRGB)
 {
-//	data->populateData(frame, useRGB);
-//	float icpResidual[2];
-//
-//	for(int iter = trackingLevelBegin; iter < trackingLevelEnd; ++iter)
-//	{
-//		ICPStep(data->cloud[iter].point, reference->cloud[iter].point,
-//				data->cloud[iter].normal, reference->cloud[iter].normal);
-//
-//		if(useRGB)
-//		{
-//			RGBStep();
-//		}
-//	}
+
 }

@@ -436,7 +436,6 @@ bool Tracker::ComputeSE3(bool icpOnly, const int * iter, const float thresh_icp)
 	int icpCount = 0;
 
 	Sophus::SE3d delta = Sophus::SE3d();
-
 	for(int i = Frame::NUM_PYRS - 1; i >= 0; --i) {
 		for(int j = 0; j < iter[i]; ++j) {
 			if(!icpOnly) {
@@ -498,6 +497,7 @@ bool Tracker::ComputeSE3(bool icpOnly, const int * iter, const float thresh_icp)
 			}
 
 			lastIcpError = icpError;
+			lastRgbError = rgbError;
 
 			if (!icpOnly) {
 				float w = 1e-4;
@@ -515,8 +515,13 @@ bool Tracker::ComputeSE3(bool icpOnly, const int * iter, const float thresh_icp)
 			delta = e * delta;
 			nextPose = lastPose * delta.inverse();
 			NextFrame->pose = nextPose;
+			std::cout << "ERROR: "<< i << "/" <<j << " : "<<lastIcpError << " " << lastRgbError << std::endl;
 		}
 	}
+
+	cv::Mat img(480, 640, CV_8UC1);
+	cv::imshow("img", img);
+	cv::waitKey(0);
 
 	Eigen::Matrix4d p = (pose.inverse() * NextFrame->pose).matrix();
 	Eigen::Matrix3d r = p.topLeftCorner(3, 3);
@@ -811,10 +816,10 @@ Eigen::Matrix4f Tracker::GetCurrentPose() const {
 	return LastFrame->pose.matrix().cast<float>();
 }
 
-void Tracker::SetMap(DenseMap* pMap) {
+void Tracker::SetMap(DenseMapping* pMap) {
 	map = pMap;
 }
 
-void Tracker::SetViewer(MapViewer* pViewer) {
+void Tracker::SetViewer(SlamViewer* pViewer) {
 	viewer = pViewer;
 }

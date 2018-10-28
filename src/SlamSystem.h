@@ -1,16 +1,15 @@
 #pragma once
 
-#include <thread>
 #include <Eigen/Core>
 #include <opencv.hpp>
+#include <thread>
 #include <condition_variable>
 
 class Frame;
-class DenseMap;
-class MapViewer;
+class DenseMapping;
+class SlamViewer;
 class ICPTracker;
 class KeyFrameGraph;
-class Relocaliser;
 class TrackingReference;
 
 class SlamSystem
@@ -20,7 +19,7 @@ public:
 	SlamSystem(int w, int h, Eigen::Matrix3f K, bool SLAMEnabled = true);
 
 	void initSystem();
-	void trackFrame(cv::Mat& img, cv::Mat& dp, double timeStamp);
+	void trackFrame(cv::Mat & image, cv::Mat & depth, int id, double timeStamp);
 
 protected:
 
@@ -31,21 +30,22 @@ protected:
 	void populateICPData();
 
 	int width, height;
-	Eigen::Matrix3f camK;
+	Eigen::Matrix3f K;
 
-	DenseMap* map;
-	ICPTracker* tracker;
-	ICPTracker* constraintTracker;
-	KeyFrameGraph* keyFrameGraph;
-	Relocaliser* relocaliser;
+	SlamViewer * viewer;
+	DenseMapping * map;
+	ICPTracker * tracker;
+	ICPTracker * constraintTracker;
+	KeyFrameGraph * keyFrameGraph;
 
 	float lastTrackingScore;
 	bool keepRunning, SLAMEnabled;
 	bool dumpMapToDisk;
 
-	std::thread threadConstraintSearch;
-	std::thread threadOptimisation;
-	std::thread threadMapping;
+	std::thread thread_constraintSearch;
+	std::thread thread_optimisation;
+	std::thread thread_mapping;
+	std::thread thread_visualisation;
 
 	// PUSHED by tracking, READ && CLEARED BY constraint finder
 	std::deque<Frame*> newKeyFrames;
@@ -53,9 +53,11 @@ protected:
 	std::condition_variable newKeyFrameCreatedSignal;
 
 	// PROCESSED by tracking && pose graph
+	Frame* currentFrame;
 	Frame* currentKeyFrame;
 	std::mutex currentKeyFrameMutex;
 
 	bool trackingIsGood;
 	TrackingReference* trackingReference; // for current key frame
+	Frame * lastTrackedFrame;
 };

@@ -1,48 +1,64 @@
 #include "SlamSystem.h"
 #include "DataStructure/Frame.h"
-#include "GlobalMapping/DenseMap.h"
+#include "ICPTracking/TrackingReference.h"
+#include "GlobalMapping/DenseMapping.h"
 #include "GlobalMapping/KeyFrameGraph.h"
-#include "ICPTracking/Relocaliser.h"
 #include "ICPTracking/ICPTracker.h"
 
 SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K, bool SLAMEnabled) :
-	width(w), height(h), camK(K), tracker(0),
-	constraintTracker(0), map(0), keyFrameGraph(0),
-	currentKeyFrame(0), lastTrackingScore(0), keepRunning(true),
-	SLAMEnabled(SLAMEnabled), relocaliser(0), dumpMapToDisk(false),
-	trackingIsGood(true), trackingReference(0)
+	width(w), height(h), K(K), tracker(0), constraintTracker(0), map(0), keyFrameGraph(0),
+	currentKeyFrame(0), lastTrackingScore(0), SLAMEnabled(SLAMEnabled), dumpMapToDisk(false),
+	trackingIsGood(true), trackingReference(0), keepRunning(true), currentFrame(0),
+	viewer(0), lastTrackedFrame(0)
 {
-	map = new DenseMap();
+	map = new DenseMapping();
 
-	tracker = new ICPTracker(width, height, camK);
+	viewer = new SlamViewer();
+
+	tracker = new ICPTracker(width, height, K);
 	tracker->setTrackingLevel(1, 3);
 	tracker->initTrackingData();
 
-	constraintTracker = new ICPTracker(width, height, camK);
+	constraintTracker = new ICPTracker(width, height, K);
 	constraintTracker->setTrackingLevel(1, 2);
 	constraintTracker->initTrackingData();
 
-	threadConstraintSearch = std::thread(&SlamSystem::constraintSearchLoop, this);
-	threadOptimisation = std::thread(&SlamSystem::optimisationLoop, this);
-	threadMapping = std::thread(&SlamSystem::mappingLoop, this);
+	thread_constraintSearch = std::thread(&SlamSystem::constraintSearchLoop, this);
+	thread_optimisation = std::thread(&SlamSystem::optimisationLoop, this);
+	thread_mapping = std::thread(&SlamSystem::mappingLoop, this);
+	thread_visualisation = std::thread(&SlamViewer::spin, viewer);
 }
 
-void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& dp, double timeStamp)
+void SlamSystem::trackFrame(cv::Mat & image, cv::Mat & depth, int id, double timeStamp)
 {
-//	std::shared_ptr<Frame*> newFrame(new Frame());
-//
-//	if(!trackingIsGood)
-//	{
-//		relocaliser.updateCurrentFrame(newFrame);
-//		return;
-//	}
-//
-//	currentKeyFrameMutex.lock();
-//
-//	Sophus::SE3d newRefToFrame_poseUpdate = tracker->trackFrame(
-//			referenceFrame, newFrame,
-//			frameToReference_initialEstimate);
-//
+	currentFrame = new Frame(image, depth, id, K, timeStamp);
+
+	if (id == 0 && !trackingReference)
+	{
+		trackingReference = new TrackingReference(3);
+		trackingReference->populateICPData(currentFrame, true);
+		return;
+	}
+
+	if (!trackingIsGood)
+	{
+		printf("TRACKING FAILED for Frame %d.\n", id - 1);
+		printf("WARNING: Relocalization NOT Implemented at the moment.\n");
+		return;
+	}
+
+	currentKeyFrameMutex.lock();
+
+//	Sophus::SE3d initialEstimate;
+//	if(lastTrackedFrame)
+//		initialEstimate = lastTrackedFrame->getCamToWorld() * currentKeyFrame->getCamToWorld().inverse();
+
+//	Sophus::SE3d camToRef = tracker->trackFrame(
+//			trackingReference,
+//			currentFrame,
+//			initialEstimate,
+//			true);
+
 //	lastResidual = tracker->lastResidual;
 //	lastUsage = tracker->pointUsage;
 //
@@ -54,10 +70,10 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& dp, double timeStamp)
 //
 //		return;
 //	}
-//
-//	keyFrameGraph->addFrame(newFrame.get());
-//
-//	lastTrackedFrame = trackingNewFrame;
+
+//	keyFrameGraph->addFrame(currentFrame);
+
+	lastTrackedFrame = currentFrame;
 }
 
 void SlamSystem::populateICPData()

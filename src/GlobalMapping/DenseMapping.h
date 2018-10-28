@@ -13,11 +13,11 @@ class KeyMap;
 class System;
 class Tracker;
 
-class DenseMap
+class DenseMapping
 {
 public:
 
-	DenseMap();
+	DenseMapping();
 
 	void Create();
 
@@ -41,15 +41,15 @@ public:
 
 	void FuseKeyFrame(const KeyFrame * kf);
 
-	void FuseKeyPoints(const Frame * f);
+	void FuseKeyPoints(Frame * f);
 
 	void UpdateVisibility(const KeyFrame * kf, uint & no);
 
-	void UpdateVisibility(const Frame * f, uint & no);
+	void UpdateVisibility(Frame * f, uint & no);
 
-	void DefuseColor(const Frame * f, uint & no);
+	void DefuseColor(Frame * f, uint & no);
 
-	void FuseColor(const Frame * f, uint & no);
+	void FuseColor(Frame * f, uint & no);
 
 	void RayTrace(uint noVisibleBlocks, Frame * f);
 
@@ -57,7 +57,7 @@ public:
 
 	void RayTraceWithColor(uint noVisibleBlocks, Frame * f);
 
-	void ForwardWarp(const Frame * last, Frame * next);
+	void ForwardWarp(Frame * last, Frame * next);
 
 	void UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 			float depthMin, float depthMax, float fx, float fy, float cx,

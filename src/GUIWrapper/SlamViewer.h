@@ -10,16 +10,17 @@
 #include <pangolin/gl/glvbo.h>
 
 class System;
-class DenseMap;
 class Tracker;
+class DenseMapping;
 
-class MapViewer {
+class SlamViewer
+{
 public:
 
-	MapViewer();
+	SlamViewer();
 	void spin();
 
-	void setMap(DenseMap * pMap);
+	void setMap(DenseMapping * pMap);
 	void setSystem(System * pSystem);
 	void setTracker(Tracker * pTracker);
 	void signalQuit();
@@ -40,13 +41,14 @@ private:
 	void topDownView();
 
 	System * system;
-	DenseMap * map;
+	DenseMapping * map;
 	Tracker * tracker;
 
 	std::atomic<bool> quit;
 
 	GLuint vao;
 	GLuint vao_color;
+	pangolin::OpenGlMatrix pose;
 	pangolin::OpenGlRenderState sCam;
 	pangolin::GlSlProgram phongShader;
 	pangolin::GlSlProgram normalShader;

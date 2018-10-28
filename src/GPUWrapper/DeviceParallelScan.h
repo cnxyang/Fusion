@@ -1,4 +1,5 @@
-#pragma once
+#ifndef DEVICE_PARALLEL_SCAN__
+#define DEVICE_PARALLEL_SCAN__
 
 template<int threadBlock>
 __device__ inline int ComputeOffset(uint element, uint *sum) {
@@ -47,3 +48,5 @@ __device__ inline int ComputeOffset(uint element, uint *sum) {
 
 	return offset;
 }
+
+#endif

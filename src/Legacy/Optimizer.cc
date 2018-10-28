@@ -318,7 +318,7 @@ void Optimizer::GlobalBA() {
 	sys->poseOptimized = true;
 }
 
-void Optimizer::SetMap(DenseMap * map_) {
+void Optimizer::SetMap(DenseMapping * map_) {
 
 	map = map_;
 }

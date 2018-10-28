@@ -7,7 +7,7 @@ KeyFrame::KeyFrame() {
 	frameId = 0;
 }
 
-KeyFrame::KeyFrame(const Frame * f):
+KeyFrame::KeyFrame(Frame * f):
 	poseChanged(0), N(f->N), frameId(nextId++),
 	mapPoints(f->mapPoints), keyPoints(f->keyPoints),
 	pointNormal(f->pointNormal), pose(f->pose.matrix().cast<float>()),

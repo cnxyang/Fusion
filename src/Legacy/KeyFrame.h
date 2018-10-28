@@ -16,7 +16,7 @@ struct KeyFrame {
 
 	KeyFrame();
 
-	KeyFrame(const Frame * f);
+	KeyFrame(Frame * f);
 
 	Eigen::Matrix3f Rotation() const;
 

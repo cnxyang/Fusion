@@ -173,8 +173,7 @@ struct Fusion {
 				if(isnan(nl.x))
 					continue;
 
-				float w = nl * normalised(make_float4(pos));
-				w = 1;
+				float w = cos(make_float3(-nl) * normalised(make_float3(Rview.rowx.z, Rview.rowy.z, Rview.rowz.z)));
 				float3 val = make_float3(rgb.ptr(uv.y)[uv.x]);
 				Voxel & prev = map.voxelBlocks[entry.ptr + locId];
 				if(prev.weight == 0) {

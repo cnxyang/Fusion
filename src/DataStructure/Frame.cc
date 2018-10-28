@@ -22,18 +22,10 @@ Frame::Frame():frameId(0), N(0), bad(false) {}
 
 Frame::Frame(const Frame * other):frameId(other->frameId), N(0), bad(false) {
 
-	matRange.create(Frame::rows(0), Frame::cols(0), CV_32FC1);
-	matColor.create(Frame::rows(0), Frame::cols(0), CV_8UC3);
-	matNormal.create(Frame::rows(0), Frame::cols(0), CV_32FC4);
-	other->range.download(matRange.data, matRange.step);
-	other->color.download(matColor.data, matColor.step);
-	other->nmap[0].download(matNormal.data, matNormal.step);
 }
 
 void Frame::operator=(const Frame & other) {
-	matRange = other.matRange;
-	matColor = other.matColor;
-	matNormal = other.matNormal;
+
 	frameId = other.frameId;
 }
 
@@ -279,13 +271,13 @@ int Frame::rows(int pyr) {
 	return mRows[pyr];
 }
 
-Eigen::Vector3f Frame::GetWorldPoint(int i) const {
+Eigen::Vector3f Frame::GetWorldPoint(int i) {
 	Eigen::Matrix3f r = Rotation().cast<float>();
 	Eigen::Vector3f t = Translation().cast<float>();
 	return r * mapPoints[i] + t;
 }
 
-Matrix3f Frame::GpuRotation() const {
+Matrix3f Frame::GpuRotation() {
 	Matrix3f Rot;
 	Eigen::Matrix4d mPose = pose.matrix();
 	Rot.rowx = make_float3(mPose(0, 0), mPose(0, 1), mPose(0, 2));
@@ -294,7 +286,7 @@ Matrix3f Frame::GpuRotation() const {
 	return Rot;
 }
 
-Matrix3f Frame::GpuInvRotation() const {
+Matrix3f Frame::GpuInvRotation() {
 	Matrix3f Rot;
 	const Eigen::Matrix3d mPoseInv = Rotation().transpose();
 	Rot.rowx = make_float3(mPoseInv(0, 0), mPoseInv(0, 1), mPoseInv(0, 2));
@@ -303,22 +295,81 @@ Matrix3f Frame::GpuInvRotation() const {
 	return Rot;
 }
 
-float3 Frame::GpuTranslation() const {
+float3 Frame::GpuTranslation() {
 	return make_float3(pose.translation()(0), pose.translation()(1), pose.translation()(2));
 }
 
-Eigen::Matrix3d Frame::Rotation() const {
+Eigen::Matrix3d Frame::Rotation() {
 	return pose.matrix().topLeftCorner(3, 3);
 }
 
-Eigen::Matrix3d Frame::RotationInv() const {
+Eigen::Matrix3d Frame::RotationInv() {
 	return Rotation().transpose();
 }
 
-Eigen::Vector3d Frame::Translation() const {
+Eigen::Vector3d Frame::Translation() {
 	return pose.matrix().topRightCorner(3, 1);
 }
 
-Eigen::Vector3d Frame::TranslationInv() const {
+Eigen::Vector3d Frame::TranslationInv() {
 	return -RotationInv() * Translation();
+}
+
+// ===================== OLD JUNK ends here =====================
+
+
+// ==================== REFACTOR begins here ====================
+
+Frame::Frame(cv::Mat & image, cv::Mat & depth, int id, Eigen::Matrix3f K, double timeStamp) :
+		poseStruct(0)
+{
+	initialize(image.cols, image.rows, id, K, timeStamp);
+
+	data.image = image;
+	data.depth = depth;
+}
+
+void Frame::initialize(int width, int height, int id, Eigen::Matrix3f & K, double timeStamp)
+{
+	data.id = id;
+
+	poseStruct = new FramePoseStruct(this);
+
+	data.K[0] = K;
+	data.fx[0] = K(0, 0);
+	data.fy[0] = K(1, 1);
+	data.cx[0] = K(0, 2);
+	data.cy[0] = K(1, 2);
+
+	data.KInv[0] = data.K[0].inverse();
+	data.fxInv[0] = data.KInv[0](0, 0);
+	data.fyInv[0] = data.KInv[0](1, 1);
+	data.cxInv[0] = data.KInv[0](0, 2);
+	data.cyInv[0] = data.KInv[0](1, 2);
+
+	data.timeStamp = timeStamp;
+
+	for(int level = 0; level < PYRAMID_LEVELS; ++level)
+	{
+		data.width[level] = width >> level;
+		data.height[level] = height >> level;
+
+		if (level > 0)
+		{
+			data.fx[level] = data.fx[level-1] * 0.5;
+			data.fy[level] = data.fy[level-1] * 0.5;
+			data.cx[level] = (data.cx[0] + 0.5) / ((int) 1 << level) - 0.5;
+			data.cy[level] = (data.cy[0] + 0.5) / ((int) 1 << level) - 0.5;
+
+			data.K[level]  << data.fx[level], 0.0, data.cx[level],
+							  0.0, data.fy[level], data.cy[level],
+							  0.0, 0.0, 1.0;
+
+			data.KInv[level] = (data.K[level]).inverse();
+			data.fxInv[level] = data.KInv[level](0, 0);
+			data.fyInv[level] = data.KInv[level](1, 1);
+			data.cxInv[level] = data.KInv[level](0, 2);
+			data.cyInv[level] = data.KInv[level](1, 2);
+		}
+	}
 }
