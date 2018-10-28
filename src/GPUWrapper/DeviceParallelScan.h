@@ -1,3 +1,5 @@
+#pragma once
+
 template<int threadBlock>
 __device__ inline int ComputeOffset(uint element, uint *sum) {
 

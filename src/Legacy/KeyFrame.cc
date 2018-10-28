@@ -10,8 +10,8 @@ KeyFrame::KeyFrame() {
 KeyFrame::KeyFrame(const Frame * f):
 	poseChanged(0), N(f->N), frameId(nextId++),
 	mapPoints(f->mapPoints), keyPoints(f->keyPoints),
-	pointNormal(f->pointNormal), pose(f->pose.cast<float>()),
-	newPose(f->pose.cast<float>()) {
+	pointNormal(f->pointNormal), pose(f->pose.matrix().cast<float>()),
+	newPose(f->pose.matrix().cast<float>()) {
 
 	f->descriptors.copyTo(descriptors);
 	observations.resize(mapPoints.size());

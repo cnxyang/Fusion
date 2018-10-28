@@ -49,8 +49,8 @@ void Tracker::ResetTracking() {
 
 	state = lastState = 1;
 	ReferenceKF = LastKeyFrame = NULL;
-	nextPose = Eigen::Matrix4d::Identity();
-	lastPose = Eigen::Matrix4d::Identity();
+	nextPose = Sophus::SE3d();
+	lastPose = Sophus::SE3d();
 	NextFrame->pose = nextPose;
 	LastFrame->pose = lastPose;
 }
@@ -284,7 +284,7 @@ bool Tracker::TrackLastFrame() {
 	bool result = Solver::PoseEstimate(framePoints, refPoints, NextFrame->outliers, delta, maxIter, true);
 
 	if (result) {
-		nextPose = delta.inverse() * LastFrame->pose;
+		nextPose = Sophus::SE3d(delta).inverse() * LastFrame->pose;
 		NextFrame->pose = nextPose;
 	}
 
@@ -299,7 +299,7 @@ bool Tracker::NeedKeyFrame() {
 	if(noInliers < 50)
 		return true;
 
-	Eigen::Matrix4f dT = NextFrame->pose.cast<float>() * ReferenceKF->pose.inverse();
+	Eigen::Matrix4f dT = NextFrame->pose.matrix().cast<float>() * ReferenceKF->pose.inverse();
 	Eigen::Matrix3f dR = dT.topLeftCorner(3, 3);
 	Eigen::Vector3f dt = dT.topRightCorner(3, 1);
 	Eigen::Vector3f angle = dR.eulerAngles(0, 1, 2).array().sin();
@@ -412,7 +412,7 @@ void Tracker::ComputeSO3() {
 
 		delta = dT * delta;
 		nextRot = lastRot * delta.inverse();
-		NextFrame->pose.topLeftCorner(3, 3) = nextRot;
+		NextFrame->pose.so3() = Sophus::SO3d(nextRot);
 		lastSO3Error = so3Error;
 	}
 }
@@ -428,14 +428,14 @@ bool Tracker::ComputeSE3(bool icpOnly, const int * iter, const float thresh_icp)
 	Eigen::Matrix<double, 6, 1> result;
 	lastPose = LastFrame->pose;
 	nextPose = NextFrame->pose;
-	Eigen::Matrix4d pose = NextFrame->pose;
+	Sophus::SE3d pose = NextFrame->pose;
 
 	float rgbError = 0;
 	float icpError = 0;
 	int rgbCount = 0;
 	int icpCount = 0;
 
-	Eigen::Matrix4d delta = Eigen::Matrix4d::Identity();
+	Sophus::SE3d delta = Sophus::SE3d();
 
 	for(int i = Frame::NUM_PYRS - 1; i >= 0; --i) {
 		for(int j = 0; j < iter[i]; ++j) {
@@ -510,15 +510,15 @@ bool Tracker::ComputeSE3(bool icpOnly, const int * iter, const float thresh_icp)
 
 			result = matA.ldlt().solve(vecb);
 			auto e = Sophus::SE3d::exp(result);
-			auto dT = e.matrix();
+//			auto dT = e.matrix();
 
-			delta = dT * delta;
+			delta = e * delta;
 			nextPose = lastPose * delta.inverse();
 			NextFrame->pose = nextPose;
 		}
 	}
 
-	Eigen::Matrix4d p = pose.inverse() * NextFrame->pose;
+	Eigen::Matrix4d p = (pose.inverse() * NextFrame->pose).matrix();
 	Eigen::Matrix3d r = p.topLeftCorner(3, 3);
 	Eigen::Vector3d t = p.topRightCorner(3, 1);
 	Eigen::Vector3d a = r.eulerAngles(0, 1, 2).array().sin();
@@ -593,7 +593,7 @@ bool Tracker::Relocalise() {
 	}
 
 	std::cout << "Relocalisation Success." << std::endl;
-	NextFrame->pose = delta.inverse();
+	NextFrame->pose = Sophus::SE3d(delta.inverse());
 
 	return true;
 }
@@ -771,7 +771,7 @@ bool Tracker::ValidatePose() {
 	int iteration[3] = { 5, 3, 3 };
 	for(int i = 0; i < poseEstimated.size(); ++i) {
 		uint no = 0;
-		LastFrame->pose = poseEstimated[i];
+		LastFrame->pose = Sophus::SE3d(poseEstimated[i]);
 		map->UpdateVisibility(LastFrame, no);
 
 		if(no < 512)
@@ -784,7 +784,7 @@ bool Tracker::ValidatePose() {
 
 		if(valid) {
 			relocIcpErrors.push_back(lastIcpError);
-			poseRefined.push_back(LastFrame->pose);
+			poseRefined.push_back(LastFrame->pose.matrix());
 		}
 	}
 
@@ -796,7 +796,7 @@ bool Tracker::ValidatePose() {
 	int id = index.at<int>(0);
 
 	uint no = 0;
-	LastFrame->pose = poseRefined[id];
+	LastFrame->pose = Sophus::SE3d(poseRefined[id]);
 	map->UpdateVisibility(LastFrame, no);
 	map->RayTrace(no, LastFrame);
 	LastFrame->ResizeImages();
@@ -808,13 +808,13 @@ bool Tracker::ValidatePose() {
 }
 
 Eigen::Matrix4f Tracker::GetCurrentPose() const {
-	return LastFrame->pose.cast<float>();
+	return LastFrame->pose.matrix().cast<float>();
 }
 
-void Tracker::SetMap(Mapping* pMap) {
+void Tracker::SetMap(DenseMap* pMap) {
 	map = pMap;
 }
 
-void Tracker::SetViewer(Viewer* pViewer) {
+void Tracker::SetViewer(MapViewer* pViewer) {
 	viewer = pViewer;
 }

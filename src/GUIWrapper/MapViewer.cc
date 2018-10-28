@@ -10,32 +10,32 @@
 using namespace std;
 using namespace pangolin;
 
-Viewer::Viewer() :
+MapViewer::MapViewer() :
 		map(NULL), tracker(NULL), system(NULL), vao(0), vertexMaped(NULL),
 		normalMaped(NULL), colorMaped(NULL), quit(false) {
 }
 
-void Viewer::signalQuit() {
+void MapViewer::signalQuit() {
 	quit = true;
 }
 
-void Viewer::spin() {
+void MapViewer::spin() {
 
 	CreateWindowAndBind("FUSION", 2560, 1440);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	phongShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/GLSL/VertexShader.phong.glsl");
-	phongShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/GLSL/FragmentShader.glsl");
+	phongShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/OpenGL/VertexShader.phong.glsl");
+	phongShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/OpenGL/FragmentShader.glsl");
 	phongShader.Link();
 
-	normalShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/GLSL/VertexShader.normal.glsl");
-	normalShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/GLSL/FragmentShader.glsl");
+	normalShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/OpenGL/VertexShader.normal.glsl");
+	normalShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/OpenGL/FragmentShader.glsl");
 	normalShader.Link();
 
-	colorShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/GLSL/VertexShader.color.glsl");
-	colorShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/GLSL/FragmentShader.glsl");
+	colorShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/OpenGL/VertexShader.color.glsl");
+	colorShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/OpenGL/FragmentShader.glsl");
 	colorShader.Link();
 
 	sCam = OpenGlRenderState(
@@ -224,7 +224,7 @@ void Viewer::spin() {
 	}
 }
 
-void Viewer::topDownView() {
+void MapViewer::topDownView() {
 	if(system->imageUpdated) {
 		SafeCall(cudaMemcpy2DToArray(**topDownImageMaped, 0, 0,
 				(void*) system->renderedImage.data,
@@ -235,7 +235,7 @@ void Viewer::topDownView() {
 	topDownImage.RenderToViewport(true);
 }
 
-void Viewer::showPrediction() {
+void MapViewer::showPrediction() {
 	if(tracker->imageUpdated) {
 		if(tracker->updateImageMutex.try_lock()) {
 			SafeCall(cudaMemcpy2DToArray(**renderedImageMaped, 0, 0,
@@ -249,7 +249,7 @@ void Viewer::showPrediction() {
 	renderedImage.RenderToViewport(true);
 }
 
-void Viewer::showDepthImage() {
+void MapViewer::showDepthImage() {
 	if(tracker->imageUpdated) {
 		if(tracker->updateImageMutex.try_lock()) {
 			SafeCall(cudaMemcpy2DToArray(**depthImageMaped, 0, 0,
@@ -264,7 +264,7 @@ void Viewer::showDepthImage() {
 	depthImage.RenderToViewport(true);
 }
 
-void Viewer::showColorImage() {
+void MapViewer::showColorImage() {
 	if(tracker->imageUpdated) {
 		if(tracker->updateImageMutex.try_lock()) {
 			SafeCall(cudaMemcpy2DToArray(**colorImageMaped, 0, 0,
@@ -278,7 +278,7 @@ void Viewer::showColorImage() {
 	colorImage.RenderToViewport(true);
 }
 
-void Viewer::drawColor() {
+void MapViewer::drawColor() {
 	if (map->meshUpdated) {
 		cudaMemcpy((void*) **vertexMaped, (void*) map->modelVertex, sizeof(float3) * map->noTrianglesHost * 3,  cudaMemcpyDeviceToDevice);
 		cudaMemcpy((void*) **normalMaped, (void*) map->modelNormal, sizeof(float3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
@@ -307,7 +307,7 @@ void Viewer::drawColor() {
 	glBindVertexArray(0);
 }
 
-void Viewer::followCam() {
+void MapViewer::followCam() {
 
 	Eigen::Matrix4f pose = tracker->GetCurrentPose();
 	Eigen::Matrix3f rotation = pose.topLeftCorner(3, 3);
@@ -323,7 +323,7 @@ void Viewer::followCam() {
 											     up(0),   up(1),   up(2)));
 }
 
-void Viewer::drawMesh(bool bNormal) {
+void MapViewer::drawMesh(bool bNormal) {
 
 	if (map->noTrianglesHost == 0)
 		return;
@@ -363,14 +363,14 @@ void Viewer::drawMesh(bool bNormal) {
 	glBindVertexArray(0);
 }
 
-void Viewer::Insert(std::vector<GLfloat>& vPt, Eigen::Vector3f& pt) {
+void MapViewer::Insert(std::vector<GLfloat>& vPt, Eigen::Vector3f& pt) {
 
 	vPt.push_back(pt(0));
 	vPt.push_back(pt(1));
 	vPt.push_back(pt(2));
 }
 
-void Viewer::drawKeyFrame() {
+void MapViewer::drawKeyFrame() {
 
 	vector<GLfloat> points;
 	std::vector<KeyFrame *> allKFs = map->GlobalMap();
@@ -428,7 +428,7 @@ void Viewer::drawKeyFrame() {
 //	glDrawVertices(points2.size() / 3, (GLfloat*) &points2[0], GL_LINES, 3);
 }
 
-void Viewer::drawCamera() {
+void MapViewer::drawCamera() {
 
 	vector<GLfloat> cam;
 	Eigen::Vector3f p[5];
@@ -469,7 +469,7 @@ void Viewer::drawCamera() {
 	}
 }
 
-void Viewer::drawKeys() {
+void MapViewer::drawKeys() {
 
 	if(map->noKeysHost == 0)
 		return;
@@ -512,14 +512,14 @@ void Viewer::drawKeys() {
 	glPointSize(1.0);
 }
 
-void Viewer::setMap(Mapping* pMap) {
+void MapViewer::setMap(DenseMap* pMap) {
 	map = pMap;
 }
 
-void Viewer::setSystem(System* pSystem) {
+void MapViewer::setSystem(System* pSystem) {
 	system = pSystem;
 }
 
-void Viewer::setTracker(Tracker* pTracker) {
+void MapViewer::setTracker(Tracker* pTracker) {
 	tracker = pTracker;
 }

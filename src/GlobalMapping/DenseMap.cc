@@ -1,13 +1,13 @@
-#include "Mapping.h"
+#include "DenseMap.h"
 #include "Constant.h"
 #include "DeviceFuncs.h"
 
-Mapping::Mapping() :
+DenseMap::DenseMap() :
 		meshUpdated(false), hasNewKFFlag(false) {
 	Create();
 }
 
-void Mapping::Create() {
+void DenseMap::Create() {
 
 	heapCounter.create(1);
 	hashCounter.create(1);
@@ -49,14 +49,14 @@ void Mapping::Create() {
 	Reset();
 }
 
-void Mapping::ForwardWarp(const Frame * last, Frame * next) {
+void DenseMap::ForwardWarp(const Frame * last, Frame * next) {
 	ForwardWarping(last->vmap[0], last->nmap[0], next->vmap[0], next->nmap[0],
 			last->GpuRotation(), next->GpuInvRotation(), last->GpuTranslation(),
 			next->GpuTranslation(), Frame::fx(0), Frame::fy(0), Frame::cx(0),
 			Frame::cy(0));
 }
 
-void Mapping::UpdateVisibility(const KeyFrame * kf, uint & no) {
+void DenseMap::UpdateVisibility(const KeyFrame * kf, uint & no) {
 
 	CheckBlockVisibility(*this, noVisibleEntries, kf->GpuRotation(),
 			kf->GpuInvRotation(), kf->GpuTranslation(), Frame::cols(0),
@@ -64,7 +64,7 @@ void Mapping::UpdateVisibility(const KeyFrame * kf, uint & no) {
 			Frame::cy(0), DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
 }
 
-void Mapping::UpdateVisibility(const Frame * f, uint & no) {
+void DenseMap::UpdateVisibility(const Frame * f, uint & no) {
 
 	CheckBlockVisibility(*this, noVisibleEntries, f->GpuRotation(), f->GpuInvRotation(),
 			f->GpuTranslation(), Frame::cols(0), Frame::rows(0), Frame::fx(0),
@@ -72,7 +72,7 @@ void Mapping::UpdateVisibility(const Frame * f, uint & no) {
 			DeviceMap::DepthMin, &no);
 }
 
-void Mapping::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
+void DenseMap::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 		float depthMin, float depthMax, float fx, float fy, float cx, float cy,
 		uint & no) {
 
@@ -80,15 +80,15 @@ void Mapping::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 			480, fx, fy, cx, cy, depthMax, depthMin, &no);
 }
 
-void Mapping::FuseColor(const Frame * f, uint & no) {
+void DenseMap::FuseColor(const Frame * f, uint & no) {
 	FuseColor(f->range, f->color, f->nmap[0], f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
 }
 
-void Mapping::DefuseColor(const Frame * f, uint & no) {
+void DenseMap::DefuseColor(const Frame * f, uint & no) {
 	FuseColor(f->range, f->color, f->nmap[0], f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
 }
 
-void Mapping::DefuseColor(const DeviceArray2D<float> & depth,
+void DenseMap::DefuseColor(const DeviceArray2D<float> & depth,
 		const DeviceArray2D<uchar3> & color,
 		const DeviceArray2D<float4> & normal,
 		Matrix3f Rview, Matrix3f RviewInv,
@@ -100,7 +100,7 @@ void Mapping::DefuseColor(const DeviceArray2D<float> & depth,
 
 }
 
-void Mapping::FuseColor(const DeviceArray2D<float> & depth,
+void DenseMap::FuseColor(const DeviceArray2D<float> & depth,
 		const DeviceArray2D<uchar3> & color,
 		const DeviceArray2D<float4> & normal,
 		Matrix3f Rview, Matrix3f RviewInv,
@@ -112,13 +112,13 @@ void Mapping::FuseColor(const DeviceArray2D<float> & depth,
 
 }
 
-void Mapping::RayTrace(uint noVisibleBlocks, Frame * f) {
+void DenseMap::RayTrace(uint noVisibleBlocks, Frame * f) {
 	RayTrace(noVisibleBlocks, f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(),
 			f->vmap[0], f->nmap[0], DeviceMap::DepthMin, DeviceMap::DepthMax,
 			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0));
 }
 
-void Mapping::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
+void DenseMap::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float4> & nmap,
 		float depthMin, float depthMax, float fx, float fy, float cx, float cy) {
 
@@ -131,7 +131,7 @@ void Mapping::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 	}
 }
 
-std::vector<KeyFrame *> Mapping::LocalMap() const {
+std::vector<KeyFrame *> DenseMap::LocalMap() const {
 
 	std::vector<KeyFrame *> tmp;
 	std::vector<const KeyFrame *>::const_iterator iter = localMap.begin();
@@ -141,7 +141,7 @@ std::vector<KeyFrame *> Mapping::LocalMap() const {
 	return tmp;
 }
 
-std::vector<KeyFrame *> Mapping::GlobalMap() const {
+std::vector<KeyFrame *> DenseMap::GlobalMap() const {
 
 	std::vector<KeyFrame *> tmp;
 	std::set<const KeyFrame *>::const_iterator iter = keyFrames.begin();
@@ -151,7 +151,7 @@ std::vector<KeyFrame *> Mapping::GlobalMap() const {
 	return tmp;
 }
 
-void Mapping::CreateModel() {
+void DenseMap::CreateModel() {
 
 	MeshScene(nBlocks, noTriangles, *this, edgeTable, vertexTable,
 			triangleTable, modelNormal, modelVertex, modelColor, blockPoses);
@@ -162,7 +162,7 @@ void Mapping::CreateModel() {
 	}
 }
 
-void Mapping::UpdateMapKeys() {
+void DenseMap::UpdateMapKeys() {
 	noKeys.clear();
 	CollectKeyPoints(*this, tmpKeys, noKeys);
 
@@ -173,7 +173,7 @@ void Mapping::UpdateMapKeys() {
 	}
 }
 
-void Mapping::CreateRAM() {
+void DenseMap::CreateRAM() {
 
 	heapCounterRAM = new int[1];
 	hashCounterRAM = new int[1];
@@ -188,7 +188,7 @@ void Mapping::CreateRAM() {
 	mapKeysRAM = new SURF[KeyMap::maxEntries];
 }
 
-void Mapping::DownloadToRAM() {
+void DenseMap::DownloadToRAM() {
 
 	CreateRAM();
 
@@ -205,7 +205,7 @@ void Mapping::DownloadToRAM() {
 	mapKeys.download(mapKeysRAM);
 }
 
-void Mapping::UploadFromRAM() {
+void DenseMap::UploadFromRAM() {
 
 	heapCounter.upload(heapCounterRAM);
 	hashCounter.upload(hashCounterRAM);
@@ -220,7 +220,7 @@ void Mapping::UploadFromRAM() {
 	mapKeys.upload(mapKeysRAM);
 }
 
-void Mapping::ReleaseRAM() {
+void DenseMap::ReleaseRAM() {
 
 	delete [] heapCounterRAM;
 	delete [] hashCounterRAM;
@@ -235,12 +235,12 @@ void Mapping::ReleaseRAM() {
 	delete [] mapKeysRAM;
 }
 
-bool Mapping::HasNewKF() {
+bool DenseMap::HasNewKF() {
 
 	return hasNewKFFlag;
 }
 
-void Mapping::FuseKeyFrame(const KeyFrame * kf) {
+void DenseMap::FuseKeyFrame(const KeyFrame * kf) {
 
 	if (keyFrames.count(kf))
 		return;
@@ -314,7 +314,7 @@ void Mapping::FuseKeyFrame(const KeyFrame * kf) {
 	hasNewKFFlag = true;
 }
 
-void Mapping::FindLocalGraph(KeyFrame * kf) {
+void DenseMap::FindLocalGraph(KeyFrame * kf) {
 
 	const float distTH = 0.5f;
 	const float angleTH = 0.3f;
@@ -344,12 +344,12 @@ void Mapping::FindLocalGraph(KeyFrame * kf) {
 	}
 }
 
-void Mapping::FuseKeyPoints(const Frame * f) {
+void DenseMap::FuseKeyPoints(const Frame * f) {
 
 	std::cout << "NOT IMPLEMENTED" << std::endl;
 }
 
-void Mapping::Reset() {
+void DenseMap::Reset() {
 
 	ResetMap(*this);
 	ResetKeyPoints(*this);
@@ -358,7 +358,7 @@ void Mapping::Reset() {
 	keyFrames.clear();
 }
 
-Mapping::operator KeyMap() const {
+DenseMap::operator KeyMap() const {
 
 	KeyMap map;
 
@@ -368,7 +368,7 @@ Mapping::operator KeyMap() const {
 	return map;
 }
 
-Mapping::operator DeviceMap() const {
+DenseMap::operator DeviceMap() const {
 
 	DeviceMap map;
 

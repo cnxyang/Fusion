@@ -1,9 +1,11 @@
 #pragma once
 
+#include <opencv.hpp>
+
+#include "DeviceMap.h"
 #include "VectorMath.h"
 #include "Intrinsics.h"
-#include <opencv.hpp>
-#include "DeviceMap.h"
+#include "DeviceArray.h"
 
 void ResetMap(DeviceMap map);
 
@@ -104,6 +106,10 @@ void ForwardWarping(const DeviceArray2D<float4> & srcVMap,
 		float3 srcTrans, float3 dstTrans, float fx, float fy, float cx,
 		float cy);
 
+/*
+ * Estimate the SO3 transformation of two frames
+ * TODO: suspect of compromised performance
+ */
 void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
 		const DeviceArray2D<unsigned char> & lastImage,
 		const DeviceArray2D<short> & dIdx, const DeviceArray2D<short> & dIdy,
@@ -111,6 +117,11 @@ void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
 		DeviceArray2D<float> & sum, DeviceArray<float> & out, float * residual,
 		double * matrixA_host, double * vectorB_host);
 
+/*
+ * Estimate the SE3 transformation between two frames
+ * this is purely relied on geometry information
+ * hence coloured images are ignored.
+ */
 void ICPStep(DeviceArray2D<float4> & nextVMap, DeviceArray2D<float4> & lastVMap,
 		DeviceArray2D<float4> & nextNMap, DeviceArray2D<float4> & lastNMap,
 		Matrix3f Rcurr, float3 tcurr, Matrix3f Rlast, Matrix3f RlastInv,
@@ -118,6 +129,10 @@ void ICPStep(DeviceArray2D<float4> & nextVMap, DeviceArray2D<float4> & lastVMap,
 		DeviceArray<float> & out, float * residual, double * matrixA_host,
 		double * vectorB_host);
 
+/*
+ * Estimate SE3 transform based on direct image alignment
+ * using depth image only as a cue
+ */
 void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 		const DeviceArray2D<unsigned char> & lastImage,
 		const DeviceArray2D<float4> & nextVMap,
@@ -128,6 +143,8 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 		DeviceArray<float> & out, DeviceArray2D<int> & sumRes,
 		DeviceArray<int> & outRes, float * residual, double * matrixA_host,
 		double * vectorB_host);
+
+// ======================= old piece of shit ============================
 
 void BuildAdjacencyMatrix(cv::cuda::GpuMat & adjecencyMatrix,
 		DeviceArray<SURF> & frameKeys,

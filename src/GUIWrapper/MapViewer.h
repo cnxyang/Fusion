@@ -10,16 +10,16 @@
 #include <pangolin/gl/glvbo.h>
 
 class System;
-class Mapping;
+class DenseMap;
 class Tracker;
 
-class Viewer {
+class MapViewer {
 public:
 
-	Viewer();
+	MapViewer();
 	void spin();
 
-	void setMap(Mapping * pMap);
+	void setMap(DenseMap * pMap);
 	void setSystem(System * pSystem);
 	void setTracker(Tracker * pTracker);
 	void signalQuit();
@@ -40,7 +40,7 @@ private:
 	void topDownView();
 
 	System * system;
-	Mapping * map;
+	DenseMap * map;
 	Tracker * tracker;
 
 	std::atomic<bool> quit;

@@ -3,7 +3,8 @@
 
 #include "Frame.h"
 #include "MapPoint.h"
-#include "DeviceArray.h"
+#include "Utilities/VectorMath.h"
+#include "Utilities/DeviceArray.h"
 
 #include <Eigen/Dense>
 #include <opencv.hpp>

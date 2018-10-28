@@ -221,7 +221,7 @@ void Frame::ExtractKeyPoints() {
 		bad = true;
 
 	descriptors.upload(desc);
-	pose = Eigen::Matrix4d::Identity();
+	pose = Sophus::SE3d();
 }
 
 void Frame::DrawKeyPoints() {
@@ -287,9 +287,10 @@ Eigen::Vector3f Frame::GetWorldPoint(int i) const {
 
 Matrix3f Frame::GpuRotation() const {
 	Matrix3f Rot;
-	Rot.rowx = make_float3(pose(0, 0), pose(0, 1), pose(0, 2));
-	Rot.rowy = make_float3(pose(1, 0), pose(1, 1), pose(1, 2));
-	Rot.rowz = make_float3(pose(2, 0), pose(2, 1), pose(2, 2));
+	Eigen::Matrix4d mPose = pose.matrix();
+	Rot.rowx = make_float3(mPose(0, 0), mPose(0, 1), mPose(0, 2));
+	Rot.rowy = make_float3(mPose(1, 0), mPose(1, 1), mPose(1, 2));
+	Rot.rowz = make_float3(mPose(2, 0), mPose(2, 1), mPose(2, 2));
 	return Rot;
 }
 
@@ -303,11 +304,11 @@ Matrix3f Frame::GpuInvRotation() const {
 }
 
 float3 Frame::GpuTranslation() const {
-	return make_float3(pose(0, 3), pose(1, 3), pose(2, 3));
+	return make_float3(pose.translation()(0), pose.translation()(1), pose.translation()(2));
 }
 
 Eigen::Matrix3d Frame::Rotation() const {
-	return pose.topLeftCorner(3, 3);
+	return pose.matrix().topLeftCorner(3, 3);
 }
 
 Eigen::Matrix3d Frame::RotationInv() const {
@@ -315,7 +316,7 @@ Eigen::Matrix3d Frame::RotationInv() const {
 }
 
 Eigen::Vector3d Frame::Translation() const {
-	return pose.topRightCorner(3, 1);
+	return pose.matrix().topRightCorner(3, 1);
 }
 
 Eigen::Vector3d Frame::TranslationInv() const {

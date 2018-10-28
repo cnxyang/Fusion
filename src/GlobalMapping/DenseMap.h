@@ -13,11 +13,11 @@ class KeyMap;
 class System;
 class Tracker;
 
-class Mapping {
-
+class DenseMap
+{
 public:
 
-	Mapping();
+	DenseMap();
 
 	void Create();
 

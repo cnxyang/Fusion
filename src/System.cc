@@ -43,11 +43,11 @@ System::System(SysDesc* pParam) :
 	mK.at<float>(1, 2) = param->cy;
 	Frame::SetK(mK);
 
-	map = new Mapping();
+	map = new DenseMap();
 	map->Create();
 
 	optimizer = new Optimizer();
-	viewer = new Viewer();
+	viewer = new MapViewer();
 	tracker = new Tracker(param->cols, param->rows,
 			param->fx, param->fy, param->cx, param->cy);
 
@@ -56,7 +56,7 @@ System::System(SysDesc* pParam) :
 	viewer->setTracker(tracker);
 
 	tracker->SetMap(map);
-	viewerThread = new std::thread(&Viewer::spin, viewer);
+	viewerThread = new std::thread(&MapViewer::spin, viewer);
 	viewerThread->detach();
 
 	optimizer->SetMap(map);

@@ -1,14 +1,15 @@
 #ifndef TRACKING_H__
 #define TRACKING_H__
 
+#include <mutex>
+#include <condition_variable>
 #include "Frame.h"
 #include "MapViewer.h"
-#include "Mapping.h"
+#include "DenseMap.h"
 #include "DeviceFuncs.h"
-#include <mutex>
 
-class Viewer;
-class Mapping;
+class MapViewer;
+class DenseMap;
 
 class Tracker {
 
@@ -22,16 +23,16 @@ public:
 
 	void ResetTracking();
 
-	void SetMap(Mapping * map_);
+	void SetMap(DenseMap * map_);
 
-	void SetViewer(Viewer * viewer_);
+	void SetViewer(MapViewer * viewer_);
 
 	Eigen::Matrix4f GetCurrentPose() const;
 
 	Intrinsics K;
 
-	Eigen::Matrix4d nextPose;
-	Eigen::Matrix4d lastPose;
+	Sophus::SE3d nextPose;
+	Sophus::SE3d lastPose;
 
 	int state;
 	int lastState;
@@ -85,9 +86,9 @@ protected:
 
 	void InsertFrame();
 
-	Mapping * map;
+	DenseMap * map;
 
-	Viewer * viewer;
+	MapViewer * viewer;
 
 	const int maxIter = 35;
 	const int maxIterReloc = 100;

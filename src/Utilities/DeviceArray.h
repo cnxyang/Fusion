@@ -1,10 +1,8 @@
-#ifndef DEVICE_ARRAY_CUH__
-#define DEVICE_ARRAY_CUH__
-
-#include "SafeCall.h"
+#pragma once
 
 #include <vector>
 #include <atomic>
+#include "SafeCall.h"
 
 template<class T> struct PtrSz {
 
@@ -331,7 +329,7 @@ template<class T> void DeviceArray2D<T>::download(void * data_, size_t step_) co
 }
 
 template<class T> void DeviceArray2D<T>::release() {
-	if(ref && --*ref == 0) {
+	if (ref && --*ref == 0) {
 		delete ref;
 		if(data)
 			SafeCall(cudaFree(data));
@@ -390,5 +388,3 @@ template<class T> DeviceArray2D<T>::operator PtrStepSz<T>() const {
 
 	return psz;
 }
-
-#endif

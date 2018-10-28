@@ -1,15 +1,17 @@
 #ifndef FRAME_HPP__
 #define FRAME_HPP__
 
+#include "KeyFrame.h"
 #include "DeviceMap.h"
 #include "DeviceArray.h"
-#include "KeyFrame.h"
+#include "SophusUtil.h"
 
 #include <vector>
 #include <opencv.hpp>
 #include <features2d.hpp>
 #include <cudaarithm.hpp>
 #include <Eigen/Dense>
+#include <sophus/se3.hpp>
 #include <xfeatures2d/cuda.hpp>
 
 struct ORBKey;
@@ -23,6 +25,8 @@ struct Frame {
 	Frame();
 
 	Frame(const Frame * other);
+
+
 
 	void Create(int cols_, int rows_);
 
@@ -77,7 +81,8 @@ struct Frame {
 	std::vector<bool> outliers;
 
 	Eigen::Matrix4f deltaT;
-	Eigen::Matrix4d pose;
+//	Eigen::Matrix4d pose;
+
 
 	int N;
 	bool bad;
@@ -110,6 +115,18 @@ struct Frame {
 	cv::Mat matNormal;
 
 	Eigen::Matrix4d deltaPose;
+
+	/* ==================== REFACTOR begins here ==================== */
+
+	/* constructor */
+	Frame(cv::Mat& image, cv::Mat& depth, Eigen::Matrix3f K);
+
+	/* general properties */
+	SE3 pose;
+
+	// only used for key frames
+	SE3 poseOptimised;
+	bool poseUpdated;
 };
 
 #endif

@@ -1,5 +1,5 @@
 #include "DeviceFuncs.h"
-#include "GpuParallelScan.h"
+#include "DeviceParallelScan.h"
 
 struct MeshEngine {
 
