@@ -1,5 +1,6 @@
 #include "DenseMapping.h"
 #include "Constant.h"
+#include "PointCloud.h"
 #include "DeviceFuncs.h"
 
 DenseMapping::DenseMapping() :
@@ -382,4 +383,65 @@ DenseMapping::operator DeviceMap() const {
 	map.entryPtr = hashCounter;
 
 	return map;
+}
+
+//======================== REFACOTRING ========================
+
+void DenseMapping::writeMapToDisk(std::string path)
+{
+
+}
+
+void DenseMapping::readMapFromDisk(std::string path)
+{
+
+}
+
+void DenseMapping::copyMapDeviceToHost()
+{
+
+}
+
+void DenseMapping::copyMapHostToDevice()
+{
+
+}
+
+void DenseMapping::allocateHostMemory()
+{
+
+}
+
+void DenseMapping::allocateDeviceMemory()
+{
+
+}
+
+void DenseMapping::releaseHostMemory()
+{
+
+}
+
+void DenseMapping::releaseDeviceMemory()
+{
+
+}
+
+void DenseMapping::takeSnapshot(PointCloud * trackingReference)
+{
+	SE3 pose = trackingReference->frame->pose;
+
+	uint noVisibleBlocks;
+	RayTrace(noVisibleBlocks,
+			 SE3toMatrix3f(pose),
+			 SE3toMatrix3f(pose.inverse()),
+			 SE3toFloat3(pose),
+			 trackingReference->vmap[0],
+			 trackingReference->nmap[0],
+			 DeviceMap::DepthMin,
+			 DeviceMap::DepthMax,
+			 Frame::fx(0),
+			 Frame::fy(0),
+			 Frame::cx(0),
+			 Frame::cy(0));
 }

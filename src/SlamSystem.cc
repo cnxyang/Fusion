@@ -16,12 +16,11 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K, bool SLAMEnabled) :
 	viewer = new SlamViewer();
 
 	// main tracking thread
-	tracker = new ICPTracker(width, height, K);
-	tracker->setTrackingLevel(1, 3);
+	tracker = new ICPTracker(w, h, K);
 
-	// icp based tracking for searching constraints for new key frames
-	constraintTracker = new ICPTracker(width, height, K);
-	constraintTracker->setTrackingLevel(1, 2);
+	// ICP based tracking for searching constraints of new key frames
+	constraintTracker = new ICPTracker(w, h, K);
+	constraintTracker->setTrackingLevel(2, 1);
 
 	// start multi-threading!
 	threadConstraintSearch = std::thread(&SlamSystem::constraintSearchLoop, this);
@@ -62,6 +61,9 @@ void SlamSystem::trackFrame(cv::Mat & image, cv::Mat & depth, int id, double tim
 		return;
 	}
 
+	SE3 frameToRef_initialEstimate = lastTrackedFrame->pose.inverse() * currentKeyFrame->pose;
+	SE3 frameToRef = tracker->trackSE3(trackingReference, currentFrame, frameToRef_initialEstimate);
+
 	if (!trackingIsGood)
 	{
 		printf("TRACKING FAILED for Frame %d.\n", id - 1);
@@ -69,15 +71,11 @@ void SlamSystem::trackFrame(cv::Mat & image, cv::Mat & depth, int id, double tim
 		return;
 	}
 
-	currentKeyFrameMutex.lock();
-
+	currentFrame->pose = currentKeyFrame->pose * frameToRef.inverse();
 
 	lastTrackedFrame = currentFrame;
 
-	if(viewer)
-	{
-		viewer->setCurrentCamPose(lastTrackedFrame->getCamToWorld());
-	}
+	viewer->setCurrentCamPose(lastTrackedFrame->getCamToWorld());
 }
 
 void SlamSystem::visualisationLoop()

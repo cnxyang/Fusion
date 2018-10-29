@@ -1,8 +1,8 @@
 #ifndef FRAME_POSE_STRUCT__
 #define FRAME_POSE_STRUCT__
 
-#include <sophus/se3.hpp>
 #include <g2o/types/sba/types_six_dof_expmap.h>
+#include "Utilities/SophusUtil.h"
 
 class Frame;
 
@@ -18,13 +18,17 @@ public:
 	bool isInGraph;
 	g2o::VertexSE3Expmap * graphVertex;
 
-	Sophus::SE3d thisToParent_raw;
-	Sophus::SE3d & getCamToWorld();
+	SE3 thisToParent_raw;
+	inline SE3 getCamToWorld();
 
 private:
 
-	Sophus::SE3d camToWorld;
+	SE3 camToWorld;
 };
 
+inline SE3 FramePoseStruct::getCamToWorld()
+{
+	return camToWorld;
+}
 
 #endif

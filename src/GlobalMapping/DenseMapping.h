@@ -12,6 +12,7 @@
 class KeyMap;
 class System;
 class Tracker;
+class PointCloud;
 
 class DenseMapping
 {
@@ -126,9 +127,6 @@ public:
 	// test for pose graph optimization
 	std::set<KeyFrame *> poseGraph;
 
-
-protected:
-
 	void FindLocalGraph(KeyFrame * kf);
 
 	// General map structure
@@ -164,6 +162,23 @@ protected:
 	DeviceArray<SURF> mapKeys;
 	DeviceArray<SURF> tmpKeys;
 	DeviceArray<SURF> surfKeys;
+
+	//======================== REFACOTRING ========================
+
+	void writeMapToDisk(std::string path);
+	void readMapFromDisk(std::string path);
+	void copyMapDeviceToHost();
+	void copyMapHostToDevice();
+	void allocateHostMemory();
+	void allocateDeviceMemory();
+	void releaseHostMemory();
+	void releaseDeviceMemory();
+	void takeSnapshot(PointCloud * trackingReference);
+	void fuseNewFrame(PointCloud * newFramePoints);
+
+protected:
+
+	uint updateEntryVisibility(PointCloud * trackingReferecne);
 };
 
 #endif

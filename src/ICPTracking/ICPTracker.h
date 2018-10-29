@@ -17,28 +17,28 @@ public:
 
 	~ICPTracker();
 
-	inline void setIterations(int * iterations);
+	inline void setIterations(std::vector<float> iter);
 
 	inline void setTrackingLevel(int begin = 2, int end = 0);
 
 	Sophus::SE3d trackSE3(Frame* trackingReference,
 			Frame* trackingTarget,
 			Sophus::SE3d frameToRef_initialEstimate = SE3(),
-			bool addImageAlignment = true);
+			bool directImageAlignment = true);
 
 	Sophus::SE3d trackSE3(PointCloud* trackingReference,
 			Frame* trackingTarget,
 			Sophus::SE3d frameToRef_initialEstimate = SE3(),
-			bool addImageAlignment = true);
+			bool directImageAlignment = true);
 
 	Sophus::SE3d trackSE3(PointCloud* trackingReference,
 			PointCloud* trackingTarget,
 			Sophus::SE3d frameToRef_initialEstimate = SE3(),
-			bool addImageAlignment = true);
+			bool directImageAlignment = true);
 
 	bool trackingWasGood;
 	float lastIcpError;
-	float lastRgbResidual;
+	float lastRgbError;
 	float icpInlierRatio;
 	float rgbInlierRatio;
 
@@ -50,6 +50,8 @@ protected:
 	// used for ICP reduction
 	DeviceArray<float> outSE3;
 	DeviceArray2D<float> sumSE3;
+	DeviceArray<int> outRES;
+	DeviceArray2D<int> sumRES;
 
 	int iterations[PYRAMID_LEVELS];
 
@@ -57,9 +59,9 @@ protected:
 	int trackingLevelEnd;
 };
 
-inline void ICPTracker::setIterations(int * iter)
+inline void ICPTracker::setIterations(std::vector<float> iter)
 {
-	for(int level = 0; level < PYRAMID_LEVELS; ++level)
+	for (int level = 0; level < PYRAMID_LEVELS; ++level)
 		iterations[level] = iter[level];
 }
 

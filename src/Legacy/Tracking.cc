@@ -252,8 +252,7 @@ bool Tracker::TrackFrame() {
 //	return valid;
 
 	ICPTracker SE3Tracker(Frame::cols(0), Frame::rows(0), Eigen::Matrix3f());
-	int iter[3] = { 3, 5, 10 };
-	SE3Tracker.setIterations(iter);
+	SE3Tracker.setIterations( { 3, 5, 10 });
 	SE3Tracker.setTrackingLevel(2, 0);
 	Sophus::SE3d frameToRef_initialEstimate = Sophus::SE3d();
 	Sophus::SE3d frameToRef = SE3Tracker.trackSE3(LastFrame, NextFrame, frameToRef_initialEstimate, true);

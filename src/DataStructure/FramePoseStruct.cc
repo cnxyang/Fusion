@@ -6,10 +6,6 @@ FramePoseStruct::FramePoseStruct(Frame * frame) :
 	isInGraph(false), isRegisteredInGraph(false),
 	trackingParent(0)
 {
-	camToWorld = thisToParent_raw = Sophus::SE3d();
+	camToWorld = thisToParent_raw = SE3();
 }
 
-Sophus::SE3d & FramePoseStruct::getCamToWorld()
-{
-	return camToWorld;
-}

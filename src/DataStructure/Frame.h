@@ -109,14 +109,11 @@ public:
 	static bool mbFirstCall;
 	static float mDepthScale;
 	static float mDepthCutoff;
-	// =============== general information ====================
-
 
 	// ===================== OLD JUNK ends here =====================
 
 	// ==================== REFACTOR begins here ====================
 
-	// constructor
 	Frame(cv::Mat & image, cv::Mat & depth, int id, Eigen::Matrix3f K, double timeStamp);
 
 	void initialize(int w, int h, int id, Eigen::Matrix3f & K, double timeStamp);
@@ -153,7 +150,6 @@ public:
 	inline double timeStamp() const;
 
 	inline Sophus::SE3d getCamToWorld() const;
-
 	Sophus::SE3d pose;
 	FramePoseStruct * poseStruct;
 
@@ -172,7 +168,9 @@ public:
 		cv::Mat image;
 		cv::Mat depth;
 
-	} data;
+	};
+
+	Data data;
 
 	std::unordered_map<Frame*, std::hash<Frame*>> neighbors;
 };

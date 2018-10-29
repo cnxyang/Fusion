@@ -6,11 +6,11 @@
 #include <condition_variable>
 
 class Frame;
-class DenseMapping;
 class SlamViewer;
 class ICPTracker;
-class KeyFrameGraph;
 class PointCloud;
+class KeyFrameGraph;
+class DenseMapping;
 
 class SlamSystem
 {
@@ -57,12 +57,12 @@ protected:
 	std::condition_variable newKeyFrameCreatedSignal;
 
 	// PROCESSED by tracking && pose graph
-	Frame * currentFrame;
 	Frame * currentKeyFrame;
 	std::mutex currentKeyFrameMutex;
 
 	bool trackingIsGood;
 	float lastTrackingScore;
 	PointCloud * trackingReference;
+	Frame * currentFrame;
 	Frame * lastTrackedFrame;
 };
