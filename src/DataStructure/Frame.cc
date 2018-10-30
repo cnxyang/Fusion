@@ -62,7 +62,7 @@ void Frame::Clear() {
 }
 
 void Frame::FillImages(const cv::Mat & range_, const cv::Mat & color_) {
-
+	std::cout << sizeof(float)*9 * (float)20000000 / 1024.0 /1024.0 << std::endl;
 	temp.upload(range_.data, range_.step);
 	color.upload(color_.data, color_.step);
 	FilterDepth(temp, range, depth[0], mDepthScale, mDepthCutoff);

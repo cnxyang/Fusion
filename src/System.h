@@ -4,13 +4,13 @@
 #include "Tracking.h"
 #include "SlamViewer.h"
 #include "Optimizer.h"
-#include "DenseMapping.h"
+#include "DistanceField.h"
 
 #include <thread>
 
 class SlamViewer;
 class Tracker;
-class DenseMapping;
+class DistanceField;
 class Optimizer;
 
 struct SysDesc {
@@ -26,13 +26,14 @@ struct SysDesc {
 	bool bUseDataset;
 };
 
-class System {
-
+class System
+{
 public:
+
+
 
 	System(SysDesc * pParam);
 
-	bool GrabImage(const cv::Mat & image, const cv::Mat & depth);
 
 	void JoinViewer();
 
@@ -66,11 +67,9 @@ public:
 	int nFrames;
 	bool state;
 
-protected:
-
 	void ReIntegration();
 
-	DenseMapping * map;
+	DistanceField * map;
 	SysDesc * param;
 	SlamViewer  * viewer;
 	Tracker * tracker;
@@ -81,6 +80,19 @@ protected:
 
 	int num_frames_after_reloc;
 
+	// =============== REFACTORING ====================
+
+	System(int w, int h, Eigen::Matrix3f K);
+	System(const System&) = delete;
+	System& operator=(const System&) = delete;
+
+	bool trackFrame(cv::Mat& image, cv::Mat& depth, int id, double timeStamp);
+
+	Frame* currentKeyFrame;
+	Frame* trackingNewFrame;
+
+	Eigen::Matrix3f K;
+	int imageWidth, imageHeight;
 };
 
 #endif

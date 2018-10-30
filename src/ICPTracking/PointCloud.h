@@ -10,7 +10,7 @@ struct PointCloud
 {
 	PointCloud();
 
-	void importData(Frame* frame, bool useRGB = true);
+	void importFrame(Frame* frame, bool useRGB = true);
 
 	bool memoryAllocated;
 

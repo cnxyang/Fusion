@@ -2,7 +2,7 @@
 #define OPTIMIZER_H__
 
 #include "System.h"
-#include "DenseMapping.h"
+#include "DistanceField.h"
 
 class System;
 
@@ -25,7 +25,7 @@ public:
 	static int OptimizePose(Frame * f, std::vector<Eigen::Vector3d> & points,
 			std::vector<Eigen::Vector2d> & obs, Eigen::Matrix4d & dt);
 
-	void SetMap(DenseMapping * map_);
+	void SetMap(DistanceField * map_);
 
 	void SetSystem(System * sys_);
 
@@ -37,7 +37,7 @@ protected:
 
 	void OptimizeGraph();
 
-	DenseMapping * map;
+	DistanceField * map;
 
 	System * sys;
 

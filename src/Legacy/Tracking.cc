@@ -16,15 +16,20 @@ float3 eigen_to_float3(Eigen::Vector3d & vec) {
 	return make_float3((float) vec(0), (float) vec(1), (float) vec(2));
 }
 
-Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) :
+Tracker::Tracker(int w, int h, Eigen::Matrix3f K)
+{
+
+}
+
+Tracker::Tracker(int w, int h, float fx, float fy, float cx, float cy) :
 		map(NULL), viewer(NULL), noInliers(0), mappingTurnedOff(NULL),
 		state(1), lastState(1), noMissedFrames(0), useGraphMatching(false),
 		imageUpdated(false), mappingDisabled(false), needImages(false),
 		ReferenceKF(NULL), LastKeyFrame(NULL) {
 
-	renderedImage.create(cols_, rows_);
-	renderedDepth.create(cols_, rows_);
-	rgbaImage.create(cols_, rows_);
+	renderedImage.create(w, h);
+	renderedDepth.create(w, h);
+	rgbaImage.create(w, h);
 
 	sumSE3.create(29, 96);
 	outSE3.create(29);
@@ -38,8 +43,8 @@ Tracker::Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy) :
 
 	NextFrame = new Frame();
 	LastFrame = new Frame();
-	NextFrame->Create(cols_, rows_);
-	LastFrame->Create(cols_, rows_);
+	NextFrame->Create(w, h);
+	LastFrame->Create(w, h);
 
 	lastIcpError = std::numeric_limits<float>::max();
 	lastRgbError = std::numeric_limits<float>::max();
@@ -240,25 +245,25 @@ bool Tracker::TrackFrame() {
 
 	bool valid = false;
 
-//	valid = TrackLastFrame();
+	valid = TrackLastFrame();
 
-//	if(!valid) {
-//		std::cout << "Bootstrap failed. Rolling back." << std::endl;
-//		NextFrame->pose = LastFrame->pose;
-//	}
+	if(!valid) {
+		std::cout << "Bootstrap failed. Rolling back." << std::endl;
+		NextFrame->pose = LastFrame->pose;
+	}
 
-//	ComputeSO3();
-//	valid = ComputeSE3(false, ITERATIONS_SE3, THRESH_ICP_SE3);
-//	return valid;
+	ComputeSO3();
+	valid = ComputeSE3(false, ITERATIONS_SE3, THRESH_ICP_SE3);
+	return valid;
 
-	ICPTracker SE3Tracker(Frame::cols(0), Frame::rows(0), Eigen::Matrix3f());
-	SE3Tracker.setIterations( { 3, 5, 10 });
-	SE3Tracker.setTrackingLevel(2, 0);
-	Sophus::SE3d frameToRef_initialEstimate = Sophus::SE3d();
-	Sophus::SE3d frameToRef = SE3Tracker.trackSE3(LastFrame, NextFrame, frameToRef_initialEstimate, true);
-
-	NextFrame->pose = LastFrame->pose * frameToRef.inverse();
-	return SE3Tracker.trackingWasGood;
+//	ICPTracker SE3Tracker(Frame::cols(0), Frame::rows(0), Eigen::Matrix3f());
+//	SE3Tracker.setIterations( { 3, 5, 10 });
+//	SE3Tracker.setTrackingLevel(2, 0);
+//	Sophus::SE3d frameToRef_initialEstimate = Sophus::SE3d();
+//	Sophus::SE3d frameToRef = SE3Tracker.trackSE3(LastFrame, NextFrame, frameToRef_initialEstimate, true);
+//
+//	NextFrame->pose = LastFrame->pose * frameToRef.inverse();
+//	return SE3Tracker.trackingWasGood;
 }
 
 //-----------------------------------------
@@ -509,7 +514,7 @@ bool Tracker::ComputeSE3(bool icpOnly, const int * iter, const float thresh_icp)
 			lastRgbError = rgbError;
 
 			if (!icpOnly) {
-				float w = 1e-4;
+				float w = 1e-2;
 				matA = matA_rgb * w + matA_icp;
 				vecb = vecb_rgb * w + vecb_icp;
 			} else {
@@ -821,7 +826,7 @@ Eigen::Matrix4f Tracker::GetCurrentPose() const {
 	return LastFrame->pose.matrix().cast<float>();
 }
 
-void Tracker::SetMap(DenseMapping* pMap) {
+void Tracker::SetMap(DistanceField* pMap) {
 	map = pMap;
 }
 

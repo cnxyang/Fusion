@@ -14,13 +14,12 @@ class System;
 class Tracker;
 class PointCloud;
 
-class DenseMapping
+class DistanceField
 {
 public:
 
-	DenseMapping();
+	DistanceField();
 
-	void Create();
 
 	void Reset();
 
@@ -165,20 +164,104 @@ public:
 
 	//======================== REFACOTRING ========================
 
+	DistanceField(float voxelSize, int numSdfBlock, int numHashEntry);
+	DistanceField(const DistanceField&) = delete;
+	DistanceField& operator=(const DistanceField&) = delete;
+	~DistanceField();
+
 	void writeMapToDisk(std::string path);
 	void readMapFromDisk(std::string path);
 	void copyMapDeviceToHost();
 	void copyMapHostToDevice();
 	void allocateHostMemory();
-	void allocateDeviceMemory();
 	void releaseHostMemory();
 	void releaseDeviceMemory();
-	void takeSnapshot(PointCloud * trackingReference);
-	void fuseNewFrame(PointCloud * newFramePoints);
+
+	// in between
+	void allocateDeviceMemory();
 
 protected:
 
-	uint updateEntryVisibility(PointCloud * trackingReferecne);
+	// basic map struct
+	struct MapStruct
+	{
+		MapStruct() : memoryAllocated(false), heap(0),
+				ptr_entry(0), ptr_heap(0), mutex_bucket(0),
+				sdf_blocks(0), num_visible_blocks(0),
+				hash_table(0), visible_entry(0) {}
+
+		int * heap;
+		int * ptr_entry;
+		int * ptr_heap;
+		int * mutex_bucket;
+		Voxel * sdf_blocks;
+		uint * num_visible_blocks;
+		HashEntry * hash_table;
+		HashEntry * visible_entry;
+		bool memoryAllocated;
+	};
+
+	// map data stored on GPU memory.
+	MapStruct device_map;
+	std::mutex mutexDeviceMap;
+
+	// map data stored on host memory i.e. RAM.
+	MapStruct host_map;
+	std::mutex mutexHostMap;
+
+	// these fields should remain relatively constant
+	// during one instance run, the system are not
+	// designed to be able to adapt to parameter changes.
+	struct MapParam
+	{
+		MapParam() : voxelSize(0), numBuckets(0),
+				numExcessBlock(0), numSdfBlock(0),
+				numEntries(0), numVoxels(0), maxNumTriangles(0),
+				maxNumVertices(0), maxNumRenderingBlock(0),
+				zPlaneNear(0), zPlaneFar(0), truncateDist(0) {}
+
+		// parameters that won't affect system performance
+		// too much, generally just affect the appearance
+		// of the map and are free to be modified.
+		// Note that due to imperfections in the function
+		// PARRALLEL SCAN, too large voxelSize will not work.
+		float voxelSize;
+
+		// parameters that control the size of the
+		// device memory needed in the allocation stage.
+		// Note that numBuckets should always be bigger
+		// than numSdfBlock as that's the requirement
+		// of hash table;
+		uint numBuckets;
+		uint numExcessBlock;
+		uint numSdfBlock;
+		uint numEntries;
+		uint numVoxels;
+		uint maxNumTriangles;
+		uint maxNumVertices;
+		int maxNumRenderingBlock;
+
+		// parameters control how far the camera sees
+		// should keep them in minimum as long as they
+		// satisfy your needs. Larger viewing frusta
+		// will significantly slow down the system.
+		// as more sdf blocks will be allocated.
+		float zPlaneNear;
+		float zPlaneFar;
+
+		// constants shouldn't be changed at all
+		// these are down to the basic design of the system
+		// change these will render system unstable
+		// ( if not unusable at all )
+		const uint blockSize = 8;
+		const uint blockSize3 = 512;
+		float truncateDist;
+
+	} param;
+
+	// temporary variables
+	uint numCurrentViewBlock;
+	Frame * lastCheckFrame;
 };
 
 #endif

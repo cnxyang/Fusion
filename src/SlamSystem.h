@@ -10,7 +10,7 @@ class SlamViewer;
 class ICPTracker;
 class PointCloud;
 class KeyFrameGraph;
-class DenseMapping;
+class DistanceField;
 
 class SlamSystem
 {
@@ -21,7 +21,7 @@ public:
 	SlamSystem& operator=(const SlamSystem&) = delete;
 	~SlamSystem();
 
-	void trackFrame(cv::Mat & image, cv::Mat & depth, int id, double timeStamp);
+	void trackFrame(cv::Mat & image, cv::Mat & depth, int id, double time_stamp);
 
 protected:
 
@@ -30,13 +30,16 @@ protected:
 	void optimisationLoop();
 	void visualisationLoop();
 	void findConstraintForNewKF(Frame* newKeyFrame);
-	void createNewKeyFrame(Frame* newKeyFrameCandidate);
+	void createNewKeyFrame(Frame* candidateFrame);
+
+	void rebootSlamSystem();
+	void renderBirdsEyeView();
 
 	int width, height;
 	Eigen::Matrix3f K;
 
 	SlamViewer * viewer;
-	DenseMapping * map;
+	DistanceField * map;
 	ICPTracker * tracker;
 	ICPTracker * constraintTracker;
 	KeyFrameGraph * keyFrameGraph;
@@ -63,6 +66,13 @@ protected:
 	bool trackingIsGood;
 	float lastTrackingScore;
 	PointCloud * trackingReference;
-	Frame * currentFrame;
+	Frame * trackingNewFrame;
 	Frame * lastTrackedFrame;
+	bool frameToMapTracking;
+
+	// optimization thread
+	bool newConstraintAdded;
+	std::mutex newConstraintMutex;
+	std::condition_variable newConstraintCreatedSignal;
+	std::mutex g2oGraphAccessMutex;
 };

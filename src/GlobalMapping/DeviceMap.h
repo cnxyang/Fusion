@@ -1,5 +1,4 @@
-#ifndef DEVICE_STRUCT_HPP__
-#define DEVICE_STRUCT_HPP__
+#pragma once
 
 #include "VectorMath.h"
 #include "DeviceArray.h"
@@ -183,5 +182,3 @@ struct KeyMap {
 
 	PtrSz<int> Mutex;
 };
-
-#endif

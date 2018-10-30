@@ -139,7 +139,7 @@ Sophus::SE3d ICPTracker::trackSE3(
 		SE3 initialEstimate,
 		bool useRGB)
 {
-	trackingTarget->importData(tracking_target, useRGB);
+	trackingTarget->importFrame(tracking_target, useRGB);
 
 	return trackSE3(tracking_reference, trackingTarget, initialEstimate, useRGB);
 }

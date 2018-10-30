@@ -1,14 +1,14 @@
-#include "DenseMapping.h"
+#include "DistanceField.h"
 #include "Constant.h"
 #include "PointCloud.h"
 #include "DeviceFuncs.h"
 
-DenseMapping::DenseMapping() :
+DistanceField::DistanceField() :
 		meshUpdated(false), hasNewKFFlag(false) {
-	Create();
+	allocateDeviceMemory();
 }
 
-void DenseMapping::Create() {
+void DistanceField::allocateDeviceMemory() {
 
 	heapCounter.create(1);
 	hashCounter.create(1);
@@ -50,14 +50,14 @@ void DenseMapping::Create() {
 	Reset();
 }
 
-void DenseMapping::ForwardWarp(Frame * last, Frame * next) {
+void DistanceField::ForwardWarp(Frame * last, Frame * next) {
 	ForwardWarping(last->vmap[0], last->nmap[0], next->vmap[0], next->nmap[0],
 			last->GpuRotation(), next->GpuInvRotation(), last->GpuTranslation(),
 			next->GpuTranslation(), Frame::fx(0), Frame::fy(0), Frame::cx(0),
 			Frame::cy(0));
 }
 
-void DenseMapping::UpdateVisibility(const KeyFrame * kf, uint & no) {
+void DistanceField::UpdateVisibility(const KeyFrame * kf, uint & no) {
 
 	CheckBlockVisibility(*this, noVisibleEntries, kf->GpuRotation(),
 			kf->GpuInvRotation(), kf->GpuTranslation(), Frame::cols(0),
@@ -65,7 +65,7 @@ void DenseMapping::UpdateVisibility(const KeyFrame * kf, uint & no) {
 			Frame::cy(0), DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
 }
 
-void DenseMapping::UpdateVisibility(Frame * f, uint & no) {
+void DistanceField::UpdateVisibility(Frame * f, uint & no) {
 
 	CheckBlockVisibility(*this, noVisibleEntries, f->GpuRotation(), f->GpuInvRotation(),
 			f->GpuTranslation(), Frame::cols(0), Frame::rows(0), Frame::fx(0),
@@ -73,7 +73,7 @@ void DenseMapping::UpdateVisibility(Frame * f, uint & no) {
 			DeviceMap::DepthMin, &no);
 }
 
-void DenseMapping::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
+void DistanceField::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 		float depthMin, float depthMax, float fx, float fy, float cx, float cy,
 		uint & no) {
 
@@ -81,15 +81,15 @@ void DenseMapping::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tv
 			480, fx, fy, cx, cy, depthMax, depthMin, &no);
 }
 
-void DenseMapping::FuseColor(Frame * f, uint & no) {
+void DistanceField::FuseColor(Frame * f, uint & no) {
 	FuseColor(f->range, f->color, f->nmap[0], f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
 }
 
-void DenseMapping::DefuseColor(Frame * f, uint & no) {
+void DistanceField::DefuseColor(Frame * f, uint & no) {
 	FuseColor(f->range, f->color, f->nmap[0], f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
 }
 
-void DenseMapping::DefuseColor(const DeviceArray2D<float> & depth,
+void DistanceField::DefuseColor(const DeviceArray2D<float> & depth,
 		const DeviceArray2D<uchar3> & color,
 		const DeviceArray2D<float4> & normal,
 		Matrix3f Rview, Matrix3f RviewInv,
@@ -101,7 +101,7 @@ void DenseMapping::DefuseColor(const DeviceArray2D<float> & depth,
 
 }
 
-void DenseMapping::FuseColor(const DeviceArray2D<float> & depth,
+void DistanceField::FuseColor(const DeviceArray2D<float> & depth,
 		const DeviceArray2D<uchar3> & color,
 		const DeviceArray2D<float4> & normal,
 		Matrix3f Rview, Matrix3f RviewInv,
@@ -113,13 +113,13 @@ void DenseMapping::FuseColor(const DeviceArray2D<float> & depth,
 
 }
 
-void DenseMapping::RayTrace(uint noVisibleBlocks, Frame * f) {
+void DistanceField::RayTrace(uint noVisibleBlocks, Frame * f) {
 	RayTrace(noVisibleBlocks, f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(),
 			f->vmap[0], f->nmap[0], DeviceMap::DepthMin, DeviceMap::DepthMax,
 			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0));
 }
 
-void DenseMapping::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
+void DistanceField::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float4> & nmap,
 		float depthMin, float depthMax, float fx, float fy, float cx, float cy) {
 
@@ -132,7 +132,7 @@ void DenseMapping::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f Rview
 	}
 }
 
-std::vector<KeyFrame *> DenseMapping::LocalMap() const {
+std::vector<KeyFrame *> DistanceField::LocalMap() const {
 
 	std::vector<KeyFrame *> tmp;
 	std::vector<const KeyFrame *>::const_iterator iter = localMap.begin();
@@ -142,7 +142,7 @@ std::vector<KeyFrame *> DenseMapping::LocalMap() const {
 	return tmp;
 }
 
-std::vector<KeyFrame *> DenseMapping::GlobalMap() const {
+std::vector<KeyFrame *> DistanceField::GlobalMap() const {
 
 	std::vector<KeyFrame *> tmp;
 	std::set<const KeyFrame *>::const_iterator iter = keyFrames.begin();
@@ -152,7 +152,7 @@ std::vector<KeyFrame *> DenseMapping::GlobalMap() const {
 	return tmp;
 }
 
-void DenseMapping::CreateModel() {
+void DistanceField::CreateModel() {
 
 	MeshScene(nBlocks, noTriangles, *this, edgeTable, vertexTable,
 			triangleTable, modelNormal, modelVertex, modelColor, blockPoses);
@@ -163,7 +163,7 @@ void DenseMapping::CreateModel() {
 	}
 }
 
-void DenseMapping::UpdateMapKeys() {
+void DistanceField::UpdateMapKeys() {
 	noKeys.clear();
 	CollectKeyPoints(*this, tmpKeys, noKeys);
 
@@ -174,7 +174,7 @@ void DenseMapping::UpdateMapKeys() {
 	}
 }
 
-void DenseMapping::CreateRAM() {
+void DistanceField::CreateRAM() {
 
 	heapCounterRAM = new int[1];
 	hashCounterRAM = new int[1];
@@ -189,7 +189,7 @@ void DenseMapping::CreateRAM() {
 	mapKeysRAM = new SURF[KeyMap::maxEntries];
 }
 
-void DenseMapping::DownloadToRAM() {
+void DistanceField::DownloadToRAM() {
 
 	CreateRAM();
 
@@ -206,7 +206,7 @@ void DenseMapping::DownloadToRAM() {
 	mapKeys.download(mapKeysRAM);
 }
 
-void DenseMapping::UploadFromRAM() {
+void DistanceField::UploadFromRAM() {
 
 	heapCounter.upload(heapCounterRAM);
 	hashCounter.upload(hashCounterRAM);
@@ -221,7 +221,7 @@ void DenseMapping::UploadFromRAM() {
 	mapKeys.upload(mapKeysRAM);
 }
 
-void DenseMapping::ReleaseRAM() {
+void DistanceField::ReleaseRAM() {
 
 	delete [] heapCounterRAM;
 	delete [] hashCounterRAM;
@@ -236,12 +236,12 @@ void DenseMapping::ReleaseRAM() {
 	delete [] mapKeysRAM;
 }
 
-bool DenseMapping::HasNewKF() {
+bool DistanceField::HasNewKF() {
 
 	return hasNewKFFlag;
 }
 
-void DenseMapping::FuseKeyFrame(const KeyFrame * kf) {
+void DistanceField::FuseKeyFrame(const KeyFrame * kf) {
 
 	if (keyFrames.count(kf))
 		return;
@@ -315,7 +315,7 @@ void DenseMapping::FuseKeyFrame(const KeyFrame * kf) {
 	hasNewKFFlag = true;
 }
 
-void DenseMapping::FindLocalGraph(KeyFrame * kf) {
+void DistanceField::FindLocalGraph(KeyFrame * kf) {
 
 	const float distTH = 0.5f;
 	const float angleTH = 0.3f;
@@ -345,12 +345,12 @@ void DenseMapping::FindLocalGraph(KeyFrame * kf) {
 	}
 }
 
-void DenseMapping::FuseKeyPoints(Frame * f) {
+void DistanceField::FuseKeyPoints(Frame * f) {
 
 	std::cout << "NOT IMPLEMENTED" << std::endl;
 }
 
-void DenseMapping::Reset() {
+void DistanceField::Reset() {
 
 	ResetMap(*this);
 	ResetKeyPoints(*this);
@@ -359,7 +359,7 @@ void DenseMapping::Reset() {
 	keyFrames.clear();
 }
 
-DenseMapping::operator KeyMap() const {
+DistanceField::operator KeyMap() const {
 
 	KeyMap map;
 
@@ -369,7 +369,7 @@ DenseMapping::operator KeyMap() const {
 	return map;
 }
 
-DenseMapping::operator DeviceMap() const {
+DistanceField::operator DeviceMap() const {
 
 	DeviceMap map;
 
@@ -387,61 +387,128 @@ DenseMapping::operator DeviceMap() const {
 
 //======================== REFACOTRING ========================
 
-void DenseMapping::writeMapToDisk(std::string path)
+DistanceField::DistanceField(float voxelSize, int numSdfBlock, int numHashEntry)
+{
+	if(numHashEntry < numSdfBlock)
+	{
+		printf("ERROR creating the map.\n");
+		return;
+	}
+
+	param.voxelSize = voxelSize;
+	param.numSdfBlock = numSdfBlock;
+	param.numEntries = numHashEntry;
+	param.numBuckets = (uint)((float)numHashEntry * 0.75);
+	param.numExcessBlock = numHashEntry - param.numBuckets;
+	param.maxNumRenderingBlock = 260000;
+	param.numVoxels = numSdfBlock * param.blockSize3;
+	param.maxNumTriangles = 20000000; // that's roughly 700MB of memory
+	param.maxNumVertices = param.maxNumTriangles * 3;
+	param.truncateDist = voxelSize * 8;
+}
+
+DistanceField::~DistanceField()
+{
+	if(device_map.memoryAllocated)
+		releaseDeviceMemory();
+
+	if(host_map.memoryAllocated)
+		releaseHostMemory();
+}
+
+void DistanceField::writeMapToDisk(std::string path)
+{
+	if(!host_map.memoryAllocated)
+		allocateHostMemory();
+
+	copyMapDeviceToHost();
+
+	auto file = std::fstream(path, std::ios::out | std::ios::binary);
+
+	// begin writing of general map info
+	file.write((const char*) &param.numSdfBlock, sizeof(int));
+	file.write((const char*) &param.numBuckets, sizeof(int));
+	file.write((const char*) &param.numVoxels, sizeof(int));
+	file.write((const char*) &param.numEntries, sizeof(int));
+
+	// begin writing of dense map
+	file.write((char*) host_map.ptr_heap, sizeof(int));
+	file.write((char*) host_map.ptr_entry, sizeof(int));
+	file.write((char*) host_map.num_visible_blocks, sizeof(uint));
+	file.write((char*) host_map.heap, sizeof(int) * param.numSdfBlock);
+	file.write((char*) host_map.mutex_bucket, sizeof(int) * param.numBuckets);
+	file.write((char*) host_map.sdf_blocks, sizeof(Voxel) * param.numVoxels);
+	file.write((char*) host_map.hash_table, sizeof(HashEntry) * param.numEntries);
+	file.write((char*) host_map.visible_entry, sizeof(HashEntry) * param.numEntries);
+
+	// clean up
+	file.close();
+
+	releaseHostMemory();
+}
+
+void DistanceField::readMapFromDisk(std::string path)
 {
 
 }
 
-void DenseMapping::readMapFromDisk(std::string path)
+void DistanceField::copyMapDeviceToHost()
 {
 
 }
 
-void DenseMapping::copyMapDeviceToHost()
+void DistanceField::copyMapHostToDevice()
 {
 
 }
 
-void DenseMapping::copyMapHostToDevice()
+void DistanceField::allocateHostMemory()
 {
+	std::unique_lock<std::mutex> lock(mutexHostMap);
+	if(host_map.memoryAllocated)
+	{
+		printf("Host memory IS already allocated, Exit.\n");
+		return;
+	}
+	else
+	{
+		host_map.ptr_entry = new int[1];
+		host_map.ptr_heap = new int[1];
+		host_map.heap = new int[param.numSdfBlock];
+		host_map.hash_table = new HashEntry[param.numEntries];
+		host_map.visible_entry = new HashEntry[param.numEntries];
+		host_map.mutex_bucket = new int[param.numBuckets];
 
+		host_map.memoryAllocated = true;
+	}
 }
 
-void DenseMapping::allocateHostMemory()
+void DistanceField::releaseHostMemory()
 {
-
+	std::unique_lock<std::mutex> lock(mutexHostMap);
+	if(host_map.memoryAllocated)
+	{
+		delete host_map.ptr_entry;
+		delete host_map.ptr_heap;
+		delete host_map.heap;
+		delete host_map.hash_table;
+		delete host_map.visible_entry;
+		delete host_map.mutex_bucket;
+		host_map.memoryAllocated = false;
+	}
 }
 
-void DenseMapping::allocateDeviceMemory()
+void DistanceField::releaseDeviceMemory()
 {
-
-}
-
-void DenseMapping::releaseHostMemory()
-{
-
-}
-
-void DenseMapping::releaseDeviceMemory()
-{
-
-}
-
-void DenseMapping::takeSnapshot(PointCloud * trackingReference)
-{
-	SE3 pose = trackingReference->frame->pose;
-
-	uint noVisibleBlocks;
-	RayTrace(noVisibleBlocks,
-			 SE3toMatrix3f(pose),
-			 SE3toMatrix3f(pose.inverse()),
-			 SE3toFloat3(pose),
-			 trackingReference->vmap[0],
-			 trackingReference->nmap[0],
-			 DeviceMap::DepthMin,
-			 DeviceMap::DepthMax,
-			 Frame::fx(0),
-			 Frame::fy(0),
-			 Frame::cx(0),
-			 Frame::cy(0));
+	std::unique_lock<std::mutex> lock(mutexDeviceMap);
+	if(device_map.memoryAllocated)
+	{
+		cudaFree(device_map.ptr_entry);
+		cudaFree(device_map.ptr_heap);
+		cudaFree(device_map.heap);
+		cudaFree(device_map.hash_table);
+		cudaFree(device_map.visible_entry);
+		cudaFree(device_map.mutex_bucket);
+		device_map.memoryAllocated = false;
+	}
 }

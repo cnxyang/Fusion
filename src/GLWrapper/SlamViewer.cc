@@ -10,8 +10,61 @@ using namespace std;
 using namespace pangolin;
 
 SlamViewer::SlamViewer() :
-		map(0), tracker(0), system(0), vao(0), vertexMaped(0),
-		normalMaped(0), colorMaped(0), quit(false) {
+		map(0), tracker(0), system(0), vertexArrayObjectMesh(0), meshVerticesCUDAMapped(0),
+		meshNormalsCUDAMapped(0), meshTextureCUDAMapped(0), quit(false) {
+}
+
+SlamViewer::SlamViewer(int w, int h, Eigen::Matrix3f K, std::string title) :
+		imageDepthCUDAMapped(0), imageSyntheticViewCUDAMapped(0), map(0),
+		imageTextureCUDAMapped(0), imageTopdownViewCUDAMapped(0), tracker(0),
+		system(0), vertexArrayObjectMesh(0), quit(false), bufferSizeImage(0), bufferSizeTriangles(0),
+		bufferSizeVertices(0)
+{
+	// Create GUI window
+	int window_width = w * 4;
+	int window_height= h * 3;
+	CreateWindowAndBind(title, window_width, window_height);
+
+	// Make sure we Enable a bunch of gl state
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	// Load shading programs and link
+	shaderPhong.AddShaderFromFile(GlSlVertexShader, "src/GLWrapper/OpenGL/VertexShader.phong.glsl");
+	shaderPhong.AddShaderFromFile(GlSlFragmentShader, "src/GLWrapper/OpenGL/FragmentShader.glsl");
+	shaderPhong.Link();
+
+	shaderNormalmap.AddShaderFromFile(GlSlVertexShader, "src/GLWrapper/OpenGL/VertexShader.normal.glsl");
+	shaderNormalmap.AddShaderFromFile(GlSlFragmentShader, "src/GLWrapper/OpenGL/FragmentShader.glsl");
+	shaderNormalmap.Link();
+
+	shaderTexture.AddShaderFromFile(GlSlVertexShader, "src/GLWrapper/OpenGL/VertexShader.color.glsl");
+	shaderTexture.AddShaderFromFile(GlSlFragmentShader, "src/GLWrapper/OpenGL/FragmentShader.glsl");
+	shaderTexture.Link();
+
+	// Create viewing camera
+	viewCam = OpenGlRenderState(
+			ProjectionMatrix(w, h, K(0,0), K(1,1), K(0,2), K(1,2), 0.1f, 100.0f),
+			ModelViewLookAtRUB(0, 0, 0, 0, 0, 1, 0, -1, 0)
+	);
+
+	// Create vertex arrays for storing mesh
+	glGenVertexArrays(1, &vertexArrayObjectMesh);
+	glGenVertexArrays(1, &vertexArrayObjectColor);
+
+	// Map OpenGL buffer array to cuda
+	meshVertices.Reinitialise(GlArrayBuffer, DeviceMap::MaxVertices,
+	GL_FLOAT, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
+	meshVerticesCUDAMapped = new CudaScopedMappedPtr(meshVertices);
+
+	meshNormals.Reinitialise(GlArrayBuffer, DeviceMap::MaxVertices,
+	GL_FLOAT, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
+	meshNormalsCUDAMapped = new CudaScopedMappedPtr(meshNormals);
+
+	meshTexture.Reinitialise(GlArrayBuffer, DeviceMap::MaxVertices,
+	GL_UNSIGNED_BYTE, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
+	meshTextureCUDAMapped = new CudaScopedMappedPtr(meshTexture);
 }
 
 void SlamViewer::signalQuit() {
@@ -25,51 +78,51 @@ void SlamViewer::spin() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	phongShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/OpenGL/VertexShader.phong.glsl");
-	phongShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/OpenGL/FragmentShader.glsl");
-	phongShader.Link();
+	shaderPhong.AddShaderFromFile(GlSlVertexShader, "src/GLWrapper/OpenGL/VertexShader.phong.glsl");
+	shaderPhong.AddShaderFromFile(GlSlFragmentShader, "src/GLWrapper/OpenGL/FragmentShader.glsl");
+	shaderPhong.Link();
 
-	normalShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/OpenGL/VertexShader.normal.glsl");
-	normalShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/OpenGL/FragmentShader.glsl");
-	normalShader.Link();
+	shaderNormalmap.AddShaderFromFile(GlSlVertexShader, "src/GLWrapper/OpenGL/VertexShader.normal.glsl");
+	shaderNormalmap.AddShaderFromFile(GlSlFragmentShader, "src/GLWrapper/OpenGL/FragmentShader.glsl");
+	shaderNormalmap.Link();
 
-	colorShader.AddShaderFromFile(GlSlVertexShader, "src/GUIWrapper/OpenGL/VertexShader.color.glsl");
-	colorShader.AddShaderFromFile(GlSlFragmentShader, "src/GUIWrapper/OpenGL/FragmentShader.glsl");
-	colorShader.Link();
+	shaderTexture.AddShaderFromFile(GlSlVertexShader, "src/GLWrapper/OpenGL/VertexShader.color.glsl");
+	shaderTexture.AddShaderFromFile(GlSlFragmentShader, "src/GLWrapper/OpenGL/FragmentShader.glsl");
+	shaderTexture.Link();
 
-	sCam = OpenGlRenderState(
+	viewCam = OpenGlRenderState(
 			ProjectionMatrix(640, 480, 520.149963, 516.175781, 309.993548, 227.090932, 0.1f, 1000.0f),
 			ModelViewLookAtRUB(0, 0, 0, 0, 0, 1, 0, -1, 0)
 	);
 
-	glGenVertexArrays(1, &vao);
-	glGenVertexArrays(1, &vao_color);
+	glGenVertexArrays(1, &vertexArrayObjectMesh);
+	glGenVertexArrays(1, &vertexArrayObjectColor);
 
-	vertex.Reinitialise(GlArrayBuffer, DeviceMap::MaxVertices,
+	meshVertices.Reinitialise(GlArrayBuffer, DeviceMap::MaxVertices,
 	GL_FLOAT, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
-	vertexMaped = new CudaScopedMappedPtr(vertex);
+	meshVerticesCUDAMapped = new CudaScopedMappedPtr(meshVertices);
 
-	normal.Reinitialise(GlArrayBuffer, DeviceMap::MaxVertices,
+	meshNormals.Reinitialise(GlArrayBuffer, DeviceMap::MaxVertices,
 	GL_FLOAT, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
-	normalMaped = new CudaScopedMappedPtr(normal);
+	meshNormalsCUDAMapped = new CudaScopedMappedPtr(meshNormals);
 
-	color.Reinitialise(GlArrayBuffer, DeviceMap::MaxVertices,
+	meshTexture.Reinitialise(GlArrayBuffer, DeviceMap::MaxVertices,
 	GL_UNSIGNED_BYTE, 3, cudaGraphicsMapFlagsWriteDiscard, GL_STREAM_DRAW);
-	colorMaped = new CudaScopedMappedPtr(color);
+	meshTextureCUDAMapped = new CudaScopedMappedPtr(meshTexture);
 
-	colorImage.Reinitialise(640, 480, GL_RGB, true, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	colorImageMaped = new CudaScopedMappedArray(colorImage);
+	imageTexture.Reinitialise(640, 480, GL_RGB, true, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	imageTextureCUDAMapped = new CudaScopedMappedArray(imageTexture);
 
-	depthImage.Reinitialise(640, 480, GL_RGBA, true, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	depthImageMaped = new CudaScopedMappedArray(depthImage);
+	imageDepth.Reinitialise(640, 480, GL_RGBA, true, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	imageDepthCUDAMapped = new CudaScopedMappedArray(imageDepth);
 
-	renderedImage.Reinitialise(640, 480, GL_RGBA, true, 0,  GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	renderedImageMaped = new CudaScopedMappedArray(renderedImage);
+	imageSyntheticView.Reinitialise(640, 480, GL_RGBA, true, 0,  GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	imageSyntheticViewCUDAMapped = new CudaScopedMappedArray(imageSyntheticView);
 
-	topDownImage.Reinitialise(640, 480, GL_RGBA, true, 0,  GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	topDownImageMaped = new CudaScopedMappedArray(topDownImage);
+	imageTopdownView.Reinitialise(640, 480, GL_RGBA, true, 0,  GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	imageTopdownViewCUDAMapped = new CudaScopedMappedArray(imageTopdownView);
 
-	View & dCam = CreateDisplay().SetAspect(-640.0 / 480).SetHandler(new Handler3D(sCam));
+	View & dCam = CreateDisplay().SetAspect(-640.0 / 480).SetHandler(new Handler3D(viewCam));
 	View & Image0 = CreateDisplay().SetAspect(-640.0 / 480);
 	View & Image1 = CreateDisplay().SetAspect(-640.0 / 480);
 	View & Image2 = CreateDisplay().SetAspect(-640.0 / 480);
@@ -147,7 +200,7 @@ void SlamViewer::spin() {
 				tracker->mappingDisabled = false;
 		}
 
-		dCam.Activate(sCam);
+		dCam.Activate(viewCam);
 
 		if (btnShowMesh || btnShowNormal || btnShowColor)
 			system->requestMesh = true;
@@ -225,19 +278,19 @@ void SlamViewer::spin() {
 
 void SlamViewer::topDownView() {
 	if(system->imageUpdated) {
-		SafeCall(cudaMemcpy2DToArray(**topDownImageMaped, 0, 0,
+		SafeCall(cudaMemcpy2DToArray(**imageTopdownViewCUDAMapped, 0, 0,
 				(void*) system->renderedImage.data,
 				system->renderedImage.step, sizeof(uchar4) * 640, 480,
 				cudaMemcpyDeviceToDevice));
 	}
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-	topDownImage.RenderToViewport(true);
+	imageTopdownView.RenderToViewport(true);
 }
 
 void SlamViewer::showPrediction() {
 	if(tracker->imageUpdated) {
 		if(tracker->updateImageMutex.try_lock()) {
-			SafeCall(cudaMemcpy2DToArray(**renderedImageMaped, 0, 0,
+			SafeCall(cudaMemcpy2DToArray(**imageSyntheticViewCUDAMapped, 0, 0,
 					(void*) tracker->renderedImage.data,
 					 tracker->renderedImage.step, sizeof(uchar4) * 640, 480,
 					 cudaMemcpyDeviceToDevice));
@@ -245,13 +298,13 @@ void SlamViewer::showPrediction() {
 		}
 	}
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-	renderedImage.RenderToViewport(true);
+	imageSyntheticView.RenderToViewport(true);
 }
 
 void SlamViewer::showDepthImage() {
 	if(tracker->imageUpdated) {
 		if(tracker->updateImageMutex.try_lock()) {
-			SafeCall(cudaMemcpy2DToArray(**depthImageMaped, 0, 0,
+			SafeCall(cudaMemcpy2DToArray(**imageDepthCUDAMapped, 0, 0,
 					(void*) tracker->renderedDepth.data,
 					 tracker->renderedDepth.step, sizeof(uchar4) * 640, 480,
 					 cudaMemcpyDeviceToDevice));
@@ -260,13 +313,13 @@ void SlamViewer::showDepthImage() {
 	}
 
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-	depthImage.RenderToViewport(true);
+	imageDepth.RenderToViewport(true);
 }
 
 void SlamViewer::showColorImage() {
 	if(tracker->imageUpdated) {
 		if(tracker->updateImageMutex.try_lock()) {
-			SafeCall(cudaMemcpy2DToArray(**colorImageMaped, 0, 0,
+			SafeCall(cudaMemcpy2DToArray(**imageTextureCUDAMapped, 0, 0,
 					(void*) tracker->rgbaImage.data,
 					tracker->rgbaImage.step, sizeof(uchar4) * 640, 480,
 					cudaMemcpyDeviceToDevice));
@@ -274,35 +327,35 @@ void SlamViewer::showColorImage() {
 		}
 	}
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-	colorImage.RenderToViewport(true);
+	imageTexture.RenderToViewport(true);
 }
 
 void SlamViewer::drawColor() {
 	if (map->meshUpdated) {
-		cudaMemcpy((void*) **vertexMaped, (void*) map->modelVertex, sizeof(float3) * map->noTrianglesHost * 3,  cudaMemcpyDeviceToDevice);
-		cudaMemcpy((void*) **normalMaped, (void*) map->modelNormal, sizeof(float3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
-		cudaMemcpy((void*) **colorMaped, (void*) map->modelColor, sizeof(uchar3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **meshVerticesCUDAMapped, (void*) map->modelVertex, sizeof(float3) * map->noTrianglesHost * 3,  cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **meshNormalsCUDAMapped, (void*) map->modelNormal, sizeof(float3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **meshTextureCUDAMapped, (void*) map->modelColor, sizeof(uchar3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
 		map->meshUpdated = false;
 	}
 
-	colorShader.SaveBind();
-	colorShader.SetUniform("viewMat", sCam.GetModelViewMatrix());
-	colorShader.SetUniform("projMat", sCam.GetProjectionMatrix());
-	glBindVertexArray(vao_color);
-	vertex.Bind();
+	shaderTexture.SaveBind();
+	shaderTexture.SetUniform("viewMat", viewCam.GetModelViewMatrix());
+	shaderTexture.SetUniform("projMat", viewCam.GetProjectionMatrix());
+	glBindVertexArray(vertexArrayObjectColor);
+	meshVertices.Bind();
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(0);
-	vertex.Unbind();
+	meshVertices.Unbind();
 
-	color.Bind();
+	meshTexture.Bind();
 	glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(1);
-	color.Unbind();
+	meshTexture.Unbind();
 
 	glDrawArrays(GL_TRIANGLES, 0, map->noTrianglesHost * 3);
 	glDisableVertexAttribArray(0);
 	glDisableVertexAttribArray(1);
-	colorShader.Unbind();
+	shaderTexture.Unbind();
 	glBindVertexArray(0);
 }
 
@@ -317,9 +370,12 @@ void SlamViewer::followCam() {
 	up = rotation * up;
 	eye = rotation * eye + translation;
 	look = rotation * look + translation;
-	sCam.SetModelViewMatrix(ModelViewLookAtRUB( eye(0),  eye(1),  eye(2),
-											   look(0), look(1), look(2),
-											     up(0),   up(1),   up(2)));
+	viewCam.SetModelViewMatrix
+	(
+		ModelViewLookAtRUB( eye(0),  eye(1),  eye(2),
+						   look(0), look(1), look(2),
+						     up(0),   up(1),   up(2))
+	);
 }
 
 void SlamViewer::drawMesh(bool bNormal) {
@@ -328,32 +384,32 @@ void SlamViewer::drawMesh(bool bNormal) {
 		return;
 
 	if (map->meshUpdated) {
-		cudaMemcpy((void*) **vertexMaped, (void*) map->modelVertex, sizeof(float3) * map->noTrianglesHost * 3,  cudaMemcpyDeviceToDevice);
-		cudaMemcpy((void*) **normalMaped, (void*) map->modelNormal, sizeof(float3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
-		cudaMemcpy((void*) **colorMaped, (void*) map->modelColor, sizeof(uchar3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **meshVerticesCUDAMapped, (void*) map->modelVertex, sizeof(float3) * map->noTrianglesHost * 3,  cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **meshNormalsCUDAMapped, (void*) map->modelNormal, sizeof(float3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **meshTextureCUDAMapped, (void*) map->modelColor, sizeof(uchar3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
 		map->meshUpdated = false;
 	}
 
 	pangolin::GlSlProgram * program;
 	if (bNormal)
-		program = &normalShader;
+		program = &shaderNormalmap;
 	else
-		program = &phongShader;
+		program = &shaderPhong;
 
 	program->SaveBind();
-	program->SetUniform("viewMat", sCam.GetModelViewMatrix());
-	program->SetUniform("projMat", sCam.GetProjectionMatrix());
+	program->SetUniform("viewMat", viewCam.GetModelViewMatrix());
+	program->SetUniform("projMat", viewCam.GetProjectionMatrix());
 
-	glBindVertexArray(vao);
-	vertex.Bind();
+	glBindVertexArray(vertexArrayObjectMesh);
+	meshVertices.Bind();
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(0);
-	vertex.Unbind();
+	meshVertices.Unbind();
 
-	normal.Bind();
+	meshNormals.Bind();
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, 0, 0);
 	glEnableVertexAttribArray(1);
-	normal.Unbind();
+	meshNormals.Unbind();
 
 	glDrawArrays(GL_TRIANGLES, 0, map->noTrianglesHost * 3);
 	glDisableVertexAttribArray(0);
@@ -374,27 +430,34 @@ void SlamViewer::drawKeyFrame() {
 	vector<GLfloat> points;
 	std::vector<KeyFrame *> allKFs = map->GlobalMap();
 	std::sort(allKFs.begin(), allKFs.end(), [](KeyFrame * a, KeyFrame * b) {return a->frameId < b->frameId;});
-	for(int i = 0; i < allKFs.size(); ++i) {
-		Eigen::Vector3f trans = allKFs[i]->Translation();
-		points.push_back(trans(0));
-		points.push_back(trans(1));
-		points.push_back(trans(2));
-	}
 
-	glColor3f(1.0, 0.0, 1.0);
-	glPointSize(3.0f);
-	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_POINTS, 3);
-	glPointSize(1.0f);
+	for (KeyFrame * kf : allKFs)
+	{
+		Eigen::Matrix3f rot = kf->Rotation();
+		Eigen::Vector3f trans = kf->Translation();
+		points.clear();
+		for(Eigen::Vector3f point : camVertices)
+		{
+			point = rot * point + trans;
+			points.push_back(point(0));
+			points.push_back(point(1));
+			points.push_back(point(2));
+		}
+
+		glColor3f(0.5f, 0.3f, 0.5f);
+		glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_LINE_STRIP, 3);
+	}
 
 	points.clear();
-	for(int i = 0; i < allKFs.size(); ++i) {
-		Eigen::Vector3f trans = allKFs[i]->newPose.topRightCorner(3, 1);
+	for (KeyFrame * kf : allKFs)
+	{
+		Eigen::Vector3f trans = kf->pose.topRightCorner(3, 1);
 		points.push_back(trans(0));
 		points.push_back(trans(1));
 		points.push_back(trans(2));
 	}
 
-	glColor3f(0.0, 1.0, 1.0);
+	glColor3f(0.0, 0.5, 0.6);
 	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_LINE_STRIP, 3);
 }
 
@@ -482,7 +545,7 @@ void SlamViewer::drawKeys() {
 	glPointSize(1.0);
 }
 
-void SlamViewer::setMap(DenseMapping* pMap) {
+void SlamViewer::setMap(DistanceField* pMap) {
 	map = pMap;
 }
 
@@ -492,4 +555,17 @@ void SlamViewer::setSystem(System* pSystem) {
 
 void SlamViewer::setTracker(Tracker* pTracker) {
 	tracker = pTracker;
+}
+
+std::vector<GLfloat> SlamViewer::getTransformedCamera(SE3 pose) const
+{
+	std::vector<GLfloat> result;
+	for (Eigen::Vector3f vertex : camVertices)
+	{
+		Eigen::Vector3f vertex_transformed = pose.rotationMatrix().cast<float>() * vertex + pose.translation().cast<float>();
+		result.push_back(vertex_transformed(0));
+		result.push_back(vertex_transformed(1));
+		result.push_back(vertex_transformed(2));
+	}
+	return result;
 }

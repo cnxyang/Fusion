@@ -5,11 +5,11 @@
 #include <condition_variable>
 #include "Frame.h"
 #include "SlamViewer.h"
-#include "DenseMapping.h"
+#include "DistanceField.h"
 #include "DeviceFuncs.h"
 
 class SlamViewer;
-class DenseMapping;
+class DistanceField;
 
 class Tracker {
 
@@ -17,13 +17,15 @@ public:
 
 	Tracker();
 
-	Tracker(int cols_, int rows_, float fx, float fy, float cx, float cy);
+	Tracker(int w, int h, Eigen::Matrix3f K);
+
+	Tracker(int w, int h, float fx, float fy, float cx, float cy);
 
 	bool GrabFrame(const cv::Mat & rgb, const cv::Mat & depth);
 
 	void ResetTracking();
 
-	void SetMap(DenseMapping * map_);
+	void SetMap(DistanceField * map_);
 
 	void SetViewer(SlamViewer * viewer_);
 
@@ -86,7 +88,7 @@ protected:
 
 	void InsertFrame();
 
-	DenseMapping * map;
+	DistanceField * map;
 
 	SlamViewer * viewer;
 

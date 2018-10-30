@@ -1,19 +1,21 @@
 #include "SlamSystem.h"
 #include "DataStructure/Frame.h"
 #include "ICPTracking/PointCloud.h"
-#include "GlobalMapping/DenseMapping.h"
+#include "GlobalMapping/DistanceField.h"
 #include "GlobalMapping/KeyFrameGraph.h"
 #include "ICPTracking/ICPTracker.h"
 
 SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K, bool SLAMEnabled) :
 	width(w), height(h), K(K), tracker(0), constraintTracker(0), map(0), keyFrameGraph(0),
 	currentKeyFrame(0), lastTrackingScore(0), SLAMEnabled(SLAMEnabled), dumpMapToDisk(false),
-	trackingIsGood(true), trackingReference(0), keepRunning(true), currentFrame(0),
-	viewer(0), lastTrackedFrame(0)
+	trackingIsGood(true), trackingReference(0), keepRunning(true), trackingNewFrame(0),
+	viewer(0), lastTrackedFrame(0), newConstraintAdded(false), frameToMapTracking(true)
 {
-	map = new DenseMapping();
+	map = new DistanceField();
+	map->allocateDeviceMemory();
 
 	viewer = new SlamViewer();
+	viewer->setMap(map);
 
 	// main tracking thread
 	tracker = new ICPTracker(w, h, K);
@@ -29,6 +31,8 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K, bool SLAMEnabled) :
 	threadDenseMapping = std::thread(&SlamSystem::mappingLoop, this);
 
 	keyFrameGraph = new KeyFrameGraph();
+
+	trackingReference = new PointCloud();
 }
 
 SlamSystem::~SlamSystem()
@@ -47,35 +51,48 @@ SlamSystem::~SlamSystem()
 	delete tracker;
 	delete constraintTracker;
 	delete keyFrameGraph;
-	if(viewer != 0) delete viewer;
+	delete viewer;
 }
 
 void SlamSystem::trackFrame(cv::Mat & image, cv::Mat & depth, int id, double timeStamp)
 {
-	currentFrame = new Frame(image, depth, id, K, timeStamp);
-
-	if (id == 0 && !trackingReference)
-	{
-		trackingReference = new PointCloud();
-		trackingReference->importData(currentFrame, true);
-		return;
-	}
-
-	SE3 frameToRef_initialEstimate = lastTrackedFrame->pose.inverse() * currentKeyFrame->pose;
-	SE3 frameToRef = tracker->trackSE3(trackingReference, currentFrame, frameToRef_initialEstimate);
+	trackingNewFrame = new Frame(image, depth, id, K, timeStamp);
 
 	if (!trackingIsGood)
 	{
-		printf("TRACKING FAILED for Frame %d.\n", id - 1);
-		printf("WARNING: Relocalization NOT Implemented at the moment.\n");
+		printf("WARNING: Re-localisation NOT Implemented at the moment.\n");
 		return;
 	}
 
-	currentFrame->pose = currentKeyFrame->pose * frameToRef.inverse();
+	currentKeyFrameMutex.lock();
+	if(trackingReference->frame != currentKeyFrame)
+	{
+		if(frameToMapTracking && currentKeyFrame->id() > 0)
+		{
 
-	lastTrackedFrame = currentFrame;
+		}
+		else
+		{
+			trackingReference->importFrame(trackingNewFrame, true);
+		}
+	}
 
-	viewer->setCurrentCamPose(lastTrackedFrame->getCamToWorld());
+	FramePoseStruct* trackingReferencePose = trackingReference->frame->poseStruct;
+	currentKeyFrameMutex.unlock();
+
+	SE3 frameToRef_initialEstimate =
+			currentKeyFrame->getCamToWorld().inverse() *
+			lastTrackedFrame->getCamToWorld();
+
+	SE3 frameToRef = tracker->trackSE3(
+			trackingReference,
+			trackingNewFrame,
+			frameToRef_initialEstimate);
+
+	if(!tracker->trackingWasGood)
+	{
+		printf("TRACKING LOST for frame %d.\n", trackingNewFrame->id());
+	}
 }
 
 void SlamSystem::visualisationLoop()
@@ -84,7 +101,7 @@ void SlamSystem::visualisationLoop()
 
 	while(keepRunning)
 	{
-		viewer->run();
+		int i = 0;
 	}
 
 	printf("visualisation thread exited\n");
@@ -98,7 +115,7 @@ void SlamSystem::mappingLoop()
 	{
 		if(dumpMapToDisk)
 		{
-
+			int i = 0;
 		}
 	}
 
@@ -111,6 +128,7 @@ void SlamSystem::optimisationLoop()
 
 	while(keepRunning)
 	{
+		std::unique_lock<std::mutex> lock(newConstraintMutex);
 
 	}
 
@@ -138,6 +156,7 @@ void SlamSystem::constraintSearchLoop()
 
 			lock.lock();
 		}
+		lock.lock();
 	}
 
 	printf("constraint searching thread exited\n");
@@ -148,9 +167,7 @@ void SlamSystem::findConstraintForNewKF(Frame* newKF)
 
 }
 
-void SlamSystem::createNewKeyFrame(Frame* newKeyFrameCandidate)
+void SlamSystem::createNewKeyFrame(Frame* candidateKF)
 {
-	currentKeyFrameMutex.lock();
-	currentKeyFrame = newKeyFrameCandidate;
-	currentKeyFrameMutex.unlock();
+
 }

@@ -13,6 +13,17 @@ float3 eigen_to_float3(Eigen::Vector3d vec) {
 	return make_float3((float) vec(0), (float) vec(1), (float) vec(2));
 }
 
+System::System(int w, int h, Eigen::Matrix3f K) :
+		K(K), imageWidth(w), imageHeight(h)
+{
+	map = new DistanceField();
+	map->allocateDeviceMemory();
+
+	viewer = new SlamViewer();
+
+	tracker = new Tracker(w, h,	K);
+}
+
 System::System(SysDesc* pParam) :
 		map(0), viewer(0), tracker(0), requestStop(false), nFrames(0),
 		requestSaveMesh(false), requestReboot(false), paused(false),
@@ -43,8 +54,8 @@ System::System(SysDesc* pParam) :
 	mK.at<float>(1, 2) = param->cy;
 	Frame::SetK(mK);
 
-	map = new DenseMapping();
-	map->Create();
+	map = new DistanceField();
+	map->allocateDeviceMemory();
 
 	optimizer = new Optimizer();
 	viewer = new SlamViewer();
@@ -90,7 +101,7 @@ void System::RenderTopDown(float dist) {
 	RenderImage(vmap, nmap, make_float3(0), renderedImage);
 }
 
-bool System::GrabImage(const cv::Mat & image, const cv::Mat & depth) {
+bool System::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeStamp) {
 
 	FilterMessage();
 

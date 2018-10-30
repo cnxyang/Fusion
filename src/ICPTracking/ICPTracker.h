@@ -53,7 +53,7 @@ protected:
 	DeviceArray<int> outRES;
 	DeviceArray2D<int> sumRES;
 
-	int iterations[PYRAMID_LEVELS];
+	const int iterations[PYRAMID_LEVELS] = { 10, 5, 3 };
 
 	int trackingLevelBegin;
 	int trackingLevelEnd;
@@ -61,8 +61,8 @@ protected:
 
 inline void ICPTracker::setIterations(std::vector<float> iter)
 {
-	for (int level = 0; level < PYRAMID_LEVELS; ++level)
-		iterations[level] = iter[level];
+//	for (int level = 0; level < PYRAMID_LEVELS; ++level)
+//		iterations[level] = iter[level];
 }
 
 inline void ICPTracker::setTrackingLevel(int begin, int end)

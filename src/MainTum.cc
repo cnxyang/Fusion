@@ -9,6 +9,7 @@
 #include <opencv2/highgui.hpp>
 
 #include "Tracking.h"
+#include "SlamSystem.h"
 
 void load_tum_dataset(std::string & dataset_path,
 		std::vector<std::string> & depth_image_list,
@@ -75,6 +76,14 @@ int main(int argc, char** argv) {
 
 	System slam(&desc);
 
+
+//	Eigen::Matrix3f K;
+//	K << 583, 0.f, 320.f,
+//		 0.f, 583.f, 240.f,
+//		 0.f, 0.f, 1.f;
+//	SlamSystem slam(640, 480, K, true);
+
+
 	for (int i = 0; i < 8560; ++i) {
 		std::stringstream ss;
 		ss << std::setfill('0') << std::setw(6) << i;
@@ -89,8 +98,14 @@ int main(int argc, char** argv) {
 
 		cv::Mat depth = cv::imread(std::string("/home/xyang/Downloads/apt0/") + img_depth, cv::IMREAD_UNCHANGED);
 		cv::Mat image = cv::imread(std::string("/home/xyang/Downloads/apt0/") + img_rgb, cv::IMREAD_UNCHANGED);
+//		cv::imshow("depth", depth);
+//		cv::imshow("image", image);
+//		int key = cv::waitKey(5);
+//		if(key == 27)
+//			return 0;
+//		slam.trackFrame(image, depth, i, 0);
 		cvtColor(image, image, cv::COLOR_BGR2RGB);
-		bool nonstop = slam.GrabImage(image, depth);
+		bool nonstop = slam.trackFrame(image, depth);
 		if(!nonstop)
 			return 0;
 	}
