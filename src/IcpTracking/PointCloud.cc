@@ -1,6 +1,6 @@
-#include "DataStructure/Frame.h"
-#include "ICPTracking/PointCloud.h"
-#include "GPUWrapper/DeviceFuncs.h"
+#include "Frame.h"
+#include "PointCloud.h"
+#include "DeviceFuncs.h"
 
 #define DEPTH_SCALE 1000.f
 #define DEPTH_CUTOFF 3.0f

@@ -1,7 +1,7 @@
-#include "DataStructure/Frame.h"
-#include "ICPTracking/ICPTracker.h"
-#include "GPUWrapper/DeviceFuncs.h"
-#include "ICPTracking/PointCloud.h"
+#include "Frame.h"
+#include "ICPTracker.h"
+#include "DeviceFuncs.h"
+#include "PointCloud.h"
 
 ICPTracker::ICPTracker(int w, int h, Eigen::Matrix3f K) :
 	icpInlierRatio(0), rgbInlierRatio(0), lastIcpError(0),

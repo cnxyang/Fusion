@@ -1,10 +1,10 @@
 #include "SlamSystem.h"
-#include "Legacy/Tracking.h"
-#include "GlWrapper/GlViewer.h"
-#include "ICPTracking/PointCloud.h"
-#include "ICPTracking/ICPTracker.h"
-#include "GlobalMapping/DenseMap.h"
-#include "Utilities/EigenUtils.h"
+#include "Tracking.h"
+#include "GlViewer.h"
+#include "PointCloud.h"
+#include "ICPTracker.h"
+#include "DenseMap.h"
+#include "EigenUtils.h"
 #include <fstream>
 #include <unordered_set>
 
