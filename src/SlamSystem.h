@@ -1,78 +1,123 @@
 #pragma once
 
+#include <mutex>
+#include <thread>
+#include <atomic>
 #include <Eigen/Core>
 #include <opencv.hpp>
-#include <thread>
-#include <condition_variable>
+#include "DeviceArray.h"
 
 class Frame;
-class SlamViewer;
-class ICPTracker;
+class GlViewer;
+class Tracker;
+class DenseMap;
 class PointCloud;
+class ICPTracker;
 class KeyFrameGraph;
-class DistanceField;
 
 class SlamSystem
 {
 public:
 
-	SlamSystem(int w, int h, Eigen::Matrix3f K, bool SLAMEnabled = true);
+	void RebootSystem();
+
+	void processMessages(bool finished = false);
+
+	void WriteMeshToDisk();
+
+	void WriteMapToDisk();
+
+	void ReadMapFromDisk();
+
+	void renderBirdsEyeView(float dist = 8.0f);
+
+	std::atomic<bool> paused;
+	std::atomic<bool> requestMesh;
+	std::atomic<bool> requestSaveMap;
+	std::atomic<bool> requestReadMap;
+	std::atomic<bool> requestSaveMesh;
+	std::atomic<bool> requestReboot;
+	std::atomic<bool> requestStop;
+	std::atomic<bool> imageUpdated;
+	std::atomic<bool> poseOptimized;
+
+	DeviceArray2D<float4> vmap;
+	DeviceArray2D<float4> nmap;
+	DeviceArray2D<uchar4> renderedImage;
+
+	cv::Mat mK;
+
+	void ReIntegration();
+
+	Tracker* tracker;
+	GlViewer* viewer;
+	DenseMap* map;
+
+//=================== REFACTORING ====================
+
+	SlamSystem(int w, int h, Eigen::Matrix3f K);
 	SlamSystem(const SlamSystem&) = delete;
 	SlamSystem& operator=(const SlamSystem&) = delete;
 	~SlamSystem();
 
-	void trackFrame(cv::Mat & image, cv::Mat & depth, int id, double time_stamp);
+	// Public APIs
+	void rebootSystem();
+	bool shouldQuit() const;
+	void trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeStamp);
 
-protected:
+private:
 
-	void mappingLoop();
-	void constraintSearchLoop();
-	void optimisationLoop();
-	void visualisationLoop();
-	void findConstraintForNewKF(Frame* newKeyFrame);
-	void createNewKeyFrame(Frame* candidateFrame);
+	void systemReInitialise();
+	void updateVisualisation();
+	void findConstraintsForNewKeyFrames(Frame* newKF);
 
-	void rebootSlamSystem();
-	void renderBirdsEyeView();
-
-	int width, height;
-	Eigen::Matrix3f K;
-
-	SlamViewer * viewer;
-	DistanceField * map;
-	ICPTracker * tracker;
-	ICPTracker * constraintTracker;
-	KeyFrameGraph * keyFrameGraph;
-
+	// General control variables
 	bool keepRunning;
-	bool SLAMEnabled;
+	bool systemRunning;
 	bool dumpMapToDisk;
 
-	// multi-threading variables
-	std::thread threadConstraintSearch;
-	std::thread threadOptimisation;
-	std::thread threadDenseMapping;
+	// Camera intrinsics
+	Eigen::Matrix3f K;
+
+	// Image parameters
+	int width, height;
+	int numImagesProcessed;
+
+	// Multi-threading loop
+	void loopVisualisation();
+	void loopMapUpdate();
+	void loopOptimization();
+	void loopConstraintSearch();
+
+	// Multi-threading variables
 	std::thread threadVisualisation;
+	std::thread threadOptimization;
+	std::thread threadMapUpdate;
+	std::thread threadConstraintSearch;
 
-	// PUSHED by tracking, READ && CLEARED BY constraint finder
-	std::deque<Frame *> newKeyFrames;
+	Frame* currentKeyFrame;
+	Frame* latestTrackedFrame;
+
+	KeyFrameGraph* keyFrameGraph;
+
+	// Used for frame-to-model tracking
+	PointCloud* trackingReference;
+	PointCloud* trackingTarget;
+	ICPTracker* mainTracker;
+
+	// Used for constraint searching
+	std::deque<Frame*> newKeyFrames;
 	std::mutex newKeyFrameMutex;
-	std::condition_variable newKeyFrameCreatedSignal;
 
-	// PROCESSED by tracking && pose graph
-	Frame * currentKeyFrame;
-	std::mutex currentKeyFrameMutex;
-
-	bool trackingIsGood;
-	float lastTrackingScore;
-	PointCloud * trackingReference;
-	Frame * trackingNewFrame;
-	Frame * lastTrackedFrame;
-	bool frameToMapTracking;
-
-	// optimization thread
-	bool newConstraintAdded;
-	std::mutex newConstraintMutex;
-	std::condition_variable newConstraintCreatedSignal;
-	std::mutex g2oGraphAccessMutex;
+	struct Mesh
+	{
+		DeviceArray<float4> vertex;
+		DeviceArray<float4> normal;
+		DeviceArray<uchar4> color;
+	} mesh;
 };
+
+inline bool SlamSystem::shouldQuit() const
+{
+	return !systemRunning;
+}

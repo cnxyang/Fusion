@@ -1,11 +1,9 @@
-#ifndef KEY_FRAME_GRAPH__
-#define KEY_FRAME_GRAPH__
-
+#pragma once
 #include <g2o/core/sparse_optimizer.h>
 #include <g2o/types/sba/types_six_dof_expmap.h>
 #include "DataStructure/Frame.h"
-
-class Frame;
+#include <mutex>
+#include <unordered_set>
 
 struct KFConstraint
 {
@@ -22,11 +20,18 @@ struct KFConstraint
 	Eigen::Matrix<double, 6, 6> information;
 };
 
+struct TrackableKFStruct
+{
+
+};
+
 class KeyFrameGraph
 {
 public:
 
-	KeyFrameGraph();
+	KeyFrameGraph(int w, int h, Eigen::Matrix3f K);
+
+	~KeyFrameGraph();
 
 	void addKeyFrame(Frame* frame);
 
@@ -34,11 +39,26 @@ public:
 
 	void insertConstraint(KFConstraint* constraint);
 
+	std::unordered_set<Frame*, std::hash<Frame*>> searchCandidates(Frame* kf);
+
+	std::vector<TrackableKFStruct> findEuclideanOverlapFrames(Frame* kf, float distTH, float angleTH);
+
+	inline std::vector<Frame*> getAllKeyFrames() const;
+
+	std::vector<SE3> getAllKeyFramePoses() const;
+
 private:
 
 	g2o::SparseOptimizer graph;
 
 	std::vector<Frame *> keyFramesAll;
+
+	std::mutex keyFramesAllMutex;
+
+	float fowX, fowY;
 };
 
-#endif
+inline std::vector<Frame*> KeyFrameGraph::getAllKeyFrames() const
+{
+	return keyFramesAll;
+}

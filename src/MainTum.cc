@@ -9,7 +9,6 @@
 #include <opencv2/highgui.hpp>
 
 #include "Tracking.h"
-#include "SlamSystem.h"
 
 void load_tum_dataset(std::string & dataset_path,
 		std::vector<std::string> & depth_image_list,
@@ -60,31 +59,18 @@ int main(int argc, char** argv) {
 //			return 0;
 //	}
 
-
-	SysDesc desc;
-
-	desc.DepthCutoff = 3.0f;
-	desc.DepthScale = 1000.0f;
-	desc.cols = 640;
-	desc.rows = 480;
-	desc.fx = 583;
-	desc.fy = 583;
-	desc.cx = 320;
-	desc.cy = 240;
-	desc.TrackModel = true;
-	desc.bUseDataset = false;
-
-	System slam(&desc);
-
-
-//	Eigen::Matrix3f K;
-//	K << 583, 0.f, 320.f,
-//		 0.f, 583.f, 240.f,
-//		 0.f, 0.f, 1.f;
-//	SlamSystem slam(640, 480, K, true);
+	Eigen::Matrix3f K;
+	K << 583, 0.f, 320.f,
+		 0.f, 583.f, 240.f,
+		 0.f, 0.f, 1.f;
+	SlamSystem slam(640, 480, K);
 
 
 	for (int i = 0; i < 8560; ++i) {
+
+		if(slam.shouldQuit())
+			return 0;
+
 		std::stringstream ss;
 		ss << std::setfill('0') << std::setw(6) << i;
 		std::string number = "";
@@ -105,12 +91,10 @@ int main(int argc, char** argv) {
 //			return 0;
 //		slam.trackFrame(image, depth, i, 0);
 		cvtColor(image, image, cv::COLOR_BGR2RGB);
-		bool nonstop = slam.trackFrame(image, depth);
-		if(!nonstop)
-			return 0;
+		slam.trackFrame(image, depth, i, 0);
 	}
 
-	slam.JoinViewer();
+//	slam.JoinViewer();
 }
 
 void load_tum_dataset(std::string & dataset_path,

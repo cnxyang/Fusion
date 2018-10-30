@@ -165,7 +165,7 @@ void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
 		     const DeviceArray2D<short> & dIdy,
 		     Matrix3f RcurrInv,
 		     Matrix3f Rlast,
-		     Intrinsics K,
+		     CameraIntrinsics K,
 		     DeviceArray2D<float> & sum,
 		     DeviceArray<float> & out,
 		     float * residual,
@@ -325,7 +325,7 @@ void ICPStep(DeviceArray2D<float4> & nextVMap,
 			 Matrix3f Rlast,
 			 Matrix3f RlastInv,
 			 float3 tlast,
-			 Intrinsics K,
+			 CameraIntrinsics K,
 			 DeviceArray2D<float> & sum,
 			 DeviceArray<float> & out,
 			 float * residual,
@@ -350,7 +350,7 @@ void ICPStep(DeviceArray2D<float4> & nextVMap,
 	icp.RlastInv = RlastInv;
 	icp.tlast = tlast;
 	icp.angleThresh = 0.6;
-	icp.distThresh = 0.1;
+	icp.distThresh = 0.05;
 	icp.fx = K.fx;
 	icp.fy = K.fy;
 	icp.cx = K.cx;
@@ -565,7 +565,7 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 			 Matrix3f RlastInv,
 			 float3 tcurr,
 			 float3 tlast,
-			 Intrinsics K,
+			 CameraIntrinsics K,
 			 DeviceArray2D<float> & sum,
 			 DeviceArray<float> & out,
 			 DeviceArray2D<int> & sumRes,

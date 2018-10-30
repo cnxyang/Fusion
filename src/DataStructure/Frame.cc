@@ -8,7 +8,7 @@
 using namespace cv;
 using namespace std;
 
-Mat Frame::mK[NUM_PYRS];
+Eigen::Matrix3f Frame::mK[NUM_PYRS];
 bool Frame::mbFirstCall = true;
 float Frame::mDepthCutoff = 3.0f;
 float Frame::mDepthScale = 1000.0f;
@@ -62,7 +62,7 @@ void Frame::Clear() {
 }
 
 void Frame::FillImages(const cv::Mat & range_, const cv::Mat & color_) {
-	std::cout << sizeof(float)*9 * (float)20000000 / 1024.0 /1024.0 << std::endl;
+
 	temp.upload(range_.data, range_.step);
 	color.upload(color_.data, color_.step);
 	FilterDepth(temp, range, depth[0], mDepthScale, mDepthCutoff);
@@ -231,34 +231,34 @@ void Frame::DrawKeyPoints() {
 	cv::waitKey(10);
 }
 
-void Frame::SetK(cv::Mat& K) {
+void Frame::SetK(Eigen::Matrix3f& K) {
 	for(int i = 0; i < NUM_PYRS; ++i) {
-		mK[i] = cv::Mat::eye(3, 3, CV_32FC1);
-		mK[i].at<float>(0, 0) = K.at<float>(0, 0) / (1 << i);
-		mK[i].at<float>(1, 1) = K.at<float>(1, 1) / (1 << i);
-		mK[i].at<float>(0, 2) = K.at<float>(0, 2) / (1 << i);
-		mK[i].at<float>(1, 2) = K.at<float>(1, 2) / (1 << i);
+		mK[i] = Eigen::Matrix3f::Identity();
+		mK[i](0, 0) = K(0, 0) / (1 << i);
+		mK[i](1, 1) = K(1, 1) / (1 << i);
+		mK[i](0, 2) = K(0, 2) / (1 << i);
+		mK[i](1, 2) = K(1, 2) / (1 << i);
 	}
 }
 
 float Frame::fx(int pyr) {
 	assert(pyr >= 0 && pyr <= NUM_PYRS);
-	return mK[pyr].at<float>(0, 0);
+	return mK[pyr](0, 0);
 }
 
 float Frame::fy(int pyr) {
 	assert(pyr >= 0 && pyr <= NUM_PYRS);
-	return mK[pyr].at<float>(1, 1);
+	return mK[pyr](1, 1);
 }
 
 float Frame::cx(int pyr) {
 	assert(pyr >= 0 && pyr <= NUM_PYRS);
-	return mK[pyr].at<float>(0, 2);
+	return mK[pyr](0, 2);
 }
 
 float Frame::cy(int pyr) {
 	assert(pyr >= 0 && pyr <= NUM_PYRS);
-	return mK[pyr].at<float>(1, 2);
+	return mK[pyr](1, 2);
 }
 
 int Frame::cols(int pyr) {

@@ -113,7 +113,7 @@ void ForwardWarping(const DeviceArray2D<float4> & srcVMap,
 void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
 		const DeviceArray2D<unsigned char> & lastImage,
 		const DeviceArray2D<short> & dIdx, const DeviceArray2D<short> & dIdy,
-		Matrix3f RcurrInv, Matrix3f Rlast, Intrinsics K,
+		Matrix3f RcurrInv, Matrix3f Rlast, CameraIntrinsics K,
 		DeviceArray2D<float> & sum, DeviceArray<float> & out, float * residual,
 		double * matrixA_host, double * vectorB_host);
 
@@ -125,7 +125,7 @@ void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
 void ICPStep(DeviceArray2D<float4> & nextVMap, DeviceArray2D<float4> & lastVMap,
 		DeviceArray2D<float4> & nextNMap, DeviceArray2D<float4> & lastNMap,
 		Matrix3f Rcurr, float3 tcurr, Matrix3f Rlast, Matrix3f RlastInv,
-		float3 tlast, Intrinsics K, DeviceArray2D<float> & sum,
+		float3 tlast, CameraIntrinsics K, DeviceArray2D<float> & sum,
 		DeviceArray<float> & out, float * residual, double * matrixA_host,
 		double * vectorB_host);
 
@@ -139,7 +139,7 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 		const DeviceArray2D<float4> & lastVMap,
 		const DeviceArray2D<short> & dIdx, const DeviceArray2D<short> & dIdy,
 		Matrix3f Rcurr, Matrix3f RcurrInv, Matrix3f Rlast, Matrix3f RlastInv,
-		float3 tcurr, float3 tlast, Intrinsics K, DeviceArray2D<float> & sum,
+		float3 tcurr, float3 tlast, CameraIntrinsics K, DeviceArray2D<float> & sum,
 		DeviceArray<float> & out, DeviceArray2D<int> & sumRes,
 		DeviceArray<int> & outRes, float * residual, double * matrixA_host,
 		double * vectorB_host);

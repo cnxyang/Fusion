@@ -1,7 +1,7 @@
 #ifndef MAPPING_HPP__
 #define MAPPING_HPP__
 
-#include "System.h"
+#include "SlamSystem.h"
 #include "Tracking.h"
 #include "KeyFrame.h"
 #include "DeviceMap.h"
@@ -10,15 +10,15 @@
 #include <opencv.hpp>
 
 class KeyMap;
-class System;
+class SlamSystem;
 class Tracker;
 class PointCloud;
 
-class DistanceField
+class DenseMap
 {
 public:
 
-	DistanceField();
+	DenseMap();
 
 
 	void Reset();
@@ -164,10 +164,10 @@ public:
 
 	//======================== REFACOTRING ========================
 
-	DistanceField(float voxelSize, int numSdfBlock, int numHashEntry);
-	DistanceField(const DistanceField&) = delete;
-	DistanceField& operator=(const DistanceField&) = delete;
-	~DistanceField();
+	DenseMap(float voxelSize, int numSdfBlock, int numHashEntry);
+	DenseMap(const DenseMap&) = delete;
+	DenseMap& operator=(const DenseMap&) = delete;
+	~DenseMap();
 
 	void writeMapToDisk(std::string path);
 	void readMapFromDisk(std::string path);
@@ -176,11 +176,14 @@ public:
 	void allocateHostMemory();
 	void releaseHostMemory();
 	void releaseDeviceMemory();
-
+	void takeSnapShot(PointCloud* data, int numVisibleBlocks = -1);
+	int fusePointCloud(PointCloud* data);
 	// in between
 	void allocateDeviceMemory();
 
 protected:
+
+	uint updateVisibility(PointCloud* data);
 
 	// basic map struct
 	struct MapStruct

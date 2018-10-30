@@ -8,15 +8,15 @@ class FramePoseStruct
 {
 public:
 
-	FramePoseStruct(Frame * frame);
-	FramePoseStruct * trackingParent;
-	Frame * frame;
+	FramePoseStruct(Frame* frame);
+	FramePoseStruct* parentPose;
+	Frame* frame;
 	bool isRegisteredInGraph;
 	bool isOptimised;
 	bool isInGraph;
-	g2o::VertexSE3Expmap * graphVertex;
+	g2o::VertexSE3Expmap* graphVertex;
 
-	SE3 thisToParent_raw;
+	SE3 thisToParent;
 	inline SE3 getCamToWorld();
 
 private:

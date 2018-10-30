@@ -38,7 +38,7 @@ Tracker::Tracker(int w, int h, float fx, float fy, float cx, float cy) :
 	sumRes.create(2, 96);
 	outRes.create(2);
 
-	K = Intrinsics(fx, fy, cx, cy);
+	K = CameraIntrinsics(fx, fy, cx, cy);
 	matcher = cuda::DescriptorMatcher::createBFMatcher(NORM_L2);
 
 	NextFrame = new Frame();
@@ -529,7 +529,6 @@ bool Tracker::ComputeSE3(bool icpOnly, const int * iter, const float thresh_icp)
 			delta = e * delta;
 			nextPose = lastPose * delta.inverse();
 			NextFrame->pose = nextPose;
-			std::cout << "ERROR: "<< i << "/" <<j << " : "<<lastIcpError << " " << lastRgbError << std::endl;
 		}
 	}
 
@@ -826,10 +825,10 @@ Eigen::Matrix4f Tracker::GetCurrentPose() const {
 	return LastFrame->pose.matrix().cast<float>();
 }
 
-void Tracker::SetMap(DistanceField* pMap) {
+void Tracker::SetMap(DenseMap* pMap) {
 	map = pMap;
 }
 
-void Tracker::SetViewer(SlamViewer* pViewer) {
+void Tracker::SetViewer(GlViewer* pViewer) {
 	viewer = pViewer;
 }

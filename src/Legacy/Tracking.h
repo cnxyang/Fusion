@@ -4,12 +4,12 @@
 #include <mutex>
 #include <condition_variable>
 #include "Frame.h"
-#include "SlamViewer.h"
-#include "DistanceField.h"
+#include "GlViewer.h"
+#include "DenseMap.h"
 #include "DeviceFuncs.h"
 
-class SlamViewer;
-class DistanceField;
+class GlViewer;
+class DenseMap;
 
 class Tracker {
 
@@ -25,13 +25,13 @@ public:
 
 	void ResetTracking();
 
-	void SetMap(DistanceField * map_);
+	void SetMap(DenseMap * map_);
 
-	void SetViewer(SlamViewer * viewer_);
+	void SetViewer(GlViewer * viewer_);
 
 	Eigen::Matrix4f GetCurrentPose() const;
 
-	Intrinsics K;
+	CameraIntrinsics K;
 
 	Sophus::SE3d nextPose;
 	Sophus::SE3d lastPose;
@@ -88,9 +88,9 @@ protected:
 
 	void InsertFrame();
 
-	DistanceField * map;
+	DenseMap * map;
 
-	SlamViewer * viewer;
+	GlViewer * viewer;
 
 	const int maxIter = 35;
 	const int maxIterReloc = 100;

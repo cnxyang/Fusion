@@ -4,24 +4,30 @@
 
 class Frame;
 
-#define PYRAMID_LEVELS 3
-
 struct PointCloud
 {
+	static const int NUM_PYRS = 3;
 	PointCloud();
+	PointCloud(const PointCloud&) = delete;
+	PointCloud& operator=(const PointCloud&) = delete;
 
-	void importFrame(Frame* frame, bool useRGB = true);
+	~PointCloud();
+
+	void generateCloud(Frame* frame);
+	void setReferenceFrame(Frame* frame);
+	void generatePyramid();
 
 	bool memoryAllocated;
 
-	DeviceArray2D<uchar> image[PYRAMID_LEVELS];
-	DeviceArray2D<float> depth[PYRAMID_LEVELS];
-	DeviceArray2D<short> dIdx[PYRAMID_LEVELS];
-	DeviceArray2D<short> dIdy[PYRAMID_LEVELS];
-	DeviceArray2D<float4> vmap[PYRAMID_LEVELS];
-	DeviceArray2D<float4> nmap[PYRAMID_LEVELS];
+	DeviceArray2D<uchar> image[NUM_PYRS];
+	DeviceArray2D<float> depth[NUM_PYRS];
+	DeviceArray2D<short> dIdx[NUM_PYRS];
+	DeviceArray2D<short> dIdy[NUM_PYRS];
+	DeviceArray2D<float4> vmap[NUM_PYRS];
+	DeviceArray2D<float4> nmap[NUM_PYRS];
 	DeviceArray2D<uchar3> image_raw;
-	DeviceArray2D<float> depth_raw;
+	DeviceArray2D<float> depth_float;
+	DeviceArray2D<unsigned short> depth_ushort;
 
 	Frame * frame;
 };

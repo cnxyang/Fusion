@@ -1,40 +1,20 @@
 #pragma once
 
-#include <Eigen/Core>
-#include <sophus/se3.hpp>
 #include "Utilities/DeviceArray.h"
 #include "Utilities/SophusUtil.h"
+#include <Eigen/Core>
 
 class Frame;
 class PointCloud;
 
-#define PYRAMID_LEVELS 3
-
 class ICPTracker
 {
 public:
+	static const int NUM_PYRS = 3;
 	ICPTracker(int w, int h, Eigen::Matrix3f K);
-
 	~ICPTracker();
 
-	inline void setIterations(std::vector<float> iter);
-
-	inline void setTrackingLevel(int begin = 2, int end = 0);
-
-	Sophus::SE3d trackSE3(Frame* trackingReference,
-			Frame* trackingTarget,
-			Sophus::SE3d frameToRef_initialEstimate = SE3(),
-			bool directImageAlignment = true);
-
-	Sophus::SE3d trackSE3(PointCloud* trackingReference,
-			Frame* trackingTarget,
-			Sophus::SE3d frameToRef_initialEstimate = SE3(),
-			bool directImageAlignment = true);
-
-	Sophus::SE3d trackSE3(PointCloud* trackingReference,
-			PointCloud* trackingTarget,
-			Sophus::SE3d frameToRef_initialEstimate = SE3(),
-			bool directImageAlignment = true);
+	SE3 trackSE3(PointCloud* ref, PointCloud* target, SE3 initValue = SE3(), bool useRGB = true);
 
 	bool trackingWasGood;
 	float lastIcpError;
@@ -42,31 +22,24 @@ public:
 	float icpInlierRatio;
 	float rgbInlierRatio;
 
+	inline void setIterations(std::vector<float> iter);
+
 protected:
 
-	PointCloud * trackingReference;
-	PointCloud * trackingTarget;
-
-	// used for ICP reduction
+	// temporary variables
+	// used for icp reduction
 	DeviceArray<float> outSE3;
 	DeviceArray2D<float> sumSE3;
 	DeviceArray<int> outRES;
 	DeviceArray2D<int> sumRES;
 
-	const int iterations[PYRAMID_LEVELS] = { 10, 5, 3 };
-
-	int trackingLevelBegin;
-	int trackingLevelEnd;
+	// the number of iterations per layer
+	// NOTE: should set manually before tracking
+	int iterations[NUM_PYRS];
 };
 
 inline void ICPTracker::setIterations(std::vector<float> iter)
 {
-//	for (int level = 0; level < PYRAMID_LEVELS; ++level)
-//		iterations[level] = iter[level];
-}
-
-inline void ICPTracker::setTrackingLevel(int begin, int end)
-{
-	trackingLevelBegin = begin;
-	trackingLevelEnd = end;
+	for (int level = 0; level < NUM_PYRS; ++level)
+		iterations[level] = iter[level];
 }

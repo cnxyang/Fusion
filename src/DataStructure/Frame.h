@@ -95,7 +95,7 @@ public:
 	unsigned long frameId;
 	static unsigned long nextId;
 
-	static cv::Mat mK[NUM_PYRS];
+	static Eigen::Matrix3f mK[NUM_PYRS];
 	static int mCols[NUM_PYRS];
 	static int mRows[NUM_PYRS];
 
@@ -105,7 +105,7 @@ public:
 	static float cy(int pyr);
 	static int cols(int pyr);
 	static int rows(int pyr);
-	static void SetK(cv::Mat& K);
+	static void SetK(Eigen::Matrix3f& K);
 	static bool mbFirstCall;
 	static float mDepthScale;
 	static float mDepthCutoff;
