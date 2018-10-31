@@ -32,7 +32,8 @@ protected:
 	DeviceArray2D<float> sumSE3;
 	DeviceArray<int> outRES;
 	DeviceArray2D<int> sumRES;
-	const float RGBWeight = 1e-4;
+	const float RGBWeight = 0.0001f;
+
 	// the number of iterations per layer
 	// NOTE: should set manually before tracking
 	int iterations[NUM_PYRS];

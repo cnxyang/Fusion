@@ -1,4 +1,3 @@
-#include "Constant.h"
 #include "DeviceFuncs.h"
 #include "DeviceParallelScan.h"
 

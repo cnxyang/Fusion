@@ -1,5 +1,5 @@
 #include "DenseMap.h"
-#include "Constant.h"
+#include "Settings.h"
 #include "PointCloud.h"
 #include "DeviceFuncs.h"
 

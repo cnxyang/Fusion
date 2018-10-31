@@ -87,15 +87,15 @@ void SlamSystem::rebootSystem()
 //		trackingReference->generatePyramid();
 //		latestTrackedFrame = currentFrame;
 //		currentKeyFrame = currentFrame;
-//		viewer->keyFrameGraph.push_back(currentKeyFrame->pose);
+//		viewer->keyFrameGraph.push_back(currentKeyFrame->pose());
 //		return;
 //	}
 //
 //	// track current frame. return frame-to-last-frame transform
-//	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget);
+//	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget, SE3(), false);
 //
 //	// Update current frame pose
-//	currentFrame->pose = latestTrackedFrame->pose * poseUpdate.inverse();
+//	currentFrame->pose() = latestTrackedFrame->pose() * poseUpdate.inverse();
 //
 //	// set last tracked frame to current frame
 //	latestTrackedFrame = currentFrame;
@@ -150,7 +150,7 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 
 	// Track current frame
 	// Return frame to current *Key Frame* transform
-	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget, initialEstimate);
+	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget, initialEstimate, false);
 
 	// Update current frame pose
 	currentFrame->pose() = currentKeyFrame->pose() * poseUpdate.inverse();
@@ -170,14 +170,9 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 		float pointUsage = std::min(tracker->icpInlierRatio, tracker->rgbInlierRatio);
 		Sophus::Vector3d dist = poseUpdate.translation();
 
-		float closenessScore = dist.dot(dist) * 16 + 9 * (1 - pointUsage) * (1 - pointUsage);
+		float closenessScore = 16 * dist.norm() + (1 - pointUsage) * (1 - pointUsage);
 
-		std::cerr << "ICP Inlier ratio : " << tracker->icpInlierRatio << "\n"
-				<< "RGB Inlier ratio : " << tracker->rgbInlierRatio << "\n"
-				<< "ICP error : " << tracker->lastIcpError << "\nRGB error : " << tracker->lastRgbError << "\nclosenessScore: " << closenessScore << std::endl;
-
-
-		if(closenessScore > 2.0)
+		if(closenessScore > 3.f)
 		{
 			std::swap(trackingReference, trackingTarget);
 			map->takeSnapShot(trackingReference);
@@ -322,10 +317,9 @@ void SlamSystem::updateVisualisation()
 
 	if (toggleShowMesh)
 	{
-		if (systemState.numTrackedKeyFrames != numTrackedKeyFrames)
+		if (systemState.numTrackedFrames % 30 == 0)
 		{
 			map->CreateModel();
-			numTrackedKeyFrames = systemState.numTrackedKeyFrames;
 		}
 	}
 

@@ -84,15 +84,6 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
-					<fileInfo id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.570034299" name="LiveSlamWrapper.cc" rcbsApplicability="disable" resourcePath="src/LiveSlamWrapper.cc" toolsToInvoke="nvcc.compiler.base.1047712494.1615443670">
-						<tool id="nvcc.compiler.base.1047712494.1615443670" name="NVCC Compiler" superClass="nvcc.compiler.base.1047712494"/>
-						<tool customBuildStep="true" id="org.eclipse.cdt.managedbuilder.ui.rcbs.76987177" name="Resource Custom Build Step">
-							<inputType id="org.eclipse.cdt.managedbuilder.ui.rcbs.inputtype.1505870414" name="Resource Custom Build Step Input Type">
-								<additionalInput kind="additionalinputdependency" paths=""/>
-							</inputType>
-							<outputType id="org.eclipse.cdt.managedbuilder.ui.rcbs.outputtype.1490980924" name="Resource Custom Build Step Output Type"/>
-						</tool>
-					</fileInfo>
 					<sourceEntries>
 						<entry excluding="Main.cc|src|live.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry excluding="LiveSlamWrapper.cc|Main.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
@@ -288,9 +279,12 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<fileInfo id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.490052200.1261621413" name="RunDataset.cc" rcbsApplicability="disable" resourcePath="src/RunDataset.cc" toolsToInvoke="nvcc.compiler.base.1624376860.249145394">
+						<tool id="nvcc.compiler.base.1624376860.249145394" name="NVCC Compiler" superClass="nvcc.compiler.base.1624376860"/>
+					</fileInfo>
 					<sourceEntries>
 						<entry excluding="MainTum.cc|tum.cpp|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
-						<entry excluding="LiveSlamWrapper.cc|DataSetSlam.cc|MainTum.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="RunDataset.cc|DataSetSlam.cc|MainTum.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
