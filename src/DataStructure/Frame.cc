@@ -213,7 +213,7 @@ void Frame::ExtractKeyPoints() {
 		bad = true;
 
 	descriptors.upload(desc);
-	pose = Sophus::SE3d();
+//	pose() = SE3d;
 }
 
 void Frame::DrawKeyPoints() {
@@ -279,7 +279,7 @@ Eigen::Vector3f Frame::GetWorldPoint(int i) {
 
 Matrix3f Frame::GpuRotation() {
 	Matrix3f Rot;
-	Eigen::Matrix4d mPose = pose.matrix();
+	Eigen::Matrix4d mPose = pose().matrix();
 	Rot.rowx = make_float3(mPose(0, 0), mPose(0, 1), mPose(0, 2));
 	Rot.rowy = make_float3(mPose(1, 0), mPose(1, 1), mPose(1, 2));
 	Rot.rowz = make_float3(mPose(2, 0), mPose(2, 1), mPose(2, 2));
@@ -296,11 +296,11 @@ Matrix3f Frame::GpuInvRotation() {
 }
 
 float3 Frame::GpuTranslation() {
-	return make_float3(pose.translation()(0), pose.translation()(1), pose.translation()(2));
+	return make_float3(pose().translation()(0), pose().translation()(1), pose().translation()(2));
 }
 
 Eigen::Matrix3d Frame::Rotation() {
-	return pose.matrix().topLeftCorner(3, 3);
+	return pose().matrix().topLeftCorner(3, 3);
 }
 
 Eigen::Matrix3d Frame::RotationInv() {
@@ -308,7 +308,7 @@ Eigen::Matrix3d Frame::RotationInv() {
 }
 
 Eigen::Vector3d Frame::Translation() {
-	return pose.matrix().topRightCorner(3, 1);
+	return pose().matrix().topRightCorner(3, 1);
 }
 
 Eigen::Vector3d Frame::TranslationInv() {

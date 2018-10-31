@@ -9,5 +9,5 @@ MapPoint::MapPoint(const KeyFrame * kf):
 }
 
 Eigen::Vector3f MapPoint::GetWorldPosition() {
-	return RefKF->Rotation() * position + RefKF->Translation();
+//	return RefKF->Rotation() * position + RefKF->Translation();
 }

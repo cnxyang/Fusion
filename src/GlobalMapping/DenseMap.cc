@@ -59,10 +59,10 @@ void VoxelMap::ForwardWarp(Frame * last, Frame * next) {
 
 void VoxelMap::UpdateVisibility(const KeyFrame * kf, uint & no) {
 
-	CheckBlockVisibility(*this, noVisibleEntries, kf->GpuRotation(),
-			kf->GpuInvRotation(), kf->GpuTranslation(), Frame::cols(0),
-			Frame::rows(0), Frame::fx(0), Frame::fy(0), Frame::cx(0),
-			Frame::cy(0), DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
+//	CheckBlockVisibility(*this, noVisibleEntries, kf->GpuRotation(),
+//			kf->GpuInvRotation(), kf->GpuTranslation(), Frame::cols(0),
+//			Frame::rows(0), Frame::fx(0), Frame::fy(0), Frame::cx(0),
+//			Frame::cy(0), DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
 }
 
 void VoxelMap::UpdateVisibility(Frame * f, uint & no) {
@@ -223,106 +223,106 @@ bool VoxelMap::HasNewKF() {
 
 void VoxelMap::FuseKeyFrame(const KeyFrame * kf) {
 
-	if (keyFrames.count(kf))
-		return;
-
-	keyFrames.insert(kf);
-
-	cv::Mat desc;
-	std::vector<int> index;
-	std::vector<int> keyIndex;
-	std::vector<SURF> keyChain;
-	kf->descriptors.download(desc);
-	kf->outliers.resize(kf->N);
-	std::fill(kf->outliers.begin(), kf->outliers.end(), true);
-	int noK = std::min(kf->N, (int) surfKeys.size);
-
-	kf->pt3d.resize(kf->N);
-
-	for (int i = 0; i < noK; ++i) {
-
-		if (kf->observations[i] > 0) {
-			SURF key;
-			Eigen::Vector3f pt = kf->GetWorldPoint(i);
-			key.pos = {pt(0), pt(1), pt(2)};
-			key.normal = kf->pointNormal[i];
-			key.valid = true;
-
-			for (int j = 0; j < 64; ++j) {
-				key.descriptor[j] = desc.at<float>(i, j);
-			}
-
-			index.push_back(i);
-			keyChain.push_back(key);
-			keyIndex.push_back(kf->keyIndex[i]);
-			kf->outliers[i] = false;
-		}
-	}
-
-	std::cout << "Num KP fused : " << std::count(kf->outliers.begin(), kf->outliers.end(), false) << std::endl;
-
-	surfKeys.upload(keyChain.data(), keyChain.size());
-	mapKeyIndex.upload(keyIndex.data(), keyIndex.size());
-
-	InsertKeyPoints(*this, surfKeys, mapKeyIndex, keyChain.size());
-
-	mapKeyIndex.download(keyIndex.data(), keyIndex.size());
-	surfKeys.download(keyChain.data(), keyChain.size());
-
-	for(int i = 0; i < index.size(); ++i) {
-		int idx = index[i];
-		kf->keyIndex[idx] = keyIndex[i];
-		float3 pos = keyChain[i].pos;
-		kf->mapPoints[idx] << pos.x, pos.y, pos.z;
-	}
-
-	if(localMap.size() > 0) {
-		if(localMap.size() >= 7) {
-			localMap.erase(localMap.begin());
-			localMap.push_back(kf);
-		}
-		else
-			localMap.push_back(kf);
-	}
-	else
-		localMap.push_back(kf);
-
-	newKF = const_cast<KeyFrame *>(kf);
-
-	FindLocalGraph(newKF);
-	poseGraph.insert(newKF);
-
-	hasNewKFFlag = true;
+//	if (keyFrames.count(kf))
+//		return;
+//
+//	keyFrames.insert(kf);
+//
+//	cv::Mat desc;
+//	std::vector<int> index;
+//	std::vector<int> keyIndex;
+//	std::vector<SURF> keyChain;
+//	kf->descriptors.download(desc);
+//	kf->outliers.resize(kf->N);
+//	std::fill(kf->outliers.begin(), kf->outliers.end(), true);
+//	int noK = std::min(kf->N, (int) surfKeys.size);
+//
+//	kf->pt3d.resize(kf->N);
+//
+//	for (int i = 0; i < noK; ++i) {
+//
+//		if (kf->observations[i] > 0) {
+//			SURF key;
+//			Eigen::Vector3f pt = kf->GetWorldPoint(i);
+//			key.pos = {pt(0), pt(1), pt(2)};
+//			key.normal = kf->pointNormal[i];
+//			key.valid = true;
+//
+//			for (int j = 0; j < 64; ++j) {
+//				key.descriptor[j] = desc.at<float>(i, j);
+//			}
+//
+//			index.push_back(i);
+//			keyChain.push_back(key);
+//			keyIndex.push_back(kf->keyIndex[i]);
+//			kf->outliers[i] = false;
+//		}
+//	}
+//
+//	std::cout << "Num KP fused : " << std::count(kf->outliers.begin(), kf->outliers.end(), false) << std::endl;
+//
+//	surfKeys.upload(keyChain.data(), keyChain.size());
+//	mapKeyIndex.upload(keyIndex.data(), keyIndex.size());
+//
+//	InsertKeyPoints(*this, surfKeys, mapKeyIndex, keyChain.size());
+//
+//	mapKeyIndex.download(keyIndex.data(), keyIndex.size());
+//	surfKeys.download(keyChain.data(), keyChain.size());
+//
+//	for(int i = 0; i < index.size(); ++i) {
+//		int idx = index[i];
+//		kf->keyIndex[idx] = keyIndex[i];
+//		float3 pos = keyChain[i].pos;
+//		kf->mapPoints[idx] << pos.x, pos.y, pos.z;
+//	}
+//
+//	if(localMap.size() > 0) {
+//		if(localMap.size() >= 7) {
+//			localMap.erase(localMap.begin());
+//			localMap.push_back(kf);
+//		}
+//		else
+//			localMap.push_back(kf);
+//	}
+//	else
+//		localMap.push_back(kf);
+//
+//	newKF = const_cast<KeyFrame *>(kf);
+//
+//	FindLocalGraph(newKF);
+//	poseGraph.insert(newKF);
+//
+//	hasNewKFFlag = true;
 }
 
 void VoxelMap::FindLocalGraph(KeyFrame * kf) {
 
-	const float distTH = 0.5f;
-	const float angleTH = 0.3f;
-	Eigen::Vector3f viewDir = kf->Rotation().rightCols<1>();
-
-	std::vector<KeyFrame *> kfCandidates;
-
-	for(std::set<KeyFrame *>::iterator iter = poseGraph.begin(),lend = poseGraph.end();	iter != lend; ++iter) {
-
-		KeyFrame * candidate = *iter;
-
-		if(candidate->frameId == kf->frameId)
-			continue;
-
-		float dist = candidate->Translation().dot(kf->Translation());
-		if(dist > distTH)
-			continue;
-
-		Eigen::Vector3f dir = candidate->Rotation().rightCols<1>();
-		float angle = viewDir.dot(dir);
-
-		if(angle < angleTH)
-			continue;
-
-		kfCandidates.push_back(candidate);
-		std::cout << angle << "/" << angleTH << "  " << dist << "/" << distTH << std::endl;
-	}
+//	const float distTH = 0.5f;
+//	const float angleTH = 0.3f;
+//	Eigen::Vector3f viewDir = kf->Rotation().rightCols<1>();
+//
+//	std::vector<KeyFrame *> kfCandidates;
+//
+//	for(std::set<KeyFrame *>::iterator iter = poseGraph.begin(),lend = poseGraph.end();	iter != lend; ++iter) {
+//
+//		KeyFrame * candidate = *iter;
+//
+//		if(candidate->frameId == kf->frameId)
+//			continue;
+//
+//		float dist = candidate->Translation().dot(kf->Translation());
+//		if(dist > distTH)
+//			continue;
+//
+//		Eigen::Vector3f dir = candidate->Rotation().rightCols<1>();
+//		float angle = viewDir.dot(dir);
+//
+//		if(angle < angleTH)
+//			continue;
+//
+//		kfCandidates.push_back(candidate);
+//		std::cout << angle << "/" << angleTH << "  " << dist << "/" << distTH << std::endl;
+//	}
 }
 
 void VoxelMap::FuseKeyPoints(Frame * f) {

@@ -253,7 +253,7 @@ GlViewer::GlViewer(std::string title, int w, int h, Eigen::Matrix3f K) :
 	buttonShowPoseGraph = new CheckBoxOff("ui.Show Pose Graph");
 	buttonShowKeyPoints = new CheckBoxOff("ui.Show Key Points");
 	buttonRenderSceneMesh = new CheckBoxOn("ui.Toggle Mesh");
-	buttonShowCurrentCamera = new CheckBoxOn("ui.Toggle Current Camera");
+	buttonShowCurrentCamera = new CheckBoxOn("ui.Toggle Camera");
 	buttonFollowCamera = new CheckBoxOff("ui.Fllow Camera");
 	buttonRenderSceneNormal = new CheckBoxOff("ui.Show Normal");
 	buttonRenderSceneRGB = new CheckBoxOff("ui.Show Color Map");

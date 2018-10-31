@@ -147,11 +147,11 @@ public:
 	/** Returns the frame's recording timestamp. */
 	inline double timeStamp() const;
 
-	inline Sophus::SE3d getCamToWorld() const;
-	Sophus::SE3d pose;
+	inline SE3& pose();
 	PoseStruct * poseStruct;
 
 	struct Data {
+
 		int id;
 		int width[NUM_PYRS], height[NUM_PYRS];
 		float fx[NUM_PYRS], fy[NUM_PYRS];
@@ -173,9 +173,9 @@ public:
 	std::unordered_map<Frame*, std::hash<Frame*>> neighbors;
 };
 
-inline Sophus::SE3d Frame::getCamToWorld() const
+inline SE3& Frame::pose()
 {
-	return poseStruct->getCamToWorld();
+	return poseStruct->camToWorld;
 }
 
 inline int Frame::id() const

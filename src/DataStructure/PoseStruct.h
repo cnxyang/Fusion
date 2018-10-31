@@ -17,14 +17,5 @@ public:
 	g2o::VertexSE3Expmap* graphVertex;
 
 	SE3 thisToParent;
-	inline SE3 getCamToWorld();
-
-private:
-
 	SE3 camToWorld;
 };
-
-inline SE3 PoseStruct::getCamToWorld()
-{
-	return camToWorld;
-}

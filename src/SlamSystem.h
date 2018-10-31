@@ -105,6 +105,7 @@ protected:
 
 	bool toggleShowMesh;
 	bool toggleShowImage;
+	int numTrackedKeyFrames;
 };
 
 inline bool SlamSystem::shouldQuit() const

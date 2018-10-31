@@ -13,7 +13,8 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 	nImgsProcessed(0), keepRunning(true), trackingTarget(NULL),
 	trackingReference(NULL), currentKeyFrame(NULL),
 	systemRunning(true), latestTrackedFrame(NULL),
-	toggleShowMesh(true), toggleShowImage(true)
+	toggleShowMesh(true), toggleShowImage(true),
+	numTrackedKeyFrames(0)
 {
 	map = new VoxelMap();
 	map->allocateDeviceMemory();
@@ -60,6 +61,60 @@ void SlamSystem::rebootSystem()
 	trackingReference->frame = NULL;
 }
 
+//void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeStamp) {
+//
+//	// process messages before tracking
+//	// this include system reboot requests
+//	// and other system directives.
+//	processMessages();
+//
+//	// create new frame and generate point cloud
+//	Frame* currentFrame = new Frame(img, depth, id, K, timeStamp);
+//	trackingTarget->generateCloud(currentFrame);
+//	viewer->setCurrentImages(trackingTarget);
+//
+//	// first frame of the dataset
+//	// no reference frame to track to
+//	if(!trackingReference->frame)
+//	{
+//		// for efficiency reasons swap tracking data
+//		// only used when doing frame-to-frame tracking
+//		std::swap(trackingReference, trackingTarget);
+//
+//		// do a raycast to ensure we have a copy of the map
+//		int numVisibleBlocks = map->fusePointCloud(trackingReference);
+//		map->takeSnapShot(trackingReference, numVisibleBlocks);
+//		trackingReference->generatePyramid();
+//		latestTrackedFrame = currentFrame;
+//		currentKeyFrame = currentFrame;
+//		viewer->keyFrameGraph.push_back(currentKeyFrame->pose);
+//		return;
+//	}
+//
+//	// track current frame. return frame-to-last-frame transform
+//	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget);
+//
+//	// Update current frame pose
+//	currentFrame->pose = latestTrackedFrame->pose * poseUpdate.inverse();
+//
+//	// set last tracked frame to current frame
+//	latestTrackedFrame = currentFrame;
+//
+//	// do a ray trace to ensure we have a copy of the map
+//	int numVisibleBlocks = map->fusePointCloud(trackingTarget);
+//	map->takeSnapShot(trackingTarget, numVisibleBlocks);
+//	trackingTarget->generatePyramid();
+//
+//	// Update visualisation
+//	updateVisualisation();
+//
+//	// for efficiency reasons swap tracking data
+//	// only used when doing frame-to-frame tracking
+//	std::swap(trackingReference, trackingTarget);
+//
+//	++systemState.numTrackedFrames;
+//}
+
 void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeStamp) {
 
 	// process messages before tracking
@@ -86,63 +141,57 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 		trackingReference->generatePyramid();
 		latestTrackedFrame = currentFrame;
 		currentKeyFrame = currentFrame;
-		viewer->keyFrameGraph.push_back(currentKeyFrame->pose);
+		viewer->keyFrameGraph.push_back(currentKeyFrame->pose());
 		return;
 	}
 
-	SE3 initialEstimate = latestTrackedFrame->pose.inverse() * currentKeyFrame->pose;
+	// Initial pose estimate
+	SE3 initialEstimate = latestTrackedFrame->pose().inverse() * currentKeyFrame->pose();
 
-	// track current frame. return frame-to-last-frame transform
+	// Track current frame
+	// Return frame to current *Key Frame* transform
 	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget, initialEstimate);
 
 	// Update current frame pose
-	currentFrame->pose = currentKeyFrame->pose * poseUpdate.inverse();
+	currentFrame->pose() = currentKeyFrame->pose() * poseUpdate.inverse();
 
-	// set last tracked frame to current frame
+	// Set last tracked frame to current frame
 	currentFrame->poseStruct->parentPose = latestTrackedFrame->poseStruct;
 	latestTrackedFrame = currentFrame;
 
-	// do a raycast to ensure we have a copy of the map
+	// Do a raycast to ensure we have a copy of the map
 	int numVisibleBlocks = map->fusePointCloud(trackingTarget);
-	map->takeSnapShot(trackingReference, numVisibleBlocks);
-	trackingReference->generatePyramid();
+//	map->takeSnapShot(trackingReference, numVisibleBlocks);
+//	trackingReference->generatePyramid();
 
 	// check if we insert a new key frame
 	if(tracker->trackingWasGood)
 	{
-		float pointUsage = tracker->icpInlierRatio;
-		Eigen::Vector3d dist = poseUpdate.translation();
-		float closenessScore = dist.dot(dist) * 32 + 5 * (1 - pointUsage) * (1 - pointUsage);
-		std::cout << 32 * dist.dot(dist) << " / " << 9 * (1 - pointUsage) * (1 - pointUsage) << std::endl;
-		if(closenessScore > 0.5f)
-		{
-			if(displayDebugInfo)
-			{
-				printf("Tracking for Frame %d was GOOD with residual error %2.2e "
-					   "and point usage %2.2f%%.\n", currentFrame->id(),
-					   tracker->lastIcpError, 100 * tracker->icpInlierRatio);
-			}
+		float pointUsage = std::min(tracker->icpInlierRatio, tracker->rgbInlierRatio);
+		Sophus::Vector3d dist = poseUpdate.translation();
 
+		float closenessScore = dist.dot(dist) * 16 + 9 * (1 - pointUsage) * (1 - pointUsage);
+
+		std::cerr << "ICP Inlier ratio : " << tracker->icpInlierRatio << "\n"
+				<< "RGB Inlier ratio : " << tracker->rgbInlierRatio << "\n"
+				<< "ICP error : " << tracker->lastIcpError << "\nRGB error : " << tracker->lastRgbError << "\nclosenessScore: " << closenessScore << std::endl;
+
+
+		if(closenessScore > 2.0)
+		{
 			std::swap(trackingReference, trackingTarget);
 			map->takeSnapShot(trackingReference);
 			trackingReference->generatePyramid();
 			currentKeyFrame = currentFrame;
-			viewer->keyFrameGraph.push_back(currentKeyFrame->pose);
-			if(displayDebugInfo)
-			{
-				std::cout << "Closeness Score for the current Frame is : " << closenessScore << std::endl;
-			}
+			viewer->keyFrameGraph.push_back(currentKeyFrame->pose());
+			++systemState.numTrackedKeyFrames;
 		}
 	}
 
 	// Update visualisation
 	updateVisualisation();
 
-	// for efficiency reasons swap tracking data
-	// only used when doing frame-to-frame tracking
-//	std::swap(trackingReference, trackingTarget);
-
-	nImgsProcessed++;
+	++systemState.numTrackedFrames;
 }
 
 void SlamSystem::processMessages()
@@ -269,13 +318,14 @@ void SlamSystem::findConstraintsForNewKeyFrames(Frame* newKF)
 
 void SlamSystem::updateVisualisation()
 {
-	viewer->setCurrentCamPose(latestTrackedFrame->pose);
+	viewer->setCurrentCamPose(latestTrackedFrame->pose());
 
 	if (toggleShowMesh)
 	{
-		if (nImgsProcessed % 25 == 0)
+		if (systemState.numTrackedKeyFrames != numTrackedKeyFrames)
 		{
 			map->CreateModel();
+			numTrackedKeyFrames = systemState.numTrackedKeyFrames;
 		}
 	}
 
