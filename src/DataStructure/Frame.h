@@ -1,19 +1,17 @@
 #ifndef FRAME__
 #define FRAME__
 
+#include "KeyFrame.h"
+#include "VectorMath.h"
+#include "PoseStruct.h"
+#include "KeyFrameGraph.h"
+#include "DeviceArray.h"
 #include <vector>
 #include <opencv.hpp>
 #include <sophus/se3.hpp>
 #include <features2d.hpp>
 #include <cudaarithm.hpp>
 #include <xfeatures2d/cuda.hpp>
-#include "Legacy/KeyFrame.h"
-#include "Utilities/VectorMath.h"
-#include "DataStructure/FramePoseStruct.h"
-#include "GlobalMapping/KeyFrameGraph.h"
-#include "Utilities/DeviceArray.h"
-
-#define PYRAMID_LEVELS 3
 
 class Frame
 {
@@ -151,19 +149,19 @@ public:
 
 	inline Sophus::SE3d getCamToWorld() const;
 	Sophus::SE3d pose;
-	FramePoseStruct * poseStruct;
+	PoseStruct * poseStruct;
 
 	struct Data {
 		int id;
-		int width[PYRAMID_LEVELS], height[PYRAMID_LEVELS];
-		float fx[PYRAMID_LEVELS], fy[PYRAMID_LEVELS];
-		float cx[PYRAMID_LEVELS], cy[PYRAMID_LEVELS];
-		float fxInv[PYRAMID_LEVELS], fyInv[PYRAMID_LEVELS];
-		float cxInv[PYRAMID_LEVELS], cyInv[PYRAMID_LEVELS];
+		int width[NUM_PYRS], height[NUM_PYRS];
+		float fx[NUM_PYRS], fy[NUM_PYRS];
+		float cx[NUM_PYRS], cy[NUM_PYRS];
+		float fxInv[NUM_PYRS], fyInv[NUM_PYRS];
+		float cxInv[NUM_PYRS], cyInv[NUM_PYRS];
 		double timeStamp;
 
-		Eigen::Matrix3f K[PYRAMID_LEVELS];
-		Eigen::Matrix3f KInv[PYRAMID_LEVELS];
+		Eigen::Matrix3f K[NUM_PYRS];
+		Eigen::Matrix3f KInv[NUM_PYRS];
 
 		cv::Mat image;
 		cv::Mat depth;

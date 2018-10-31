@@ -10,9 +10,7 @@ enum ENTRYTYPE { EntryAvailable = -1, EntryOccupied = -2 };
 struct __align__(8) RenderingBlock {
 
 	short2 upperLeft;
-
 	short2 lowerRight;
-
 	float2 zRange;
 };
 

@@ -10,66 +10,59 @@
 class Frame;
 class GlViewer;
 class Tracker;
-class DenseMap;
+class VoxelMap;
 class PointCloud;
 class ICPTracker;
 class KeyFrameGraph;
 
+// Msg is used for communicating
+// with the system, mainly from
+// the visualisation thread.
+struct Msg
+{
+	Msg(int msg) : data(msg) {}
+
+	enum
+	{
+		EMPTY_MSG,
+		SYSTEM_RESET,
+		EXPORT_MESH_TO_FILE,
+		WRITE_BINARY_MAP_TO_DISK,
+		READ_BINARY_MAP_FROM_DISK,
+		SYSTEM_SHUTDOWN,
+		TOGGLE_MESH_ON,
+		TOGGLE_MESH_OFF
+	};
+
+	int data;
+};
+
 class SlamSystem
 {
 public:
-
-	void RebootSystem();
-
-	void processMessages(bool finished = false);
-
-	void WriteMeshToDisk();
-
-	void WriteMapToDisk();
-
-	void ReadMapFromDisk();
-
-	void renderBirdsEyeView(float dist = 8.0f);
-
-	std::atomic<bool> paused;
-	std::atomic<bool> requestMesh;
-	std::atomic<bool> requestSaveMap;
-	std::atomic<bool> requestReadMap;
-	std::atomic<bool> requestSaveMesh;
-	std::atomic<bool> requestReboot;
-	std::atomic<bool> requestStop;
-	std::atomic<bool> imageUpdated;
-	std::atomic<bool> poseOptimized;
-
-	DeviceArray2D<float4> vmap;
-	DeviceArray2D<float4> nmap;
-	DeviceArray2D<uchar4> renderedImage;
-
-	cv::Mat mK;
-
-	void ReIntegration();
-
-	Tracker* tracker;
-	GlViewer* viewer;
-	DenseMap* map;
-
-//=================== REFACTORING ====================
-
 	SlamSystem(int w, int h, Eigen::Matrix3f K);
 	SlamSystem(const SlamSystem&) = delete;
 	SlamSystem& operator=(const SlamSystem&) = delete;
 	~SlamSystem();
 
 	// Public APIs
-	void rebootSystem();
 	bool shouldQuit() const;
-	void trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeStamp);
+	void queueMessage(Msg newmsg);
+	void trackFrame(cv::Mat& image, cv::Mat& depth, int id, double timeStamp);
 
-private:
+protected:
 
+	void rebootSystem();
+	void exportMeshAsFile();
+	void processMessages();
 	void systemReInitialise();
+	void writeBinaryMapToDisk();
+	void readBinaryMapFromDisk();
 	void updateVisualisation();
 	void findConstraintsForNewKeyFrames(Frame* newKF);
+
+	VoxelMap* map;
+	GlViewer* viewer;
 
 	// General control variables
 	bool keepRunning;
@@ -81,18 +74,16 @@ private:
 
 	// Image parameters
 	int width, height;
-	int numImagesProcessed;
+	int nImgsProcessed;
 
 	// Multi-threading loop
 	void loopVisualisation();
-	void loopMapUpdate();
 	void loopOptimization();
 	void loopConstraintSearch();
 
 	// Multi-threading variables
 	std::thread threadVisualisation;
 	std::thread threadOptimization;
-	std::thread threadMapUpdate;
 	std::thread threadConstraintSearch;
 
 	Frame* currentKeyFrame;
@@ -103,18 +94,17 @@ private:
 	// Used for frame-to-model tracking
 	PointCloud* trackingReference;
 	PointCloud* trackingTarget;
-	ICPTracker* mainTracker;
+	ICPTracker* tracker;
 
 	// Used for constraint searching
 	std::deque<Frame*> newKeyFrames;
 	std::mutex newKeyFrameMutex;
 
-	struct Mesh
-	{
-		DeviceArray<float4> vertex;
-		DeviceArray<float4> normal;
-		DeviceArray<uchar4> color;
-	} mesh;
+	std::mutex messageQueueMutex;
+	std::queue<Msg> messageQueue;
+
+	bool toggleShowMesh;
+	bool toggleShowImage;
 };
 
 inline bool SlamSystem::shouldQuit() const

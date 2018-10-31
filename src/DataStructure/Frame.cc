@@ -333,7 +333,7 @@ void Frame::initialize(int width, int height, int id, Eigen::Matrix3f & K, doubl
 {
 	data.id = id;
 
-	poseStruct = new FramePoseStruct(this);
+	poseStruct = new PoseStruct(this);
 
 	data.K[0] = K;
 	data.fx[0] = K(0, 0);
@@ -349,7 +349,7 @@ void Frame::initialize(int width, int height, int id, Eigen::Matrix3f & K, doubl
 
 	data.timeStamp = timeStamp;
 
-	for(int level = 0; level < PYRAMID_LEVELS; ++level)
+	for(int level = 0; level < NUM_PYRS; ++level)
 	{
 		data.width[level] = width >> level;
 		data.height[level] = height >> level;

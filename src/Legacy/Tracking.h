@@ -9,7 +9,7 @@
 #include "DeviceFuncs.h"
 
 class GlViewer;
-class DenseMap;
+class VoxelMap;
 
 class Tracker {
 
@@ -25,7 +25,7 @@ public:
 
 	void ResetTracking();
 
-	void SetMap(DenseMap * map_);
+	void SetMap(VoxelMap * map_);
 
 	void SetViewer(GlViewer * viewer_);
 
@@ -88,7 +88,7 @@ protected:
 
 	void InsertFrame();
 
-	DenseMap * map;
+	VoxelMap * map;
 
 	GlViewer * viewer;
 

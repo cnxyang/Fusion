@@ -1,25 +1,39 @@
-#ifndef MAPPING_HPP__
-#define MAPPING_HPP__
-
+#pragma once
 #include "SlamSystem.h"
 #include "Tracking.h"
 #include "KeyFrame.h"
 #include "DeviceMap.h"
-
+#include <opencv2/opencv.hpp>
 #include <vector>
-#include <opencv.hpp>
 
 class KeyMap;
-class SlamSystem;
 class Tracker;
+class SlamSystem;
 class PointCloud;
 
-class DenseMap
+struct MapStruct
+{
+	MapStruct() : memoryAllocated(false), heap(0),
+			ptr_entry(0), ptr_heap(0), mutex_bucket(0),
+			sdf_blocks(0), num_visible_blocks(0),
+			hash_table(0), visible_entry(0) {}
+
+	int * heap;
+	int * ptr_entry;
+	int * ptr_heap;
+	int * mutex_bucket;
+	Voxel * sdf_blocks;
+	uint * num_visible_blocks;
+	HashEntry * hash_table;
+	HashEntry * visible_entry;
+	bool memoryAllocated;
+};
+
+class VoxelMap
 {
 public:
 
-	DenseMap();
-
+	VoxelMap();
 
 	void Reset();
 
@@ -87,9 +101,6 @@ public:
 	operator KeyMap() const;
 
 	operator DeviceMap() const;
-
-	std::vector<KeyFrame *> LocalMap() const;
-	std::vector<KeyFrame *> GlobalMap() const;
 
 	std::atomic<bool> meshUpdated;
 	std::atomic<bool> mapPointsUpdated;
@@ -164,10 +175,12 @@ public:
 
 	//======================== REFACOTRING ========================
 
-	DenseMap(float voxelSize, int numSdfBlock, int numHashEntry);
-	DenseMap(const DenseMap&) = delete;
-	DenseMap& operator=(const DenseMap&) = delete;
-	~DenseMap();
+	VoxelMap(float voxelSize, int numSdfBlock, int numHashEntry);
+
+	VoxelMap(bool);
+	VoxelMap(const VoxelMap&) = delete;
+	VoxelMap& operator=(const VoxelMap&) = delete;
+	~VoxelMap();
 
 	void writeMapToDisk(std::string path);
 	void readMapFromDisk(std::string path);
@@ -178,6 +191,7 @@ public:
 	void releaseDeviceMemory();
 	void takeSnapShot(PointCloud* data, int numVisibleBlocks = -1);
 	int fusePointCloud(PointCloud* data);
+
 	// in between
 	void allocateDeviceMemory();
 
@@ -185,32 +199,8 @@ protected:
 
 	uint updateVisibility(PointCloud* data);
 
-	// basic map struct
-	struct MapStruct
-	{
-		MapStruct() : memoryAllocated(false), heap(0),
-				ptr_entry(0), ptr_heap(0), mutex_bucket(0),
-				sdf_blocks(0), num_visible_blocks(0),
-				hash_table(0), visible_entry(0) {}
-
-		int * heap;
-		int * ptr_entry;
-		int * ptr_heap;
-		int * mutex_bucket;
-		Voxel * sdf_blocks;
-		uint * num_visible_blocks;
-		HashEntry * hash_table;
-		HashEntry * visible_entry;
-		bool memoryAllocated;
-	};
-
-	// map data stored on GPU memory.
 	MapStruct device_map;
-	std::mutex mutexDeviceMap;
-
-	// map data stored on host memory i.e. RAM.
 	MapStruct host_map;
-	std::mutex mutexHostMap;
 
 	// these fields should remain relatively constant
 	// during one instance run, the system are not
@@ -266,5 +256,3 @@ protected:
 	uint numCurrentViewBlock;
 	Frame * lastCheckFrame;
 };
-
-#endif

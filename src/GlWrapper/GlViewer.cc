@@ -1,130 +1,22 @@
 #include "KeyFrame.h"
 #include "GlViewer.h"
-#include "Legacy/Tracking.h"
+#include "DeviceMap.h"
+#include "DenseMap.h"
 
 #include <unistd.h>
 #include <algorithm>
 #include <pangolin/gl/glcuda.h>
 #include <pangolin/gl/glvbo.h>
 
+#define PushButton(name) Var<bool>(name, false, false)
+#define CheckBoxOn(name) Var<bool>(name, true, true)
+#define CheckBoxOff(name) Var<bool>(name, false, true)
+
 using namespace std;
 using namespace pangolin;
 
-void GlViewer::processMessages()
+void GlViewer::drawBirdsEyeViewToCamera() const
 {
-	// if SYSTEM RESET
-	if (Pushed(*buttonSystemReset))
-	{
-		*buttonToggleLocalisationMode = false;
-		system->requestReboot = true;
-	}
-
-	// if EXPORT MESH TO FILE
-	if (Pushed(*buttonExportMeshToFile))
-		system->requestSaveMesh = true;
-
-	// if WRITE MAP TO BINARY FILE
-	if (Pushed(*buttonWriteMapToDiskBinary))
-	{
-		system->requestSaveMap = true;
-	}
-
-	// if READ MAP FROM BINARY FILE
-	if (Pushed(*buttonReadMapFromDiskBinary))
-	{
-		system->requestReadMap = true;
-		*buttonToggleLocalisationMode = true;
-	}
-}
-
-void GlViewer::drawViewsToScreen()
-{
-	glClearColor(0.0f, 0.2f, 0.3f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	modelViewCamera.Activate(viewCam);
-
-	if (*buttonRenderSceneMesh ||
-		*buttonRenderSceneNormal ||
-		*buttonRenderSceneRGB)
-	{
-		system->requestMesh = true;
-	}
-	else
-	{
-		system->requestMesh = false;
-	}
-
-	if (*buttonShowPoseGraph)
-		drawKeyFrameGraph();
-
-	if (*buttonShowKeyPoints)
-		drawKeys();
-
-	if (*buttonToggleWireFrame)
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-	if (*buttonRenderSceneMesh)
-	{
-		if (*buttonRenderSceneNormal)
-			*buttonRenderSceneNormal = false;
-		if (*buttonRenderSceneRGB)
-			*buttonRenderSceneRGB = false;
-		drawMesh(false);
-	}
-
-	if (*buttonRenderSceneNormal)
-	{
-		if (*buttonRenderSceneRGB)
-			*buttonRenderSceneRGB = false;
-		drawMesh(true);
-	}
-
-	if (*buttonRenderSceneRGB)
-	{
-		drawColor();
-	}
-
-	if (*buttonToggleWireFrame)
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-	if (*buttonShowCurrentCamera)
-		drawCurrentCamera();
-
-	if (*buttonFollowCamera)
-		setModelViewFollowCamera();
-
-	if (buttonEnableSyntheticView->Get())
-	{
-		imageSyntheticView.Activate();
-		drawSyntheticViewToCamera();
-	}
-
-	if (*buttonEnableDepthImage)
-	{
-		imageDepthView.Activate();
-		drawDepthViewToCamera();
-	}
-
-	if (*buttonEnableRGBImage)
-	{
-		imageRGBView.Activate();
-		drawRGBViewToCamera();
-	}
-
-	if (*buttonEnableBirdsEyeView)
-	{
-		imageBirdsEyeView.Activate();
-		drawBirdsEyeViewToCamera();
-	}
-
-	FinishFrame();
-
-	if(pangolin::ShouldQuit())
-		return;
-}
-
-void GlViewer::drawBirdsEyeViewToCamera() {
 //	if(system->imageUpdated) {
 //		SafeCall(cudaMemcpy2DToArray(**imageBirdsEyeCUDAMapped, 0, 0,
 //				(void*) system->renderedImage.data,
@@ -135,7 +27,8 @@ void GlViewer::drawBirdsEyeViewToCamera() {
 //	imageBirdsEye.RenderToViewport(true);
 }
 
-void GlViewer::drawSyntheticViewToCamera() {
+void GlViewer::drawSyntheticViewToCamera() const
+{
 //	if(tracker->imageUpdated) {
 //		if(tracker->updateImageMutex.try_lock()) {
 //			SafeCall(cudaMemcpy2DToArray(**imageSyntheticCUDAMapped, 0, 0,
@@ -149,7 +42,8 @@ void GlViewer::drawSyntheticViewToCamera() {
 //	imageSynthetic.RenderToViewport(true);
 }
 
-void GlViewer::drawDepthViewToCamera() {
+void GlViewer::drawDepthViewToCamera() const
+{
 //	if(tracker->imageUpdated) {
 //		if(tracker->updateImageMutex.try_lock()) {
 //			SafeCall(cudaMemcpy2DToArray(**imageDepthCUDAMapped, 0, 0,
@@ -164,7 +58,8 @@ void GlViewer::drawDepthViewToCamera() {
 //	imageDepth.RenderToViewport(true);
 }
 
-void GlViewer::drawRGBViewToCamera() {
+void GlViewer::drawRGBViewToCamera() const
+{
 //	if(tracker->imageUpdated) {
 //		if(tracker->updateImageMutex.try_lock()) {
 //			SafeCall(cudaMemcpy2DToArray(**imageRGBCUDAMapped, 0, 0,
@@ -178,8 +73,10 @@ void GlViewer::drawRGBViewToCamera() {
 //	imageRGB.RenderToViewport(true);
 }
 
-void GlViewer::drawColor() {
-	if (map->meshUpdated) {
+void GlViewer::drawColor()
+{
+	if (map->meshUpdated)
+	{
 		cudaMemcpy((void*) **meshVerticesCUDAMapped, (void*) map->modelVertex, sizeof(float3) * map->noTrianglesHost * 3,  cudaMemcpyDeviceToDevice);
 		cudaMemcpy((void*) **meshNormalsCUDAMapped, (void*) map->modelNormal, sizeof(float3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
 		cudaMemcpy((void*) **meshTextureCUDAMapped, (void*) map->modelColor, sizeof(uchar3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
@@ -208,7 +105,8 @@ void GlViewer::drawColor() {
 }
 
 
-void GlViewer::drawMesh(bool bNormal) {
+void GlViewer::drawMesh(bool bNormal)
+{
 
 	if (map->noTrianglesHost == 0)
 		return;
@@ -248,29 +146,11 @@ void GlViewer::drawMesh(bool bNormal) {
 	glBindVertexArray(0);
 }
 
-
-
-void GlViewer::drawKeys() {
-
-}
-
-void GlViewer::setMap(DenseMap* pMap) {
-	map = pMap;
-}
-
-void GlViewer::setSystem(SlamSystem* pSystem) {
-	system = pSystem;
-}
-//
-//void GlViewer::setTracker(Tracker* pTracker) {
-//	tracker = pTracker;
-//}
-
 // ===================== REFACTORING ==============================
 
 GlViewer::GlViewer(std::string title, int w, int h, Eigen::Matrix3f K) :
 		windowTitle(title), map(NULL), bufferSizeImage(0),
-		bufferSizeVertices(0), system(NULL), bufferSizeTriangles(0)
+		bufferSizeVertices(0), slam(NULL), bufferSizeTriangles(0)
 {
 	// create a OpenGL context and bind to current thread
 	pangolin::CreateWindowAndBind(windowTitle, 2560, 1440);
@@ -357,37 +237,41 @@ GlViewer::GlViewer(std::string title, int w, int h, Eigen::Matrix3f K) :
 	imageRGBView = CreateDisplay().SetAspect(-640.0 / 480);
 	imageBirdsEyeView = CreateDisplay().SetAspect(-640.0 / 480);
 
-	Display("SubDisplay0").SetBounds(0.0, 1.0,  Attach::Pix(200), 1.0).
+	Display("SubDisplay_map").SetBounds(0.0, 1.0,  Attach::Pix(200), 1.0).
 			SetLayout(LayoutOverlay).
 			AddDisplay(imageBirdsEyeView).
 			AddDisplay(modelViewCamera);
-	Display("SubDisplay1").SetBounds(0.0, 1.0, 0.75, 1.0).
+	Display("SubDisplay_images").SetBounds(0.0, 1.0, 0.75, 1.0).
 			SetLayout(LayoutEqualVertical).
 			AddDisplay(imageSyntheticView).
 			AddDisplay(imageDepthView).
 			AddDisplay(imageRGBView);
 
 	// create menu entry i.e. a bunch of buttons
-	panelMainMenu = CreatePanel("UI").SetBounds(0.0, 1.0, 0.0, Attach::Pix(200), true);
-	buttonSystemReset = new Var<bool>("UI.System Reset", false, false);
-	buttonShowPoseGraph = new Var<bool>("UI.Show Pose Graph", false, true);
-	buttonShowKeyPoints = new Var<bool>("UI.Show Key Points", false, true);
-	buttonRenderSceneMesh = new Var<bool>("UI.Toggle Scene Mesh", true, true);
-	buttonShowCurrentCamera = new Var<bool>("UI.Toggle Current Camera", true, true);
-	buttonFollowCamera = new Var<bool>("UI.Fllow Camera", false, true);
-	buttonRenderSceneNormal = new Var<bool>("UI.Show Normal", false, true);
-	buttonRenderSceneRGB = new Var<bool>("UI.Show Color Map", false, true);
-	buttonExportMeshToFile = new Var<bool>("UI.Export to File", false, false);
-	buttonToggleWireFrame = new Var<bool>("UI.WireFrame Mode", false, true);
-	buttonEnableRGBImage = new Var<bool>("UI.Color Image", true, true);
-	buttonEnableDepthImage = new Var<bool>("UI.Depth Image", true, true);
-	buttonEnableSyntheticView = new Var<bool>("UI.Rendered Image", true, true);
-	buttonPauseSystem = new Var<bool>("UI.Pause System", false, false);
-	buttonEnableGraphMatching = new Var<bool>("UI.Graph Matching", true, true);
-	buttonToggleLocalisationMode = new Var<bool>("UI.Localisation Only", false, true);
-	buttonEnableBirdsEyeView = new Var<bool>("UI.Top Down View", false, true);
-	buttonWriteMapToDiskBinary = new Var<bool>("UI.Write Map to Disk", false, false);
-	buttonReadMapFromDiskBinary = new Var<bool>("UI.Read Map From Disk", false, false);
+	panelMainMenu = CreatePanel("ui").SetBounds(0.0, 1.0, 0.0, Attach::Pix(200), true);
+	buttonSystemReset = new PushButton("ui.System Reset");
+	buttonShowPoseGraph = new CheckBoxOff("ui.Show Pose Graph");
+	buttonShowKeyPoints = new CheckBoxOff("ui.Show Key Points");
+	buttonRenderSceneMesh = new CheckBoxOn("ui.Toggle Mesh");
+	buttonShowCurrentCamera = new CheckBoxOn("ui.Toggle Current Camera");
+	buttonFollowCamera = new CheckBoxOff("ui.Fllow Camera");
+	buttonRenderSceneNormal = new CheckBoxOff("ui.Show Normal");
+	buttonRenderSceneRGB = new CheckBoxOff("ui.Show Color Map");
+	buttonExportMeshToFile = new PushButton("ui.Export to File");
+	buttonToggleWireFrame = new CheckBoxOff("ui.Toggle Wire Frame");
+	buttonEnableRGBImage = new CheckBoxOn("ui.Color Image");
+	buttonEnableDepthImage = new CheckBoxOn("ui.Depth Image");
+	buttonEnableSyntheticView = new CheckBoxOn("ui.Rendered Image");
+	buttonEnableGraphMatching = new CheckBoxOn("ui.Graph Matching");
+	buttonToggleLocalisationMode = new CheckBoxOff("ui.Localisation Only");
+	buttonEnableBirdsEyeView = new CheckBoxOff("ui.Top Down View");
+	buttonWriteMapToDiskBinary = new PushButton("ui.Write Map to Disk");
+	buttonReadMapFromDiskBinary = new PushButton("ui.Read Map From Disk");
+
+	// Key Bindings
+	// CTL + r / R to restart the system.
+	RegisterKeyPressCallback(PANGO_CTRL + 'r', SetVarFunctor<bool>("ui.System Reset", true));
+	RegisterKeyPressCallback(PANGO_CTRL + 'R', SetVarFunctor<bool>("ui.System Reset", true));
 
 	// unbind current context from the main thread
 	pangolin::GetBoundWindow()->RemoveCurrent();
@@ -395,6 +279,8 @@ GlViewer::GlViewer(std::string title, int w, int h, Eigen::Matrix3f K) :
 
 GlViewer::~GlViewer()
 {
+	pangolin::GetBoundWindow()->RemoveCurrent();
+
 	delete buttonSystemReset;
 	delete buttonShowPoseGraph;
 	delete buttonShowKeyPoints;
@@ -408,20 +294,140 @@ GlViewer::~GlViewer()
 	delete buttonEnableRGBImage;
 	delete buttonEnableDepthImage;
 	delete buttonEnableSyntheticView;
-	delete buttonPauseSystem;
 	delete buttonEnableGraphMatching;
 	delete buttonToggleLocalisationMode;
 	delete buttonEnableBirdsEyeView;
 	delete buttonWriteMapToDiskBinary;
 	delete buttonReadMapFromDiskBinary;
 
-	pangolin::GetBoundWindow()->RemoveCurrent();
 	pangolin::DestroyWindow(windowTitle);
+}
+
+void GlViewer::drawKeyPointsToScreen() const
+{
+
 }
 
 void GlViewer::setCurrentImages(PointCloud* data)
 {
+	// TODO: Implementation
+}
 
+void GlViewer::processMessages()
+{
+	// if SYSTEM RESET
+	if (Pushed(*buttonSystemReset))
+	{
+		*buttonToggleLocalisationMode = false;
+		slam->queueMessage(Msg(Msg::SYSTEM_RESET));
+	}
+
+	// if EXPORT MESH TO FILE
+	if (Pushed(*buttonExportMeshToFile))
+		slam->queueMessage(Msg(Msg::EXPORT_MESH_TO_FILE));
+
+	// if WRITE MAP TO BINARY FILE
+	if (Pushed(*buttonWriteMapToDiskBinary))
+	{
+		slam->queueMessage(Msg(Msg::WRITE_BINARY_MAP_TO_DISK));
+	}
+
+	// if READ MAP FROM BINARY FILE
+	if (Pushed(*buttonReadMapFromDiskBinary))
+	{
+		slam->queueMessage(Msg(Msg::READ_BINARY_MAP_FROM_DISK));
+		*buttonToggleLocalisationMode = true;
+	}
+}
+
+void GlViewer::drawViewsToScreen()
+{
+	if(pangolin::ShouldQuit())
+	{
+		return;
+	}
+
+	glClearColor(0.0f, 0.2f, 0.3f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	modelViewCamera.Activate(viewCam);
+
+	if (*buttonShowPoseGraph)
+	{
+		drawKeyFrameGraph();
+	}
+
+	if (*buttonShowKeyPoints)
+	{
+		drawKeyPointsToScreen();
+	}
+
+	if (*buttonToggleWireFrame)
+	{
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	}
+
+	if (*buttonRenderSceneMesh)
+	{
+		if (*buttonRenderSceneNormal)
+			*buttonRenderSceneNormal = false;
+		if (*buttonRenderSceneRGB)
+			*buttonRenderSceneRGB = false;
+		drawMesh(false);
+	}
+
+	if (*buttonRenderSceneNormal)
+	{
+		if (*buttonRenderSceneRGB)
+			*buttonRenderSceneRGB = false;
+		drawMesh(true);
+	}
+
+	if (*buttonRenderSceneRGB)
+	{
+		drawColor();
+	}
+
+	if (*buttonToggleWireFrame)
+	{
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	}
+
+	if (*buttonShowCurrentCamera)
+	{
+		drawCurrentCamera();
+	}
+
+	if (buttonFollowCamera->Get())
+	{
+		setModelViewFollowCamera();
+	}
+
+	if (buttonEnableSyntheticView->Get())
+	{
+		imageSyntheticView.Activate();
+		drawSyntheticViewToCamera();
+	}
+
+	if (*buttonEnableDepthImage)
+	{
+		imageDepthView.Activate();
+		drawDepthViewToCamera();
+	}
+
+	if (*buttonEnableRGBImage)
+	{
+		imageRGBView.Activate();
+		drawRGBViewToCamera();
+	}
+
+	if (*buttonEnableBirdsEyeView)
+	{
+		imageBirdsEyeView.Activate();
+		drawBirdsEyeViewToCamera();
+	}
+
+	FinishFrame();
 }
 
 void GlViewer::setModelViewFollowCamera()

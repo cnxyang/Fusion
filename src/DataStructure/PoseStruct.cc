@@ -1,7 +1,7 @@
 #include "Frame.h"
-#include "FramePoseStruct.h"
+#include "PoseStruct.h"
 
-FramePoseStruct::FramePoseStruct(Frame* frame) :
+PoseStruct::PoseStruct(Frame* frame) :
 	graphVertex(0), frame(frame), isOptimised(false),
 	isInGraph(false), isRegisteredInGraph(false),
 	parentPose(0)

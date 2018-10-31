@@ -36,6 +36,7 @@ protected:
 	// the number of iterations per layer
 	// NOTE: should set manually before tracking
 	int iterations[NUM_PYRS];
+
 };
 
 inline void ICPTracker::setIterations(std::vector<float> iter)

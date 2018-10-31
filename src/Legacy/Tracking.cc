@@ -825,7 +825,7 @@ Eigen::Matrix4f Tracker::GetCurrentPose() const {
 	return LastFrame->pose.matrix().cast<float>();
 }
 
-void Tracker::SetMap(DenseMap* pMap) {
+void Tracker::SetMap(VoxelMap* pMap) {
 	map = pMap;
 }
 

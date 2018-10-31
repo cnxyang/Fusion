@@ -1,242 +1,43 @@
 #include "SlamSystem.h"
-#include "Tracking.h"
-#include "GlViewer.h"
-#include "PointCloud.h"
-#include "ICPTracker.h"
-#include "DenseMap.h"
-#include "EigenUtils.h"
+#include "GlWrapper/GlViewer.h"
+#include "IcpTracking/PointCloud.h"
+#include "IcpTracking/ICPTracker.h"
+#include "GlobalMapping/DenseMap.h"
+#include "Utilities/EigenUtils.h"
+#include "Utilities/Settings.h"
 #include <fstream>
 #include <unordered_set>
 
-void SlamSystem::renderBirdsEyeView(float dist) {
-
-	uint noBlocks;
-	Eigen::AngleAxisd angle(M_PI / 2, -Eigen::Vector3d::UnitX());
-	Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
-	Matrix3f curot = EigenToMatrix3f(angle.toRotationMatrix());
-	Matrix3f curotinv = EigenToMatrix3f(angle.toRotationMatrix().transpose());
-	float3 trans = make_float3(0, -dist, 0);
-	map->UpdateVisibility(curot, curotinv, trans, dist + DeviceMap::DepthMin,
-			dist + DeviceMap::DepthMax, Frame::fx(0), Frame::fy(0),
-			vmap.cols / 2, vmap.rows / 2, noBlocks);
-	map->RayTrace(noBlocks, curot, curotinv, trans, vmap, nmap,
-			dist + DeviceMap::DepthMin, dist + DeviceMap::DepthMax,
-			Frame::fx(0), Frame::fy(0), vmap.cols / 2, vmap.rows / 2);
-	RenderImage(vmap, nmap, make_float3(0), renderedImage);
-}
-
-
-
-void SlamSystem::WriteMeshToDisk() {
-
-	map->CreateModel();
-
-	float3 * host_vertex = (float3*) malloc(sizeof(float3) * map->noTrianglesHost * 3);
-	float3 * host_normal = (float3*) malloc(sizeof(float3) * map->noTrianglesHost * 3);
-	uchar3 * host_color = (uchar3*) malloc(sizeof(uchar3) * map->noTrianglesHost * 3);
-	map->modelVertex.download(host_vertex, map->noTrianglesHost * 3);
-	map->modelNormal.download(host_normal, map->noTrianglesHost * 3);
-	map->modelColor.download(host_color, map->noTrianglesHost * 3);
-
-	std::ofstream file;
-	file.open("/home/xyang/scene.ply");
-		file << "ply\n";
-		file << "format ascii 1.0\n";
-		file << "element vertex " << map->noTrianglesHost * 3 << "\n";
-		file << "property float x\n";
-		file << "property float y\n";
-		file << "property float z\n";
-		file << "property float nx\n";
-		file << "property float ny\n";
-		file << "property float nz\n";
-		file << "property uchar red\n";
-		file << "property uchar green\n";
-		file << "property uchar blue\n";
-		file << "element face " << map->noTrianglesHost << "\n";
-		file << "property list uchar uint vertex_indices\n";
-		file << "end_header" << std::endl;
-
-	for (uint i = 0; i <  map->noTrianglesHost * 3; ++i) {
-		file << host_vertex[i].x << " "
-			 << host_vertex[i].y << " "
-			 << host_vertex[i].z << " "
-		     << host_normal[i].x << " "
-			 << host_normal[i].y << " "
-			 << host_normal[i].z << " "
-		     << (int) host_color[i].x << " "
-			 << (int) host_color[i].y << " "
-			 << (int) host_color[i].z << std::endl;
-	}
-
-	uchar numFaces = 3;
-	for (uint i = 0; i <  map->noTrianglesHost; ++i) {
-		file << (static_cast<int>(numFaces) & 0xFF) << " "
-			 << (int) i * 3 + 0 << " "
-			 << (int) i * 3 + 1 << " "
-			 << (int) i * 3 + 2 << std::endl;
-	}
-
-	file.close();
-	delete host_vertex;
-	delete host_normal;
-	delete host_color;
-}
-
-void SlamSystem::WriteMapToDisk() {
-
-	map->DownloadToRAM();
-
-	auto file = std::fstream("/home/xyang/map.bin", std::ios::out | std::ios::binary);
-
-	const int NumSdfBlocks = DeviceMap::NumSdfBlocks;
-	const int NumBuckets = DeviceMap::NumBuckets;
-	const int NumVoxels = DeviceMap::NumVoxels;
-	const int NumEntries = DeviceMap::NumEntries;
-
-	// begin writing of general map info
-	file.write((const char*)&NumSdfBlocks, sizeof(int));
-	file.write((const char*)&NumBuckets, sizeof(int));
-	file.write((const char*)&NumVoxels, sizeof(int));
-	file.write((const char*)&NumEntries, sizeof(int));
-
-	// begin writing of dense map
-	file.write((char*) map->heapCounterRAM, sizeof(int));
-	file.write((char*) map->hashCounterRAM, sizeof(int));
-	file.write((char*) map->noVisibleEntriesRAM, sizeof(uint));
-	file.write((char*) map->heapRAM, sizeof(int) * DeviceMap::NumSdfBlocks);
-	file.write((char*) map->bucketMutexRAM, sizeof(int) * DeviceMap::NumBuckets);
-	file.write((char*) map->sdfBlockRAM, sizeof(Voxel) * DeviceMap::NumVoxels);
-	file.write((char*) map->hashEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
-	file.write((char*) map->visibleEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
-
-	// begin writing of feature map
-	file.write((char*) map->mutexKeysRAM, sizeof(int) * KeyMap::MaxKeys);
-	file.write((char*) map->mapKeysRAM, sizeof(SURF) * KeyMap::maxEntries);
-
-	// clean up
-	file.close();
-	map->ReleaseRAM();
-}
-
-void SlamSystem::ReadMapFromDisk() {
-
-	int NumSdfBlocks;
-	int NumBuckets;
-	int NumVoxels;
-	int NumEntries;
-
-	auto file = std::fstream("/home/xyang/map.bin", std::ios::in | std::ios::binary);
-
-	// begin reading of general map info
-	file.read((char *) &NumSdfBlocks, sizeof(int));
-	file.read((char *) &NumBuckets, sizeof(int));
-	file.read((char *) &NumVoxels, sizeof(int));
-	file.read((char *) &NumEntries, sizeof(int));
-
-	map->CreateRAM();
-
-	// begin reading of dense map
-	file.read((char*) map->heapCounterRAM, sizeof(int));
-	file.read((char*) map->hashCounterRAM, sizeof(int));
-	file.read((char*) map->noVisibleEntriesRAM, sizeof(uint));
-	file.read((char*) map->heapRAM, sizeof(int) * DeviceMap::NumSdfBlocks);
-	file.read((char*) map->bucketMutexRAM, sizeof(int) * DeviceMap::NumBuckets);
-	file.read((char*) map->sdfBlockRAM, sizeof(Voxel) * DeviceMap::NumVoxels);
-	file.read((char*) map->hashEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
-	file.read((char*) map->visibleEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
-
-	// begin reading of feature map
-	file.read((char*) map->mutexKeysRAM, sizeof(int) * KeyMap::MaxKeys);
-	file.read((char*) map->mapKeysRAM, sizeof(SURF) * KeyMap::maxEntries);
-
-	map->UploadFromRAM();
-	map->ReleaseRAM();
-
-	file.close();
-
-	map->CreateModel();
-	tracker->mappingDisabled = true;
-	tracker->state = 1;
-	tracker->lastState = 1;
-}
-
-void SlamSystem::RebootSystem() {
-
-	map->Reset();
-
-	tracker->ResetTracking();
-}
-
-void SlamSystem::processMessages(bool finished) {
-
-	if(requestSaveMesh)
-	{
-		WriteMeshToDisk();
-		requestSaveMesh = false;
-	}
-
-	if(!finished && requestReboot)
-	{
-		RebootSystem();
-		requestReboot = false;
-	}
-
-	if(requestSaveMap)
-	{
-		WriteMapToDisk();
-		requestSaveMap = false;
-	}
-
-	if(requestReadMap)
-	{
-		ReadMapFromDisk();
-		tracker->ResetTracking();
-		requestReadMap = false;
-	}
-}
-
-// =============== REFACTORING ====================
-
 SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 	width(w), height(h), K(K), dumpMapToDisk(false),
-	numImagesProcessed(0), keepRunning(true), trackingTarget(NULL),
+	nImgsProcessed(0), keepRunning(true), trackingTarget(NULL),
 	trackingReference(NULL), currentKeyFrame(NULL),
-	systemRunning(true), latestTrackedFrame(NULL)
+	systemRunning(true), latestTrackedFrame(NULL),
+	toggleShowMesh(true), toggleShowImage(true)
 {
-	Frame::SetK(K);
-
-	map = new DenseMap();
+	map = new VoxelMap();
 	map->allocateDeviceMemory();
 
+	tracker = new ICPTracker(w, h, K);
+	tracker->setIterations({ 10, 5, 3 });
+
 	viewer = new GlViewer("SlamSystem", w, h, K);
-	tracker = new Tracker(w, h, K(0, 0), K(1, 1), K(0, 2), K(1, 2));
 
-	viewer->setMap(map);
-	viewer->setSystem(this);
-	tracker->SetMap(map);
-
-	Frame::mDepthScale = 1000.f;
-	Frame::mDepthCutoff = 3.0f;
-
-	vmap.create(w, h);
-	nmap.create(w, h);
-	renderedImage.create(w, h);
+	viewer->setVoxelMap(map);
+	viewer->setSlamSystem(this);
 
 	trackingReference = new PointCloud();
 	trackingTarget = new PointCloud();
 	keyFrameGraph = new KeyFrameGraph(w, h, K);
+
 	threadConstraintSearch = std::thread(&SlamSystem::loopConstraintSearch, this);
 	threadVisualisation = std::thread(&SlamSystem::loopVisualisation, this);
-
-	mainTracker = new ICPTracker(w, h, K);
-	mainTracker->setIterations({ 10, 5, 3 });
 }
 
 SlamSystem::~SlamSystem()
 {
-	keepRunning = false;
-
 	printf("Waiting for all other threads to finish.\n");
+	keepRunning = false;
 
 	// waiting for all other threads
 	threadConstraintSearch.join();
@@ -244,13 +45,19 @@ SlamSystem::~SlamSystem()
 	printf("DONE Waiting for other threads.\n");
 
 	// delete all resources
-	delete tracker;
 	delete map;
+	delete tracker;
 	delete trackingReference;
 	delete trackingTarget;
 	delete keyFrameGraph;
 
 	printf("DONE Cleaning up.\n");
+}
+
+void SlamSystem::rebootSystem()
+{
+	map->Reset();
+	trackingReference->frame = NULL;
 }
 
 void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeStamp) {
@@ -274,32 +81,112 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 		std::swap(trackingReference, trackingTarget);
 
 		// do a raycast to ensure we have a copy of the map
-		map->takeSnapShot(trackingReference);
+		int numVisibleBlocks = map->fusePointCloud(trackingReference);
+		map->takeSnapShot(trackingReference, numVisibleBlocks);
 		trackingReference->generatePyramid();
 		latestTrackedFrame = currentFrame;
+		currentKeyFrame = currentFrame;
+		viewer->keyFrameGraph.push_back(currentKeyFrame->pose);
 		return;
 	}
 
-	SE3 poseUpdate = mainTracker->trackSE3(trackingReference, trackingTarget);
-	currentFrame->pose = latestTrackedFrame->pose * poseUpdate.inverse();
+	SE3 initialEstimate = latestTrackedFrame->pose.inverse() * currentKeyFrame->pose;
+
+	// track current frame. return frame-to-last-frame transform
+	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget, initialEstimate);
+
+	// Update current frame pose
+	currentFrame->pose = currentKeyFrame->pose * poseUpdate.inverse();
+
+	// set last tracked frame to current frame
+	currentFrame->poseStruct->parentPose = latestTrackedFrame->poseStruct;
 	latestTrackedFrame = currentFrame;
 
-	std::cout << mainTracker->icpInlierRatio << std::endl;
-
-	std::swap(trackingReference, trackingTarget);
-
-	int numVisibleBlocks = map->fusePointCloud(trackingReference);
+	// do a raycast to ensure we have a copy of the map
+	int numVisibleBlocks = map->fusePointCloud(trackingTarget);
 	map->takeSnapShot(trackingReference, numVisibleBlocks);
+	trackingReference->generatePyramid();
 
-
-	if (numImagesProcessed % 25 == 0 && requestMesh)
+	// check if we insert a new key frame
+	if(tracker->trackingWasGood)
 	{
-		map->CreateModel();
+		float pointUsage = tracker->icpInlierRatio;
+		Eigen::Vector3d dist = poseUpdate.translation();
+		float closenessScore = dist.dot(dist) * 32 + 5 * (1 - pointUsage) * (1 - pointUsage);
+		std::cout << 32 * dist.dot(dist) << " / " << 9 * (1 - pointUsage) * (1 - pointUsage) << std::endl;
+		if(closenessScore > 0.5f)
+		{
+			if(displayDebugInfo)
+			{
+				printf("Tracking for Frame %d was GOOD with residual error %2.2e "
+					   "and point usage %2.2f%%.\n", currentFrame->id(),
+					   tracker->lastIcpError, 100 * tracker->icpInlierRatio);
+			}
+
+			std::swap(trackingReference, trackingTarget);
+			map->takeSnapShot(trackingReference);
+			trackingReference->generatePyramid();
+			currentKeyFrame = currentFrame;
+			viewer->keyFrameGraph.push_back(currentKeyFrame->pose);
+			if(displayDebugInfo)
+			{
+				std::cout << "Closeness Score for the current Frame is : " << closenessScore << std::endl;
+			}
+		}
 	}
 
-	numImagesProcessed++;
+	// Update visualisation
+	updateVisualisation();
 
-	viewer->setCurrentCamPose(latestTrackedFrame->pose);
+	// for efficiency reasons swap tracking data
+	// only used when doing frame-to-frame tracking
+//	std::swap(trackingReference, trackingTarget);
+
+	nImgsProcessed++;
+}
+
+void SlamSystem::processMessages()
+{
+	std::unique_lock<std::mutex> lock(messageQueueMutex);
+	Msg newmsg = messageQueue.size() == 0 ? Msg(Msg::EMPTY_MSG) : messageQueue.front();
+
+	switch(newmsg.data)
+	{
+	case Msg::SYSTEM_RESET:
+		rebootSystem();
+		break;
+
+	case Msg::SYSTEM_SHUTDOWN:
+		systemRunning = false;
+		break;
+
+	case Msg::WRITE_BINARY_MAP_TO_DISK:
+		writeBinaryMapToDisk();
+		break;
+
+	case Msg::READ_BINARY_MAP_FROM_DISK:
+		readBinaryMapFromDisk();
+		break;
+
+	case Msg::TOGGLE_MESH_ON:
+		toggleShowMesh = true;
+		break;
+
+	case Msg::TOGGLE_MESH_OFF:
+		toggleShowMesh = false;
+		break;
+
+	default:
+		return;
+	}
+
+	messageQueue.pop();
+}
+
+void SlamSystem::queueMessage(Msg newmsg)
+{
+	std::unique_lock<std::mutex> lock(messageQueueMutex);
+	messageQueue.push(newmsg);
 }
 
 void SlamSystem::loopVisualisation()
@@ -382,5 +269,148 @@ void SlamSystem::findConstraintsForNewKeyFrames(Frame* newKF)
 
 void SlamSystem::updateVisualisation()
 {
+	viewer->setCurrentCamPose(latestTrackedFrame->pose);
 
+	if (toggleShowMesh)
+	{
+		if (nImgsProcessed % 25 == 0)
+		{
+			map->CreateModel();
+		}
+	}
+
+	if (toggleShowImage)
+	{
+
+	}
+}
+
+void SlamSystem::exportMeshAsFile() {
+
+	map->CreateModel();
+
+	float3 * host_vertex = (float3*) malloc(sizeof(float3) * map->noTrianglesHost * 3);
+	float3 * host_normal = (float3*) malloc(sizeof(float3) * map->noTrianglesHost * 3);
+	uchar3 * host_color = (uchar3*) malloc(sizeof(uchar3) * map->noTrianglesHost * 3);
+	map->modelVertex.download(host_vertex, map->noTrianglesHost * 3);
+	map->modelNormal.download(host_normal, map->noTrianglesHost * 3);
+	map->modelColor.download(host_color, map->noTrianglesHost * 3);
+
+	std::ofstream file;
+	file.open("/home/xyang/scene.ply");
+		file << "ply\n";
+		file << "format ascii 1.0\n";
+		file << "element vertex " << map->noTrianglesHost * 3 << "\n";
+		file << "property float x\n";
+		file << "property float y\n";
+		file << "property float z\n";
+		file << "property float nx\n";
+		file << "property float ny\n";
+		file << "property float nz\n";
+		file << "property uchar red\n";
+		file << "property uchar green\n";
+		file << "property uchar blue\n";
+		file << "element face " << map->noTrianglesHost << "\n";
+		file << "property list uchar uint vertex_indices\n";
+		file << "end_header" << std::endl;
+
+	for (uint i = 0; i <  map->noTrianglesHost * 3; ++i) {
+		file << host_vertex[i].x << " "
+			 << host_vertex[i].y << " "
+			 << host_vertex[i].z << " "
+		     << host_normal[i].x << " "
+			 << host_normal[i].y << " "
+			 << host_normal[i].z << " "
+		     << (int) host_color[i].x << " "
+			 << (int) host_color[i].y << " "
+			 << (int) host_color[i].z << std::endl;
+	}
+
+	uchar numFaces = 3;
+	for (uint i = 0; i <  map->noTrianglesHost; ++i) {
+		file << (static_cast<int>(numFaces) & 0xFF) << " "
+			 << (int) i * 3 + 0 << " "
+			 << (int) i * 3 + 1 << " "
+			 << (int) i * 3 + 2 << std::endl;
+	}
+
+	file.close();
+	delete host_vertex;
+	delete host_normal;
+	delete host_color;
+}
+
+void SlamSystem::writeBinaryMapToDisk() {
+
+	map->DownloadToRAM();
+
+	auto file = std::fstream("/home/xyang/map.bin", std::ios::out | std::ios::binary);
+
+	const int NumSdfBlocks = DeviceMap::NumSdfBlocks;
+	const int NumBuckets = DeviceMap::NumBuckets;
+	const int NumVoxels = DeviceMap::NumVoxels;
+	const int NumEntries = DeviceMap::NumEntries;
+
+	// begin writing of general map info
+	file.write((const char*)&NumSdfBlocks, sizeof(int));
+	file.write((const char*)&NumBuckets, sizeof(int));
+	file.write((const char*)&NumVoxels, sizeof(int));
+	file.write((const char*)&NumEntries, sizeof(int));
+
+	// begin writing of dense map
+	file.write((char*) map->heapCounterRAM, sizeof(int));
+	file.write((char*) map->hashCounterRAM, sizeof(int));
+	file.write((char*) map->noVisibleEntriesRAM, sizeof(uint));
+	file.write((char*) map->heapRAM, sizeof(int) * DeviceMap::NumSdfBlocks);
+	file.write((char*) map->bucketMutexRAM, sizeof(int) * DeviceMap::NumBuckets);
+	file.write((char*) map->sdfBlockRAM, sizeof(Voxel) * DeviceMap::NumVoxels);
+	file.write((char*) map->hashEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
+	file.write((char*) map->visibleEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
+
+	// begin writing of feature map
+	file.write((char*) map->mutexKeysRAM, sizeof(int) * KeyMap::MaxKeys);
+	file.write((char*) map->mapKeysRAM, sizeof(SURF) * KeyMap::maxEntries);
+
+	// clean up
+	file.close();
+	map->ReleaseRAM();
+}
+
+void SlamSystem::readBinaryMapFromDisk() {
+
+	int NumSdfBlocks;
+	int NumBuckets;
+	int NumVoxels;
+	int NumEntries;
+
+	auto file = std::fstream("/home/xyang/map.bin", std::ios::in | std::ios::binary);
+
+	// begin reading of general map info
+	file.read((char *) &NumSdfBlocks, sizeof(int));
+	file.read((char *) &NumBuckets, sizeof(int));
+	file.read((char *) &NumVoxels, sizeof(int));
+	file.read((char *) &NumEntries, sizeof(int));
+
+	map->CreateRAM();
+
+	// begin reading of dense map
+	file.read((char*) map->heapCounterRAM, sizeof(int));
+	file.read((char*) map->hashCounterRAM, sizeof(int));
+	file.read((char*) map->noVisibleEntriesRAM, sizeof(uint));
+	file.read((char*) map->heapRAM, sizeof(int) * DeviceMap::NumSdfBlocks);
+	file.read((char*) map->bucketMutexRAM, sizeof(int) * DeviceMap::NumBuckets);
+	file.read((char*) map->sdfBlockRAM, sizeof(Voxel) * DeviceMap::NumVoxels);
+	file.read((char*) map->hashEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
+	file.read((char*) map->visibleEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
+
+	// begin reading of feature map
+	file.read((char*) map->mutexKeysRAM, sizeof(int) * KeyMap::MaxKeys);
+	file.read((char*) map->mapKeysRAM, sizeof(SURF) * KeyMap::maxEntries);
+
+	map->UploadFromRAM();
+	map->ReleaseRAM();
+
+	file.close();
+
+	map->CreateModel();
 }

@@ -350,7 +350,7 @@ void ICPStep(DeviceArray2D<float4> & nextVMap,
 	icp.RlastInv = RlastInv;
 	icp.tlast = tlast;
 	icp.angleThresh = 0.6;
-	icp.distThresh = 0.05;
+	icp.distThresh = 0.1;
 	icp.fx = K.fx;
 	icp.fy = K.fy;
 	icp.cx = K.cx;

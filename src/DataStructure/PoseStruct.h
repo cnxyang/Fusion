@@ -4,12 +4,12 @@
 
 class Frame;
 
-class FramePoseStruct
+class PoseStruct
 {
 public:
 
-	FramePoseStruct(Frame* frame);
-	FramePoseStruct* parentPose;
+	PoseStruct(Frame* frame);
+	PoseStruct* parentPose;
 	Frame* frame;
 	bool isRegisteredInGraph;
 	bool isOptimised;
@@ -24,7 +24,7 @@ private:
 	SE3 camToWorld;
 };
 
-inline SE3 FramePoseStruct::getCamToWorld()
+inline SE3 PoseStruct::getCamToWorld()
 {
 	return camToWorld;
 }

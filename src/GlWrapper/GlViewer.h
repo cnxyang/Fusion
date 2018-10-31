@@ -10,7 +10,7 @@
 
 class SlamSystem;
 class Tracker;
-class DenseMap;
+class VoxelMap;
 
 class GlViewer
 {
@@ -19,20 +19,13 @@ public:
 	void spin();
 	void run() {}
 
-	void setMap(DenseMap * pMap);
-	void setSystem(SlamSystem * pSystem);
 
-	void drawKeys();
+
 	void drawNormal();
 	void drawColor();
 	void drawMesh(bool bNormal);
-	void drawRGBViewToCamera();
-	void drawSyntheticViewToCamera();
-	void drawDepthViewToCamera();
-	void drawBirdsEyeViewToCamera();
+	std::vector<SE3> keyFrameGraph;
 
-	DenseMap* map;
-	SlamSystem* system;
 
 	pangolin::OpenGlMatrix pose;
 
@@ -54,6 +47,9 @@ public:
 	inline void setCurrentCamPose(SE3 pose);
 	inline void setKeyFrameGraph(std::vector<SE3>&);
 
+	inline void setVoxelMap(VoxelMap* map);
+	inline void setSlamSystem(SlamSystem* system);
+
 	std::mutex mutexMeshUpdate;
 
 	// OpenGL array mapped to CUDA
@@ -72,8 +68,17 @@ protected:
 	// utility functions
 	void drawCurrentCamera() const;
 	void drawKeyFrameGraph() const;
+	void drawKeyPointsToScreen() const;
+	void drawRGBViewToCamera() const;
+	void drawSyntheticViewToCamera() const;
+	void drawDepthViewToCamera() const;
+	void drawBirdsEyeViewToCamera() const;
+
 	void setModelViewFollowCamera();
 	std::vector<GLfloat> getTransformedCam(SE3 pose) const;
+
+	VoxelMap* map;
+	SlamSystem* slam;
 
 	pangolin::View modelViewCamera;
 	pangolin::View imageSyntheticView;
@@ -83,9 +88,9 @@ protected:
 
 	// a series of const variables
 	const std::string windowTitle;
-	const float RGBKeyFrameGraph[3] = { 0.0f, 0.0f, 1.0f };
 	const float RGBActiveCam[3] = { 0.0f, 1.0f, 0.0f };
 	const float RGBInactiveCam[3] = { 1.0f, 0.0f, 0.0f };
+	const float RGBKeyFrameGraph[3] = { 0.0f, 0.0f, 1.0f };
 
 	// camera vertices array
 	const Eigen::Vector3f camVertices[12] =
@@ -119,7 +124,6 @@ protected:
 	pangolin::Var<bool>* buttonEnableRGBImage;
 	pangolin::Var<bool>* buttonEnableDepthImage;
 	pangolin::Var<bool>* buttonEnableSyntheticView;
-	pangolin::Var<bool>* buttonPauseSystem;
 	pangolin::Var<bool>* buttonEnableGraphMatching;
 	pangolin::Var<bool>* buttonToggleLocalisationMode;
 	pangolin::Var<bool>* buttonEnableBirdsEyeView;
@@ -152,12 +156,21 @@ protected:
 	SE3 currentCamPose;
 
 	// KeyFrame Poses
-	std::vector<SE3> keyFrameGraph;
 
 	int bufferSizeTriangles;
 	int bufferSizeVertices;
 	int bufferSizeImage;
 };
+
+inline void GlViewer::setVoxelMap(VoxelMap* map)
+{
+	this->map = map;
+}
+
+inline void GlViewer::setSlamSystem(SlamSystem* system)
+{
+	slam = system;
+}
 
 inline void GlViewer::disableGlContext() const
 {

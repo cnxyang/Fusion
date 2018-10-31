@@ -37,7 +37,6 @@ void PointCloud::generateCloud(Frame* frame)
 		{
 			int width = frame->width(level);
 			int height = frame->height(level);
-			std::cout << width << " " << height << std::endl;
 			vmap[level].create(width, height);
 			nmap[level].create(width, height);
 			depth[level].create(width, height);

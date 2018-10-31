@@ -3,12 +3,12 @@
 #include "PointCloud.h"
 #include "DeviceFuncs.h"
 
-DenseMap::DenseMap() :
+VoxelMap::VoxelMap() :
 		meshUpdated(false), hasNewKFFlag(false) {
 	allocateDeviceMemory();
 }
 
-void DenseMap::allocateDeviceMemory() {
+void VoxelMap::allocateDeviceMemory() {
 
 	heapCounter.create(1);
 	hashCounter.create(1);
@@ -50,14 +50,14 @@ void DenseMap::allocateDeviceMemory() {
 	Reset();
 }
 
-void DenseMap::ForwardWarp(Frame * last, Frame * next) {
+void VoxelMap::ForwardWarp(Frame * last, Frame * next) {
 	ForwardWarping(last->vmap[0], last->nmap[0], next->vmap[0], next->nmap[0],
 			last->GpuRotation(), next->GpuInvRotation(), last->GpuTranslation(),
 			next->GpuTranslation(), Frame::fx(0), Frame::fy(0), Frame::cx(0),
 			Frame::cy(0));
 }
 
-void DenseMap::UpdateVisibility(const KeyFrame * kf, uint & no) {
+void VoxelMap::UpdateVisibility(const KeyFrame * kf, uint & no) {
 
 	CheckBlockVisibility(*this, noVisibleEntries, kf->GpuRotation(),
 			kf->GpuInvRotation(), kf->GpuTranslation(), Frame::cols(0),
@@ -65,7 +65,7 @@ void DenseMap::UpdateVisibility(const KeyFrame * kf, uint & no) {
 			Frame::cy(0), DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
 }
 
-void DenseMap::UpdateVisibility(Frame * f, uint & no) {
+void VoxelMap::UpdateVisibility(Frame * f, uint & no) {
 
 	CheckBlockVisibility(*this, noVisibleEntries, f->GpuRotation(), f->GpuInvRotation(),
 			f->GpuTranslation(), Frame::cols(0), Frame::rows(0), Frame::fx(0),
@@ -73,7 +73,7 @@ void DenseMap::UpdateVisibility(Frame * f, uint & no) {
 			DeviceMap::DepthMin, &no);
 }
 
-void DenseMap::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
+void VoxelMap::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 		float depthMin, float depthMax, float fx, float fy, float cx, float cy,
 		uint & no) {
 
@@ -81,15 +81,15 @@ void DenseMap::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
 			480, fx, fy, cx, cy, depthMax, depthMin, &no);
 }
 
-void DenseMap::FuseColor(Frame * f, uint & no) {
+void VoxelMap::FuseColor(Frame * f, uint & no) {
 	FuseColor(f->range, f->color, f->nmap[0], f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
 }
 
-void DenseMap::DefuseColor(Frame * f, uint & no) {
+void VoxelMap::DefuseColor(Frame * f, uint & no) {
 	FuseColor(f->range, f->color, f->nmap[0], f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(), no);
 }
 
-void DenseMap::DefuseColor(const DeviceArray2D<float> & depth,
+void VoxelMap::DefuseColor(const DeviceArray2D<float> & depth,
 		const DeviceArray2D<uchar3> & color,
 		const DeviceArray2D<float4> & normal,
 		Matrix3f Rview, Matrix3f RviewInv,
@@ -101,7 +101,7 @@ void DenseMap::DefuseColor(const DeviceArray2D<float> & depth,
 
 }
 
-void DenseMap::FuseColor(const DeviceArray2D<float> & depth,
+void VoxelMap::FuseColor(const DeviceArray2D<float> & depth,
 		const DeviceArray2D<uchar3> & color,
 		const DeviceArray2D<float4> & normal,
 		Matrix3f Rview, Matrix3f RviewInv,
@@ -113,13 +113,13 @@ void DenseMap::FuseColor(const DeviceArray2D<float> & depth,
 
 }
 
-void DenseMap::RayTrace(uint noVisibleBlocks, Frame * f) {
+void VoxelMap::RayTrace(uint noVisibleBlocks, Frame * f) {
 	RayTrace(noVisibleBlocks, f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(),
 			f->vmap[0], f->nmap[0], DeviceMap::DepthMin, DeviceMap::DepthMax,
 			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0));
 }
 
-void DenseMap::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
+void VoxelMap::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float4> & nmap,
 		float depthMin, float depthMax, float fx, float fy, float cx, float cy) {
 
@@ -132,27 +132,7 @@ void DenseMap::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 	}
 }
 
-std::vector<KeyFrame *> DenseMap::LocalMap() const {
-
-	std::vector<KeyFrame *> tmp;
-	std::vector<const KeyFrame *>::const_iterator iter = localMap.begin();
-	std::vector<const KeyFrame *>::const_iterator lend = localMap.end();
-	for(; iter != lend; ++iter)
-		tmp.push_back(const_cast<KeyFrame *>(*iter));
-	return tmp;
-}
-
-std::vector<KeyFrame *> DenseMap::GlobalMap() const {
-
-	std::vector<KeyFrame *> tmp;
-	std::set<const KeyFrame *>::const_iterator iter = keyFrames.begin();
-	std::set<const KeyFrame *>::const_iterator lend = keyFrames.end();
-	for(; iter != lend; ++iter)
-		tmp.push_back(const_cast<KeyFrame *>(*iter));
-	return tmp;
-}
-
-void DenseMap::CreateModel() {
+void VoxelMap::CreateModel() {
 
 	MeshScene(nBlocks, noTriangles, *this, edgeTable, vertexTable,
 			triangleTable, modelNormal, modelVertex, modelColor, blockPoses);
@@ -163,7 +143,7 @@ void DenseMap::CreateModel() {
 	}
 }
 
-void DenseMap::UpdateMapKeys() {
+void VoxelMap::UpdateMapKeys() {
 	noKeys.clear();
 	CollectKeyPoints(*this, tmpKeys, noKeys);
 
@@ -174,7 +154,7 @@ void DenseMap::UpdateMapKeys() {
 	}
 }
 
-void DenseMap::CreateRAM() {
+void VoxelMap::CreateRAM() {
 
 	heapCounterRAM = new int[1];
 	hashCounterRAM = new int[1];
@@ -189,7 +169,7 @@ void DenseMap::CreateRAM() {
 	mapKeysRAM = new SURF[KeyMap::maxEntries];
 }
 
-void DenseMap::DownloadToRAM() {
+void VoxelMap::DownloadToRAM() {
 
 	CreateRAM();
 
@@ -206,7 +186,7 @@ void DenseMap::DownloadToRAM() {
 	mapKeys.download(mapKeysRAM);
 }
 
-void DenseMap::UploadFromRAM() {
+void VoxelMap::UploadFromRAM() {
 
 	heapCounter.upload(heapCounterRAM);
 	hashCounter.upload(hashCounterRAM);
@@ -221,7 +201,7 @@ void DenseMap::UploadFromRAM() {
 	mapKeys.upload(mapKeysRAM);
 }
 
-void DenseMap::ReleaseRAM() {
+void VoxelMap::ReleaseRAM() {
 
 	delete [] heapCounterRAM;
 	delete [] hashCounterRAM;
@@ -236,12 +216,12 @@ void DenseMap::ReleaseRAM() {
 	delete [] mapKeysRAM;
 }
 
-bool DenseMap::HasNewKF() {
+bool VoxelMap::HasNewKF() {
 
 	return hasNewKFFlag;
 }
 
-void DenseMap::FuseKeyFrame(const KeyFrame * kf) {
+void VoxelMap::FuseKeyFrame(const KeyFrame * kf) {
 
 	if (keyFrames.count(kf))
 		return;
@@ -315,7 +295,7 @@ void DenseMap::FuseKeyFrame(const KeyFrame * kf) {
 	hasNewKFFlag = true;
 }
 
-void DenseMap::FindLocalGraph(KeyFrame * kf) {
+void VoxelMap::FindLocalGraph(KeyFrame * kf) {
 
 	const float distTH = 0.5f;
 	const float angleTH = 0.3f;
@@ -345,12 +325,12 @@ void DenseMap::FindLocalGraph(KeyFrame * kf) {
 	}
 }
 
-void DenseMap::FuseKeyPoints(Frame * f) {
+void VoxelMap::FuseKeyPoints(Frame * f) {
 
 	std::cout << "NOT IMPLEMENTED" << std::endl;
 }
 
-void DenseMap::Reset() {
+void VoxelMap::Reset() {
 
 	ResetMap(*this);
 	ResetKeyPoints(*this);
@@ -359,7 +339,7 @@ void DenseMap::Reset() {
 	keyFrames.clear();
 }
 
-DenseMap::operator KeyMap() const {
+VoxelMap::operator KeyMap() const {
 
 	KeyMap map;
 
@@ -369,7 +349,7 @@ DenseMap::operator KeyMap() const {
 	return map;
 }
 
-DenseMap::operator DeviceMap() const {
+VoxelMap::operator DeviceMap() const {
 
 	DeviceMap map;
 
@@ -387,7 +367,7 @@ DenseMap::operator DeviceMap() const {
 
 //======================== REFACOTRING ========================
 
-DenseMap::DenseMap(float voxelSize, int numSdfBlock, int numHashEntry)
+VoxelMap::VoxelMap(float voxelSize, int numSdfBlock, int numHashEntry)
 {
 	if(numHashEntry < numSdfBlock)
 	{
@@ -407,7 +387,7 @@ DenseMap::DenseMap(float voxelSize, int numSdfBlock, int numHashEntry)
 	param.truncateDist = voxelSize * 8;
 }
 
-DenseMap::~DenseMap()
+VoxelMap::~VoxelMap()
 {
 	if(device_map.memoryAllocated)
 		releaseDeviceMemory();
@@ -416,7 +396,7 @@ DenseMap::~DenseMap()
 		releaseHostMemory();
 }
 
-void DenseMap::writeMapToDisk(std::string path)
+void VoxelMap::writeMapToDisk(std::string path)
 {
 	if(!host_map.memoryAllocated)
 		allocateHostMemory();
@@ -447,24 +427,23 @@ void DenseMap::writeMapToDisk(std::string path)
 	releaseHostMemory();
 }
 
-void DenseMap::readMapFromDisk(std::string path)
+void VoxelMap::readMapFromDisk(std::string path)
 {
 
 }
 
-void DenseMap::copyMapDeviceToHost()
+void VoxelMap::copyMapDeviceToHost()
 {
 
 }
 
-void DenseMap::copyMapHostToDevice()
+void VoxelMap::copyMapHostToDevice()
 {
 
 }
 
-void DenseMap::allocateHostMemory()
+void VoxelMap::allocateHostMemory()
 {
-	std::unique_lock<std::mutex> lock(mutexHostMap);
 	if(host_map.memoryAllocated)
 	{
 		printf("Host memory IS already allocated, Exit.\n");
@@ -483,9 +462,8 @@ void DenseMap::allocateHostMemory()
 	}
 }
 
-void DenseMap::releaseHostMemory()
+void VoxelMap::releaseHostMemory()
 {
-	std::unique_lock<std::mutex> lock(mutexHostMap);
 	if(host_map.memoryAllocated)
 	{
 		delete host_map.ptr_entry;
@@ -498,9 +476,8 @@ void DenseMap::releaseHostMemory()
 	}
 }
 
-void DenseMap::releaseDeviceMemory()
+void VoxelMap::releaseDeviceMemory()
 {
-	std::unique_lock<std::mutex> lock(mutexDeviceMap);
 	if(device_map.memoryAllocated)
 	{
 		cudaFree(device_map.ptr_entry);
@@ -513,7 +490,7 @@ void DenseMap::releaseDeviceMemory()
 	}
 }
 
-int DenseMap::fusePointCloud(PointCloud* data)
+int VoxelMap::fusePointCloud(PointCloud* data)
 {
 	uint no;
 	Frame* trackingFrame = data->frame;
@@ -535,7 +512,7 @@ int DenseMap::fusePointCloud(PointCloud* data)
 	return (int)no;
 }
 
-void DenseMap::takeSnapShot(PointCloud* data, int numVisibleBlocks)
+void VoxelMap::takeSnapShot(PointCloud* data, int numVisibleBlocks)
 {
 	Frame* trackingFrame = data->frame;
 	uint no = numVisibleBlocks < 0 ? updateVisibility(data) : (uint) numVisibleBlocks;
@@ -553,7 +530,7 @@ void DenseMap::takeSnapShot(PointCloud* data, int numVisibleBlocks)
 			trackingFrame->getcy());
 }
 
-uint DenseMap::updateVisibility(PointCloud* data)
+uint VoxelMap::updateVisibility(PointCloud* data)
 {
 	uint no(0);
 	Frame* trackingFrame = data->frame;

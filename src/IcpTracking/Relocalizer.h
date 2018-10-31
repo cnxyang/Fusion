@@ -7,6 +7,4 @@ public:
 	Relocalizer();
 
 protected:
-
-
 };

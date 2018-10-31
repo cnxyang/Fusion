@@ -64,6 +64,18 @@ SE3 ICPTracker::trackSE3(PointCloud * ref, PointCloud * target, SE3 estimate, bo
 	K.cx = ref->frame->getcx(0);
 	K.cy = ref->frame->getcy(0);
 
+
+//	cv::Mat debugTrackingReferenceImage(480, 640, CV_8UC1);
+//	cv::Mat debugTrackingTargetImage(480, 640, CV_8UC1);
+//
+//	ref->image[0].download(debugTrackingReferenceImage.data, debugTrackingReferenceImage.step);
+//	target->image[0].download(debugTrackingTargetImage.data, debugTrackingTargetImage.step);
+//
+//	cv::imshow("debugTrackingTargetImage", debugTrackingTargetImage);
+//	cv::imshow("debugTrackingReferenceImage", debugTrackingReferenceImage);
+//	cv::waitKey(0);
+
+
 	// Store current frame poses
 	SE3 refPose = ref->frame->pose;
 	SE3 frameToRef = estimate;
@@ -132,8 +144,8 @@ SE3 ICPTracker::trackSE3(PointCloud * ref, PointCloud * target, SE3 estimate, bo
 					return estimate;
 				}
 
-				matrixA = 1e-4 * matrixArgb + matrixAicp;
-				vectorb = 1e-4 * vectorbrgb + vectorbicp;
+				matrixA = 1e-2 * matrixArgb + matrixAicp;
+				vectorb = 1e-2 * vectorbrgb + vectorbicp;
 			}
 			else
 			{
