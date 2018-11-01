@@ -1,19 +1,46 @@
 #pragma once
 
-struct GlobalStates
+#include <map>
+#include <thread>
+#include <chrono>
+
+#define CONSOLE(text) do { \
+	auto now = std::chrono::system_clock::now(); \
+	auto time = std::chrono::system_clock::to_time_t(now); \
+	std::string timeString = std::ctime(&time); \
+	timeString.erase(timeString.find('\n', 0), 1); \
+	std::cout << timeString << " : " << text << std::endl; \
+} while (0)
+
+#define CONSOLE_ERR(x) do { \
+	auto now = std::chrono::system_clock::now(); \
+	auto time = std::chrono::system_clock::to_time_t(now); \
+	std::string timeString = std::ctime(&time); \
+	timeString.erase(timeString.find('\n', 0), 1); \
+	std::cerr << timeString << " : " << x << std::endl; \
+} while (0)
+
+// Global Running States
+// this should be reloaded when
+// read a different map from the disk
+struct RuningStates
 {
-	GlobalStates();
+	RuningStates();
 
 	// Used for tracking
 	int numTrackedFrames;
 	int numTrackedKeyFrames;
+
+	// Used for mapping
+	float voxelSize;
 };
 
-extern GlobalStates systemState;
+extern RuningStates state;
 extern bool displayDebugInfo;
 
 /*
 	The following constants are used in the Mapping sub routine
+	CONSTANTS for building the map, these should never be changed
  */
 const int edgeTableHost[256] = {
 	0x0  , 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
@@ -50,6 +77,7 @@ const int edgeTableHost[256] = {
 	0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x0
 };
 
+// table that contains triangle arrangements.
 const int triangleTableHost[256][16] = {
     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 	{0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},

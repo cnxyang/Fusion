@@ -1,9 +1,9 @@
 #pragma once
 
-#include "SlamSystem.h"
-#include "Utilities/SophusUtil.h"
 #include <atomic>
 #include <vector>
+#include "SlamSystem.h"
+#include "Utilities/SophusUtil.h"
 #include <pangolin/pangolin.h>
 #include <pangolin/gl/glcuda.h>
 #include <pangolin/gl/glvbo.h>
@@ -15,21 +15,6 @@ class VoxelMap;
 class GlViewer
 {
 public:
-
-	void spin();
-	void run() {}
-
-
-
-	void drawNormal();
-	void drawColor();
-	void drawMesh(bool bNormal);
-	std::vector<SE3> keyFrameGraph;
-
-
-	pangolin::OpenGlMatrix pose;
-
-	//============= REFACTORING =============
 
 	GlViewer(std::string windowTitle, int w, int h, Eigen::Matrix3f K);
 	GlViewer(const GlViewer&) = delete;
@@ -50,7 +35,6 @@ public:
 	inline void setVoxelMap(VoxelMap* map);
 	inline void setSlamSystem(SlamSystem* system);
 
-	std::mutex mutexMeshUpdate;
 
 	// OpenGL array mapped to CUDA
 	pangolin::CudaScopedMappedPtr* meshVerticesCUDAMapped;
@@ -63,9 +47,13 @@ public:
 	pangolin::CudaScopedMappedArray* imageSyntheticCUDAMapped;
 	pangolin::CudaScopedMappedArray* imageBirdsEyeCUDAMapped;
 
+	std::vector<SE3> keyFrameGraph;
+	std::mutex mutexMeshUpdate;
+
 protected:
 
-	// utility functions
+	void drawTexturedMesh();
+	void drawShadedMesh(bool bNormal);
 	void drawCurrentCamera() const;
 	void drawKeyFrameGraph() const;
 	void drawKeyPointsToScreen() const;
@@ -75,7 +63,7 @@ protected:
 	void drawBirdsEyeViewToCamera() const;
 
 	void setModelViewFollowCamera();
-	std::vector<GLfloat> getTransformedCam(SE3 pose) const;
+	std::vector<GLfloat> getTransformedCam(SE3 pose, float scale = 1.0f) const;
 
 	VoxelMap* map;
 	SlamSystem* slam;

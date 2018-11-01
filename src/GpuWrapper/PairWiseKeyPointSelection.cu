@@ -1,4 +1,4 @@
-#include "DeviceMap.h"
+#include "MapStruct.h"
 
 #include <opencv.hpp>
 #include <cudaarithm.hpp>

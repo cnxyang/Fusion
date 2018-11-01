@@ -61,7 +61,7 @@ struct Projection {
 			tmp.x += (corner & 1) ? 1 : 0;
 			tmp.y += (corner & 2) ? 1 : 0;
 			tmp.z += (corner & 4) ? 1 : 0;
-			float3 pt3d = tmp * DeviceMap::BlockSize * DeviceMap::VoxelSize;
+			float3 pt3d = tmp * MapStruct::BlockSize * MapStruct::VoxelSize;
 			pt3d = RcurrInv * (pt3d - tcurr);
 			if (pt3d.z < 2e-1)
 				continue;
@@ -148,7 +148,7 @@ struct Projection {
 
 		int offset = ComputeOffset<1024>(requiredNoBlocks, noRenderingBlocks);
 		if (valid && offset != -1 &&
-			(offset + requiredNoBlocks) < DeviceMap::MaxRenderingBlocks)
+			(offset + requiredNoBlocks) < MapStruct::MaxRenderingBlocks)
 			createRenderingBlockList(offset, block, nx, ny);
 	}
 
@@ -277,7 +277,7 @@ bool CreateRenderingBlocks(const DeviceArray<HashEntry> & visibleBlocks,
 struct Rendering {
 
 	int cols, rows;
-	DeviceMap map;
+	MapStruct map;
 
 	mutable PtrStep<float4> vmap;
 	mutable PtrStep<float4> nmap;
@@ -387,14 +387,14 @@ struct Rendering {
 		pt3d.z = zRange.x;
 		pt3d.x = pt3d.z * ((float) x - cx) * invfx;
 		pt3d.y = pt3d.z * ((float) y - cy) * invfy;
-		float dist_s = norm(pt3d) * DeviceMap::voxelSizeInv;
-		float3 block_s = (Rview * pt3d + tview) * DeviceMap::voxelSizeInv;
+		float dist_s = norm(pt3d) * MapStruct::voxelSizeInv;
+		float3 block_s = (Rview * pt3d + tview) * MapStruct::voxelSizeInv;
 
 		pt3d.z = zRange.y;
 		pt3d.x = pt3d.z * ((float) x - cx) * invfx;
 		pt3d.y = pt3d.z * ((float) y - cy) * invfy;
-		float dist_e = norm(pt3d) * DeviceMap::voxelSizeInv;
-		float3 block_e = (Rview * pt3d + tview) * DeviceMap::voxelSizeInv;
+		float dist_e = norm(pt3d) * MapStruct::voxelSizeInv;
+		float3 block_e = (Rview * pt3d + tview) * MapStruct::voxelSizeInv;
 
 		float3 dir = normalised(block_e - block_s);
 		float3 result = block_s;
@@ -406,7 +406,7 @@ struct Rendering {
 		while (dist_s < dist_e) {
 			sdf = readSdf(result, b, valid_sdf);
 			if(!valid_sdf) {
-				step = DeviceMap::BlockSize;
+				step = MapStruct::BlockSize;
 			}
 			else {
 				if (sdf <= 0.1f && sdf >= -0.5f) {
@@ -417,9 +417,9 @@ struct Rendering {
 					break;
 
 				if (!isnan(sdf))
-					step = max(sdf * DeviceMap::stepScale, 1.0f);
+					step = max(sdf * MapStruct::stepScale, 1.0f);
 				else
-					step = DeviceMap::BlockSize;
+					step = MapStruct::BlockSize;
 			}
 
 			result += step * dir;
@@ -427,12 +427,12 @@ struct Rendering {
 		}
 
 		if(sdf <= 0.0f) {
-			step = sdf * DeviceMap::stepScale;
+			step = sdf * MapStruct::stepScale;
 			result += step * dir;
 
 			sdf = readSdfInterped(result, b, valid_sdf);
 
-			step = sdf * DeviceMap::stepScale;
+			step = sdf * MapStruct::stepScale;
 			result += step * dir;
 			found_pt = true;
 		}
@@ -441,7 +441,7 @@ struct Rendering {
 			float3 normal;
 			if(readNormal(result, b, normal)) {
 
-				result = RviewInv * (result * DeviceMap::VoxelSize - tview);
+				result = RviewInv * (result * MapStruct::VoxelSize - tview);
 
 				vmap.ptr(y)[x] = make_float4(result, 1.0);
 				nmap.ptr(y)[x] = make_float4(normal, 1.0);
@@ -456,7 +456,7 @@ __global__ void __launch_bounds__(32, 16) RayCastKernel(Rendering cast) {
 
 #include <opencv.hpp>
 
-void Raycast(DeviceMap map,
+void Raycast(MapStruct map,
 			 DeviceArray2D<float4> & vmap,
 			 DeviceArray2D<float4> & nmap,
 			 DeviceArray2D<float> & zRangeX,

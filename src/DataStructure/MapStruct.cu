@@ -1,6 +1,8 @@
-#include "DeviceMap.h"
+#include "MapStruct.h"
 
-__device__ uint DeviceMap::Hash(const int3 & pos) {
+__device__ MapState mapState;
+
+__device__ uint MapStruct::Hash(const int3 & pos) {
 	int res = ((pos.x * 73856093) ^ (pos.y * 19349669) ^ (pos.z * 83492791))
 			% NumBuckets;
 
@@ -9,7 +11,7 @@ __device__ uint DeviceMap::Hash(const int3 & pos) {
 	return res;
 }
 
-__device__ HashEntry DeviceMap::CreateEntry(const int3 & pos,
+__device__ HashEntry MapStruct::CreateEntry(const int3 & pos,
 		const int & offset) {
 	int old = atomicSub(heapCounter, 1);
 	if (old >= 0) {
@@ -20,7 +22,7 @@ __device__ HashEntry DeviceMap::CreateEntry(const int3 & pos,
 	return HashEntry(pos, EntryAvailable, 0);
 }
 
-__device__ void DeviceMap::CreateBlock(const int3& blockPos) {
+__device__ void MapStruct::CreateBlock(const int3& blockPos) {
 	int bucketId = Hash(blockPos);
 	int* mutex = &bucketMutex[bucketId];
 	HashEntry* e = &hashEntries[bucketId];
@@ -61,12 +63,12 @@ __device__ void DeviceMap::CreateBlock(const int3& blockPos) {
 	}
 }
 
-__device__ bool DeviceMap::FindVoxel(const float3 & pos, Voxel & vox) {
+__device__ bool MapStruct::FindVoxel(const float3 & pos, Voxel & vox) {
 	int3 voxel_pos = worldPosToVoxelPos(pos);
 	return FindVoxel(voxel_pos, vox);
 }
 
-__device__ bool DeviceMap::FindVoxel(const int3 & pos, Voxel & vox) {
+__device__ bool MapStruct::FindVoxel(const int3 & pos, Voxel & vox) {
 	HashEntry entry = FindEntry(voxelPosToBlockPos(pos));
 	if (entry.ptr == EntryAvailable)
 		return false;
@@ -75,7 +77,7 @@ __device__ bool DeviceMap::FindVoxel(const int3 & pos, Voxel & vox) {
 	return true;
 }
 
-__device__ Voxel DeviceMap::FindVoxel(const int3 & pos) {
+__device__ Voxel MapStruct::FindVoxel(const int3 & pos) {
 	HashEntry entry = FindEntry(voxelPosToBlockPos(pos));
 	Voxel voxel;
 	if (entry.ptr == EntryAvailable)
@@ -83,7 +85,7 @@ __device__ Voxel DeviceMap::FindVoxel(const int3 & pos) {
 	return voxelBlocks[entry.ptr + voxelPosToLocalIdx(pos)];
 }
 
-__device__ Voxel DeviceMap::FindVoxel(const float3 & pos) {
+__device__ Voxel MapStruct::FindVoxel(const float3 & pos) {
 	int3 p = make_int3(pos);
 	HashEntry entry = FindEntry(voxelPosToBlockPos(p));
 
@@ -94,7 +96,7 @@ __device__ Voxel DeviceMap::FindVoxel(const float3 & pos) {
 	return voxelBlocks[entry.ptr + voxelPosToLocalIdx(p)];
 }
 
-__device__ Voxel DeviceMap::FindVoxel(const float3 & pos, HashEntry & cache, bool & valid) {
+__device__ Voxel MapStruct::FindVoxel(const float3 & pos, HashEntry & cache, bool & valid) {
 	int3 p = make_int3(pos);
 	int3 blockPos = voxelPosToBlockPos(p);
 	if(blockPos == cache.pos) {
@@ -113,13 +115,13 @@ __device__ Voxel DeviceMap::FindVoxel(const float3 & pos, HashEntry & cache, boo
 	return voxelBlocks[entry.ptr + voxelPosToLocalIdx(p)];
 }
 
-__device__ HashEntry DeviceMap::FindEntry(const float3 & pos) {
+__device__ HashEntry MapStruct::FindEntry(const float3 & pos) {
 	int3 blockIdx = worldPosToBlockPos(pos);
 
 	return FindEntry(blockIdx);
 }
 
-__device__ HashEntry DeviceMap::FindEntry(const int3& blockPos) {
+__device__ HashEntry MapStruct::FindEntry(const int3& blockPos) {
 	uint bucketId = Hash(blockPos);
 	HashEntry* e = &hashEntries[bucketId];
 	if (e->ptr != EntryAvailable && e->pos == blockPos)
@@ -134,20 +136,20 @@ __device__ HashEntry DeviceMap::FindEntry(const int3& blockPos) {
 	return HashEntry(blockPos, EntryAvailable, 0);
 }
 
-__device__ int3 DeviceMap::worldPosToVoxelPos(float3 pos) const {
+__device__ int3 MapStruct::worldPosToVoxelPos(float3 pos) const {
 	float3 p = pos / VoxelSize;
 	return make_int3(p);
 }
 
-__device__ float3 DeviceMap::worldPosToVoxelPosF(float3 pos) const {
+__device__ float3 MapStruct::worldPosToVoxelPosF(float3 pos) const {
 	return pos / VoxelSize;
 }
 
-__device__ float3 DeviceMap::voxelPosToWorldPos(int3 pos) const {
+__device__ float3 MapStruct::voxelPosToWorldPos(int3 pos) const {
 	return pos * VoxelSize;
 }
 
-__device__ int3 DeviceMap::voxelPosToBlockPos(const int3 & pos) const {
+__device__ int3 MapStruct::voxelPosToBlockPos(const int3 & pos) const {
 	int3 voxel = pos;
 
 	if (voxel.x < 0)
@@ -160,11 +162,11 @@ __device__ int3 DeviceMap::voxelPosToBlockPos(const int3 & pos) const {
 	return voxel / BlockSize;
 }
 
-__device__ int3 DeviceMap::blockPosToVoxelPos(const int3 & pos) const {
+__device__ int3 MapStruct::blockPosToVoxelPos(const int3 & pos) const {
 	return pos * BlockSize;
 }
 
-__device__ int3 DeviceMap::voxelPosToLocalPos(const int3 & pos) const {
+__device__ int3 MapStruct::voxelPosToLocalPos(const int3 & pos) const {
 	int3 local = pos % BlockSize;
 
 	if (local.x < 0)
@@ -177,26 +179,26 @@ __device__ int3 DeviceMap::voxelPosToLocalPos(const int3 & pos) const {
 	return local;
 }
 
-__device__ int DeviceMap::localPosToLocalIdx(const int3 & pos) const {
+__device__ int MapStruct::localPosToLocalIdx(const int3 & pos) const {
 	return pos.z * BlockSize * BlockSize + pos.y * BlockSize + pos.x;
 }
 
-__device__ int3 DeviceMap::localIdxToLocalPos(const int & idx) const {
+__device__ int3 MapStruct::localIdxToLocalPos(const int & idx) const {
 	uint x = idx % BlockSize;
 	uint y = idx % (BlockSize * BlockSize) / BlockSize;
 	uint z = idx / (BlockSize * BlockSize);
 	return make_int3(x, y, z);
 }
 
-__device__ int3 DeviceMap::worldPosToBlockPos(const float3 & pos) const {
+__device__ int3 MapStruct::worldPosToBlockPos(const float3 & pos) const {
 	return voxelPosToBlockPos(worldPosToVoxelPos(pos));
 }
 
-__device__ float3 DeviceMap::blockPosToWorldPos(const int3 & pos) const {
+__device__ float3 MapStruct::blockPosToWorldPos(const int3 & pos) const {
 	return voxelPosToWorldPos(blockPosToVoxelPos(pos));
 }
 
-__device__ int DeviceMap::voxelPosToLocalIdx(const int3 & pos) const {
+__device__ int MapStruct::voxelPosToLocalIdx(const int3 & pos) const {
 	return localPosToLocalIdx(voxelPosToLocalPos(pos));
 }
 

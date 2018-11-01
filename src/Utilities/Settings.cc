@@ -2,7 +2,7 @@
 
 bool displayDebugInfo = true;
 
-GlobalStates::GlobalStates() :
+RuningStates::RuningStates() :
 	numTrackedFrames(0), numTrackedKeyFrames(0) {}
 
-GlobalStates systemState;
+RuningStates state;

@@ -5,7 +5,7 @@
 #include <condition_variable>
 #include "Frame.h"
 #include "GlViewer.h"
-#include "DenseMap.h"
+#include "VoxelMap.h"
 #include "DeviceFuncs.h"
 
 class GlViewer;

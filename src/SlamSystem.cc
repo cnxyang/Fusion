@@ -2,11 +2,12 @@
 #include "GlWrapper/GlViewer.h"
 #include "IcpTracking/PointCloud.h"
 #include "IcpTracking/ICPTracker.h"
-#include "GlobalMapping/DenseMap.h"
+#include "GlobalMapping/VoxelMap.h"
 #include "Utilities/EigenUtils.h"
 #include "Utilities/Settings.h"
-#include <fstream>
 #include <unordered_set>
+#include <fstream>
+#include <chrono>
 
 SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 	width(w), height(h), K(K), dumpMapToDisk(false),
@@ -22,6 +23,9 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 	tracker = new ICPTracker(w, h, K);
 	tracker->setIterations({ 10, 5, 3 });
 
+	constraintTracker = new ICPTracker(w, h, K);
+	constraintTracker->setIterations({ 5, 3, 1 });
+
 	viewer = new GlViewer("SlamSystem", w, h, K);
 
 	viewer->setVoxelMap(map);
@@ -33,17 +37,20 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 
 	threadConstraintSearch = std::thread(&SlamSystem::loopConstraintSearch, this);
 	threadVisualisation = std::thread(&SlamSystem::loopVisualisation, this);
+
+	CONSOLE("SLAM System Successfully Initiated.");
+
 }
 
 SlamSystem::~SlamSystem()
 {
-	printf("Waiting for all other threads to finish.\n");
+	CONSOLE("Waiting for all other threads to finish.");
 	keepRunning = false;
 
 	// waiting for all other threads
 	threadConstraintSearch.join();
 
-	printf("DONE Waiting for other threads.\n");
+	CONSOLE("DONE Waiting for other threads.");
 
 	// delete all resources
 	delete map;
@@ -52,13 +59,7 @@ SlamSystem::~SlamSystem()
 	delete trackingTarget;
 	delete keyFrameGraph;
 
-	printf("DONE Cleaning up.\n");
-}
-
-void SlamSystem::rebootSystem()
-{
-	map->Reset();
-	trackingReference->frame = NULL;
+	CONSOLE("DONE Cleaning up.");
 }
 
 //void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeStamp) {
@@ -115,8 +116,8 @@ void SlamSystem::rebootSystem()
 //	++systemState.numTrackedFrames;
 //}
 
-void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeStamp) {
-
+void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeStamp)
+{
 	// process messages before tracking
 	// this include system reboot requests
 	// and other system directives.
@@ -124,6 +125,7 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 
 	// create new frame and generate point cloud
 	Frame* currentFrame = new Frame(img, depth, id, K, timeStamp);
+
 	trackingTarget->generateCloud(currentFrame);
 	viewer->setCurrentImages(trackingTarget);
 
@@ -161,8 +163,6 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 
 	// Do a raycast to ensure we have a copy of the map
 	int numVisibleBlocks = map->fusePointCloud(trackingTarget);
-//	map->takeSnapShot(trackingReference, numVisibleBlocks);
-//	trackingReference->generatePyramid();
 
 	// check if we insert a new key frame
 	if(tracker->trackingWasGood)
@@ -172,21 +172,21 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 
 		float closenessScore = 16 * dist.norm() + (1 - pointUsage) * (1 - pointUsage);
 
-		if(closenessScore > 3.f)
+		if(closenessScore > 2.f)
 		{
 			std::swap(trackingReference, trackingTarget);
 			map->takeSnapShot(trackingReference);
 			trackingReference->generatePyramid();
 			currentKeyFrame = currentFrame;
 			viewer->keyFrameGraph.push_back(currentKeyFrame->pose());
-			++systemState.numTrackedKeyFrames;
+			++state.numTrackedKeyFrames;
 		}
 	}
 
 	// Update visualisation
 	updateVisualisation();
 
-	++systemState.numTrackedFrames;
+	++state.numTrackedFrames;
 }
 
 void SlamSystem::processMessages()
@@ -235,7 +235,7 @@ void SlamSystem::queueMessage(Msg newmsg)
 
 void SlamSystem::loopVisualisation()
 {
-	printf("Visualisation Thread Started.\n");
+	CONSOLE("Visualisation Thread Started.");
 	viewer->enableGlContext();
 
 	while(keepRunning)
@@ -249,24 +249,24 @@ void SlamSystem::loopVisualisation()
 		systemRunning = false;
 	}
 
-	printf("Visualisation Thread Exited.\n");
+	CONSOLE("Visualisation Thread Exited.");
 }
 
 void SlamSystem::loopOptimization()
 {
-	printf("Optimisation Thread Started.\n");
+	CONSOLE("Optimisation Thread Started.");
 
 	while(keepRunning)
 	{
 
 	}
 
-	printf("Optimisation Thread Started.\n");
+	CONSOLE("Optimisation Thread Started.");
 }
 
 void SlamSystem::loopConstraintSearch()
 {
-	printf("Constraint Search Thread Started.\n");
+	CONSOLE("Constraint Search Thread Started.");
 
 	// Used for constraint searching
 	PointCloud* firstFrame = new PointCloud();
@@ -292,7 +292,7 @@ void SlamSystem::loopConstraintSearch()
 		}
 	}
 
-	printf("Constraint Search Thread Exited.\n");
+	CONSOLE("Constraint Search Thread Exited.");
 }
 
 void SlamSystem::findConstraintsForNewKeyFrames(Frame* newKF)
@@ -302,13 +302,28 @@ void SlamSystem::findConstraintsForNewKeyFrames(Frame* newKF)
 	candidates = keyFrameGraph->searchCandidates(newKF);
 
 	// Erase ones that are already neighbours
-	for(std::unordered_set<Frame*>::iterator c = candidates.begin(); c != candidates.end();)
+	for (std::unordered_set<Frame*>::iterator c = candidates.begin(); c != candidates.end();)
 	{
 		if(newKF->neighbors.find(*c) != newKF->neighbors.end())
 			c = candidates.erase(c);
 		else
 			++c;
 	}
+
+	for (Frame* c : candidates)
+	{
+
+	}
+}
+
+void SlamSystem::tryTrackConstraint()
+{
+
+}
+
+void SlamSystem::checkConstraints()
+{
+
 }
 
 void SlamSystem::updateVisualisation()
@@ -317,7 +332,7 @@ void SlamSystem::updateVisualisation()
 
 	if (toggleShowMesh)
 	{
-		if (systemState.numTrackedFrames % 30 == 0)
+		if (state.numTrackedFrames % 30 == 0)
 		{
 			map->CreateModel();
 		}
@@ -390,10 +405,10 @@ void SlamSystem::writeBinaryMapToDisk() {
 
 	auto file = std::fstream("/home/xyang/map.bin", std::ios::out | std::ios::binary);
 
-	const int NumSdfBlocks = DeviceMap::NumSdfBlocks;
-	const int NumBuckets = DeviceMap::NumBuckets;
-	const int NumVoxels = DeviceMap::NumVoxels;
-	const int NumEntries = DeviceMap::NumEntries;
+	const int NumSdfBlocks = MapStruct::NumSdfBlocks;
+	const int NumBuckets = MapStruct::NumBuckets;
+	const int NumVoxels = MapStruct::NumVoxels;
+	const int NumEntries = MapStruct::NumEntries;
 
 	// begin writing of general map info
 	file.write((const char*)&NumSdfBlocks, sizeof(int));
@@ -405,11 +420,11 @@ void SlamSystem::writeBinaryMapToDisk() {
 	file.write((char*) map->heapCounterRAM, sizeof(int));
 	file.write((char*) map->hashCounterRAM, sizeof(int));
 	file.write((char*) map->noVisibleEntriesRAM, sizeof(uint));
-	file.write((char*) map->heapRAM, sizeof(int) * DeviceMap::NumSdfBlocks);
-	file.write((char*) map->bucketMutexRAM, sizeof(int) * DeviceMap::NumBuckets);
-	file.write((char*) map->sdfBlockRAM, sizeof(Voxel) * DeviceMap::NumVoxels);
-	file.write((char*) map->hashEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
-	file.write((char*) map->visibleEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
+	file.write((char*) map->heapRAM, sizeof(int) * MapStruct::NumSdfBlocks);
+	file.write((char*) map->bucketMutexRAM, sizeof(int) * MapStruct::NumBuckets);
+	file.write((char*) map->sdfBlockRAM, sizeof(Voxel) * MapStruct::NumVoxels);
+	file.write((char*) map->hashEntriesRAM, sizeof(HashEntry) * MapStruct::NumEntries);
+	file.write((char*) map->visibleEntriesRAM, sizeof(HashEntry) * MapStruct::NumEntries);
 
 	// begin writing of feature map
 	file.write((char*) map->mutexKeysRAM, sizeof(int) * KeyMap::MaxKeys);
@@ -441,11 +456,11 @@ void SlamSystem::readBinaryMapFromDisk() {
 	file.read((char*) map->heapCounterRAM, sizeof(int));
 	file.read((char*) map->hashCounterRAM, sizeof(int));
 	file.read((char*) map->noVisibleEntriesRAM, sizeof(uint));
-	file.read((char*) map->heapRAM, sizeof(int) * DeviceMap::NumSdfBlocks);
-	file.read((char*) map->bucketMutexRAM, sizeof(int) * DeviceMap::NumBuckets);
-	file.read((char*) map->sdfBlockRAM, sizeof(Voxel) * DeviceMap::NumVoxels);
-	file.read((char*) map->hashEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
-	file.read((char*) map->visibleEntriesRAM, sizeof(HashEntry) * DeviceMap::NumEntries);
+	file.read((char*) map->heapRAM, sizeof(int) * MapStruct::NumSdfBlocks);
+	file.read((char*) map->bucketMutexRAM, sizeof(int) * MapStruct::NumBuckets);
+	file.read((char*) map->sdfBlockRAM, sizeof(Voxel) * MapStruct::NumVoxels);
+	file.read((char*) map->hashEntriesRAM, sizeof(HashEntry) * MapStruct::NumEntries);
+	file.read((char*) map->visibleEntriesRAM, sizeof(HashEntry) * MapStruct::NumEntries);
 
 	// begin reading of feature map
 	file.read((char*) map->mutexKeysRAM, sizeof(int) * KeyMap::MaxKeys);
@@ -457,4 +472,40 @@ void SlamSystem::readBinaryMapFromDisk() {
 	file.close();
 
 	map->CreateModel();
+}
+
+void SlamSystem::rebootSystem()
+{
+	map->Reset();
+	trackingReference->frame = NULL;
+	viewer->keyFrameGraph.clear();
+}
+
+void SlamSystem::displayDebugImages(int ms)
+{
+	if(imageReference.empty())
+	{
+		imageReference.create(480, 640, CV_8UC1);
+		depthReference.create(480, 640, CV_32FC1);
+		imageTarget.create(480, 640, CV_8UC1);
+		depthTarget.create(480, 640, CV_32FC1);
+		nmapReference.create(480, 640, CV_32FC4);
+		nmapTarget.create(480, 640, CV_32FC4);
+	}
+
+	trackingReference->image[0].download(imageReference.data, imageReference.step);
+	trackingReference->depth[0].download(depthReference.data, depthReference.step);
+	trackingReference->nmap[0].download(nmapReference.data, nmapReference.step);
+	trackingTarget->image[0].download(imageTarget.data, imageTarget.step);
+	trackingTarget->depth[0].download(depthTarget.data, depthTarget.step);
+	trackingTarget->nmap[0].download(nmapTarget.data, nmapTarget.step);
+
+	cv::imshow("imageReference", imageReference);
+	cv::imshow("depthReference", depthReference);
+	cv::imshow("nmapReference", nmapReference);
+	cv::imshow("imageTarget", imageTarget);
+	cv::imshow("depthTarget", depthTarget);
+	cv::imshow("nmapTarget", nmapTarget);
+
+	cv::waitKey(ms);
 }

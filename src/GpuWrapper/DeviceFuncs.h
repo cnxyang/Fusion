@@ -2,12 +2,12 @@
 
 #include <opencv.hpp>
 
-#include "DeviceMap.h"
+#include "MapStruct.h"
 #include "VectorMath.h"
 #include "Intrinsics.h"
 #include "DeviceArray.h"
 
-void ResetMap(DeviceMap map);
+void ResetMap(MapStruct map);
 
 void ResetKeyPoints(KeyMap map);
 
@@ -17,7 +17,7 @@ void InsertKeyPoints(KeyMap map, DeviceArray<SURF> & keys,
 void CollectKeyPoints(KeyMap map, DeviceArray<SURF> & keys,
 		DeviceArray<uint> & noKeys);
 
-void Raycast(DeviceMap map, DeviceArray2D<float4> & vmap,
+void Raycast(MapStruct map, DeviceArray2D<float4> & vmap,
 		DeviceArray2D<float4> & nmap,
 		DeviceArray2D<float> & zRangeX,
 		DeviceArray2D<float> & zRangeY,
@@ -35,7 +35,7 @@ bool CreateRenderingBlocks(const DeviceArray<HashEntry> & visibleBlocks,
 
 uint MeshScene(DeviceArray<uint> & noOccupiedBlocks,
 		DeviceArray<uint> & noTotalTriangles,
-		DeviceMap map,
+		MapStruct map,
 		const DeviceArray<int> & edgeTable,
 		const DeviceArray<int> & vertexTable,
 		const DeviceArray2D<int> & triangleTable,
@@ -44,7 +44,7 @@ uint MeshScene(DeviceArray<uint> & noOccupiedBlocks,
 		DeviceArray<uchar3> & color,
 		DeviceArray<int3> & blockPoses);
 
-void CheckBlockVisibility(DeviceMap map, DeviceArray<uint> & noVisibleBlocks,
+void CheckBlockVisibility(MapStruct map, DeviceArray<uint> & noVisibleBlocks,
 		Matrix3f Rview, Matrix3f RviewInv, float3 tview, int cols, int rows,
 		float fx, float fy, float cx, float cy, float depthMax, float depthMin,
 		uint * host_data);
@@ -54,14 +54,14 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 		const DeviceArray2D<float4> & nmap,
 		DeviceArray<uint> & noVisibleBlocks,
 		Matrix3f Rview, Matrix3f RviewInv,
-		float3 tview, DeviceMap map,
+		float3 tview, MapStruct map,
 		float fx, float fy, float cx, float cy,
 		float depthMax, float depthMin, uint * host_data);
 
 void DefuseMapColor(const DeviceArray2D<float> & depth,
 		const DeviceArray2D<uchar3> & color, const DeviceArray2D<float4> & nmap,
 		DeviceArray<uint> & noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
-		float3 tview, DeviceMap map, float fx, float fy, float cx, float cy,
+		float3 tview, MapStruct map, float fx, float fy, float cx, float cy,
 		float depthMax, float depthMin, uint * host_data);
 
 void FilterDepth(const DeviceArray2D<unsigned short> & depth,

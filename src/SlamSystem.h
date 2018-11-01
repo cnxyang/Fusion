@@ -21,6 +21,8 @@ class KeyFrameGraph;
 struct Msg
 {
 	Msg(int msg) : data(msg) {}
+	Msg(int msg, std::string text, std::time_t time) :
+		data(msg), text(text), time(time) {}
 
 	enum
 	{
@@ -31,10 +33,13 @@ struct Msg
 		READ_BINARY_MAP_FROM_DISK,
 		SYSTEM_SHUTDOWN,
 		TOGGLE_MESH_ON,
-		TOGGLE_MESH_OFF
+		TOGGLE_MESH_OFF,
+		DISPLAY_MESSAGE
 	};
 
 	int data;
+	std::string text;
+	std::time_t time;
 };
 
 class SlamSystem
@@ -60,6 +65,9 @@ protected:
 	void readBinaryMapFromDisk();
 	void updateVisualisation();
 	void findConstraintsForNewKeyFrames(Frame* newKF);
+
+	void checkConstraints();
+	void tryTrackConstraint();
 
 	VoxelMap* map;
 	GlViewer* viewer;
@@ -95,6 +103,7 @@ protected:
 	PointCloud* trackingReference;
 	PointCloud* trackingTarget;
 	ICPTracker* tracker;
+	ICPTracker* constraintTracker;
 
 	// Used for constraint searching
 	std::deque<Frame*> newKeyFrames;
@@ -106,6 +115,16 @@ protected:
 	bool toggleShowMesh;
 	bool toggleShowImage;
 	int numTrackedKeyFrames;
+
+	// Images used for debugging
+	void displayDebugImages(int ms);
+
+	cv::Mat imageReference;
+	cv::Mat depthReference;
+	cv::Mat imageTarget;
+	cv::Mat depthTarget;
+	cv::Mat nmapReference;
+	cv::Mat nmapTarget;
 };
 
 inline bool SlamSystem::shouldQuit() const

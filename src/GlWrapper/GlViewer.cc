@@ -1,8 +1,7 @@
 #include "KeyFrame.h"
 #include "GlViewer.h"
-#include "DeviceMap.h"
-#include "DenseMap.h"
-
+#include "VoxelMap.h"
+#include "PointCloud.h"
 #include <unistd.h>
 #include <algorithm>
 #include <pangolin/gl/glcuda.h>
@@ -14,139 +13,6 @@
 
 using namespace std;
 using namespace pangolin;
-
-void GlViewer::drawBirdsEyeViewToCamera() const
-{
-//	if(system->imageUpdated) {
-//		SafeCall(cudaMemcpy2DToArray(**imageBirdsEyeCUDAMapped, 0, 0,
-//				(void*) system->renderedImage.data,
-//				system->renderedImage.step, sizeof(uchar4) * 640, 480,
-//				cudaMemcpyDeviceToDevice));
-//	}
-//	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-//	imageBirdsEye.RenderToViewport(true);
-}
-
-void GlViewer::drawSyntheticViewToCamera() const
-{
-//	if(tracker->imageUpdated) {
-//		if(tracker->updateImageMutex.try_lock()) {
-//			SafeCall(cudaMemcpy2DToArray(**imageSyntheticCUDAMapped, 0, 0,
-//					(void*) tracker->renderedImage.data,
-//					 tracker->renderedImage.step, sizeof(uchar4) * 640, 480,
-//					 cudaMemcpyDeviceToDevice));
-//			tracker->updateImageMutex.unlock();
-//		}
-//	}
-//	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-//	imageSynthetic.RenderToViewport(true);
-}
-
-void GlViewer::drawDepthViewToCamera() const
-{
-//	if(tracker->imageUpdated) {
-//		if(tracker->updateImageMutex.try_lock()) {
-//			SafeCall(cudaMemcpy2DToArray(**imageDepthCUDAMapped, 0, 0,
-//					(void*) tracker->renderedDepth.data,
-//					 tracker->renderedDepth.step, sizeof(uchar4) * 640, 480,
-//					 cudaMemcpyDeviceToDevice));
-//			tracker->updateImageMutex.unlock();
-//		}
-//	}
-//
-//	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-//	imageDepth.RenderToViewport(true);
-}
-
-void GlViewer::drawRGBViewToCamera() const
-{
-//	if(tracker->imageUpdated) {
-//		if(tracker->updateImageMutex.try_lock()) {
-//			SafeCall(cudaMemcpy2DToArray(**imageRGBCUDAMapped, 0, 0,
-//					(void*) tracker->rgbaImage.data,
-//					tracker->rgbaImage.step, sizeof(uchar4) * 640, 480,
-//					cudaMemcpyDeviceToDevice));
-//			tracker->updateImageMutex.unlock();
-//		}
-//	}
-//	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-//	imageRGB.RenderToViewport(true);
-}
-
-void GlViewer::drawColor()
-{
-	if (map->meshUpdated)
-	{
-		cudaMemcpy((void*) **meshVerticesCUDAMapped, (void*) map->modelVertex, sizeof(float3) * map->noTrianglesHost * 3,  cudaMemcpyDeviceToDevice);
-		cudaMemcpy((void*) **meshNormalsCUDAMapped, (void*) map->modelNormal, sizeof(float3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
-		cudaMemcpy((void*) **meshTextureCUDAMapped, (void*) map->modelColor, sizeof(uchar3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
-		map->meshUpdated = false;
-	}
-
-	shaderTexture.SaveBind();
-	shaderTexture.SetUniform("viewMat", viewCam.GetModelViewMatrix());
-	shaderTexture.SetUniform("projMat", viewCam.GetProjectionMatrix());
-	glBindVertexArray(vaoFULL);
-	bufferVertices.Bind();
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-	glEnableVertexAttribArray(0);
-	bufferVertices.Unbind();
-
-	bufferTexture.Bind();
-	glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_FALSE, 0, 0);
-	glEnableVertexAttribArray(1);
-	bufferTexture.Unbind();
-
-	glDrawArrays(GL_TRIANGLES, 0, map->noTrianglesHost * 3);
-	glDisableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-	shaderTexture.Unbind();
-	glBindVertexArray(0);
-}
-
-
-void GlViewer::drawMesh(bool bNormal)
-{
-
-	if (map->noTrianglesHost == 0)
-		return;
-
-	if (map->meshUpdated) {
-		cudaMemcpy((void*) **meshVerticesCUDAMapped, (void*) map->modelVertex, sizeof(float3) * map->noTrianglesHost * 3,  cudaMemcpyDeviceToDevice);
-		cudaMemcpy((void*) **meshNormalsCUDAMapped, (void*) map->modelNormal, sizeof(float3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
-		cudaMemcpy((void*) **meshTextureCUDAMapped, (void*) map->modelColor, sizeof(uchar3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
-		map->meshUpdated = false;
-	}
-
-	pangolin::GlSlProgram * program;
-	if (bNormal)
-		program = &shaderNormal;
-	else
-		program = &shaderPhong;
-
-	program->SaveBind();
-	program->SetUniform("viewMat", viewCam.GetModelViewMatrix());
-	program->SetUniform("projMat", viewCam.GetProjectionMatrix());
-
-	glBindVertexArray(vaoVerticesAndNormal);
-	bufferVertices.Bind();
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-	glEnableVertexAttribArray(0);
-	bufferVertices.Unbind();
-
-	bufferNormals.Bind();
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, 0, 0);
-	glEnableVertexAttribArray(1);
-	bufferNormals.Unbind();
-
-	glDrawArrays(GL_TRIANGLES, 0, map->noTrianglesHost * 3);
-	glDisableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-	program->Unbind();
-	glBindVertexArray(0);
-}
-
-// ===================== REFACTORING ==============================
 
 GlViewer::GlViewer(std::string title, int w, int h, Eigen::Matrix3f K) :
 		windowTitle(title), map(NULL), bufferSizeImage(0),
@@ -193,7 +59,7 @@ GlViewer::GlViewer(std::string title, int w, int h, Eigen::Matrix3f K) :
 	// Initialise vertex array for shaded mesh
 	bufferVertices.Reinitialise(
 			GlArrayBuffer,
-			DeviceMap::MaxVertices,
+			MapStruct::MaxVertices,
 			GL_FLOAT, 3,
 			cudaGraphicsMapFlagsWriteDiscard,
 			GL_STREAM_DRAW);
@@ -201,7 +67,7 @@ GlViewer::GlViewer(std::string title, int w, int h, Eigen::Matrix3f K) :
 	// Initialise vertex array for coloured normal
 	bufferNormals.Reinitialise(
 			GlArrayBuffer,
-			DeviceMap::MaxVertices,
+			MapStruct::MaxVertices,
 			GL_FLOAT, 3,
 			cudaGraphicsMapFlagsWriteDiscard,
 			GL_STREAM_DRAW);
@@ -209,7 +75,7 @@ GlViewer::GlViewer(std::string title, int w, int h, Eigen::Matrix3f K) :
 	// Initialise vertex array for shaded rgb
 	bufferTexture.Reinitialise(
 			GlArrayBuffer,
-			DeviceMap::MaxVertices,
+			MapStruct::MaxVertices,
 			GL_UNSIGNED_BYTE, 3,
 			cudaGraphicsMapFlagsWriteDiscard,
 			GL_STREAM_DRAW);
@@ -220,7 +86,7 @@ GlViewer::GlViewer(std::string title, int w, int h, Eigen::Matrix3f K) :
 	meshTextureCUDAMapped = new CudaScopedMappedPtr(bufferTexture);
 
 	// Initialise texture array
-	imageRGB.Reinitialise(w, h, GL_RGB, true, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	imageRGB.Reinitialise(w, h, GL_R8, true, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
 	imageDepth.Reinitialise(w, h, GL_RGBA, true, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	imageSynthetic.Reinitialise(w, h, GL_RGBA, true, 0,  GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	imageBirdsEye.Reinitialise(w, h, GL_RGBA, true, 0,  GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -310,7 +176,15 @@ void GlViewer::drawKeyPointsToScreen() const
 
 void GlViewer::setCurrentImages(PointCloud* data)
 {
-	// TODO: Implementation
+	SafeCall(cudaMemcpy2DToArray(**imageRGBCUDAMapped, 0, 0,
+		(void* )data->image[0].data, data->image[0].step,
+		sizeof(uchar) * data->image[0].cols, data->image[0].rows,
+		cudaMemcpyDeviceToDevice));
+
+	SafeCall(cudaMemcpy2DToArray(**imageDepthCUDAMapped, 0, 0,
+		(void* )data->depth[0].data, data->depth[0].step,
+		sizeof(float) * data->image[0].cols, data->image[0].rows,
+		cudaMemcpyDeviceToDevice));
 }
 
 void GlViewer::processMessages()
@@ -373,19 +247,19 @@ void GlViewer::drawViewsToScreen()
 			*buttonRenderSceneNormal = false;
 		if (*buttonRenderSceneRGB)
 			*buttonRenderSceneRGB = false;
-		drawMesh(false);
+		drawShadedMesh(false);
 	}
 
 	if (*buttonRenderSceneNormal)
 	{
 		if (*buttonRenderSceneRGB)
 			*buttonRenderSceneRGB = false;
-		drawMesh(true);
+		drawShadedMesh(true);
 	}
 
 	if (*buttonRenderSceneRGB)
 	{
-		drawColor();
+		drawTexturedMesh();
 	}
 
 	if (*buttonToggleWireFrame)
@@ -449,24 +323,32 @@ void GlViewer::setModelViewFollowCamera()
 	);
 }
 
-void GlViewer::drawCurrentCamera() const {
+void GlViewer::drawCurrentCamera() const
+{
 
 	std::vector<GLfloat> cam = getTransformedCam(currentCamPose);
 	glColor3fv(RGBActiveCam);
 	glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_LINE_STRIP, 3);
 }
 
-void GlViewer::drawKeyFrameGraph() const {
-
+void GlViewer::drawKeyFrameGraph() const
+{
+	std::vector<GLfloat> node;
 	for (SE3 pose : keyFrameGraph)
 	{
-		std::vector<GLfloat> cam = getTransformedCam(pose);
+		std::vector<GLfloat> cam = getTransformedCam(pose, 0.5);
+		node.push_back(pose.translation()(0));
+		node.push_back(pose.translation()(1));
+		node.push_back(pose.translation()(2));
 		glColor3fv(RGBKeyFrameGraph);
 		glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_LINE_STRIP, 3);
 	}
+
+	glColor3f(0.0f, 1.0f, 0.0f);
+	glDrawVertices(node.size() / 3, (GLfloat*) &node[0], GL_LINE_STRIP, 3);
 }
 
-std::vector<GLfloat> GlViewer::getTransformedCam(SE3 pose) const
+std::vector<GLfloat> GlViewer::getTransformedCam(SE3 pose, float scale) const
 {
 	std::vector<GLfloat> result;
 
@@ -474,11 +356,110 @@ std::vector<GLfloat> GlViewer::getTransformedCam(SE3 pose) const
 	// which represents the camera wire-frame
 	for (Eigen::Vector3f vertex : camVertices)
 	{
-		Eigen::Vector3f vertex_transformed = pose.rotationMatrix().cast<float>() * vertex + pose.translation().cast<float>();
+		Eigen::Vector3f vertex_transformed = pose.rotationMatrix().cast<float>() * vertex * scale + pose.translation().cast<float>();
 		result.push_back(vertex_transformed(0));
 		result.push_back(vertex_transformed(1));
 		result.push_back(vertex_transformed(2));
 	}
 
 	return result;
+}
+
+void GlViewer::drawBirdsEyeViewToCamera() const
+{
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+	imageBirdsEye.RenderToViewport(true);
+}
+
+void GlViewer::drawSyntheticViewToCamera() const
+{
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+	imageSynthetic.RenderToViewport(true);
+}
+
+void GlViewer::drawDepthViewToCamera() const
+{
+
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+	imageDepth.RenderToViewport(true);
+}
+
+void GlViewer::drawRGBViewToCamera() const
+{
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+	imageRGB.RenderToViewport(true);
+}
+
+void GlViewer::drawTexturedMesh()
+{
+	if (map->meshUpdated)
+	{
+		cudaMemcpy((void*) **meshVerticesCUDAMapped, (void*) map->modelVertex, sizeof(float3) * map->noTrianglesHost * 3,  cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **meshNormalsCUDAMapped, (void*) map->modelNormal, sizeof(float3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **meshTextureCUDAMapped, (void*) map->modelColor, sizeof(uchar3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
+		map->meshUpdated = false;
+	}
+
+	shaderTexture.SaveBind();
+	shaderTexture.SetUniform("viewMat", viewCam.GetModelViewMatrix());
+	shaderTexture.SetUniform("projMat", viewCam.GetProjectionMatrix());
+	glBindVertexArray(vaoFULL);
+	bufferVertices.Bind();
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(0);
+	bufferVertices.Unbind();
+
+	bufferTexture.Bind();
+	glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(1);
+	bufferTexture.Unbind();
+
+	glDrawArrays(GL_TRIANGLES, 0, map->noTrianglesHost * 3);
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+	shaderTexture.Unbind();
+	glBindVertexArray(0);
+}
+
+void GlViewer::drawShadedMesh(bool showNormals)
+{
+
+	if (map->noTrianglesHost == 0)
+		return;
+
+	if (map->meshUpdated) {
+		cudaMemcpy((void*) **meshVerticesCUDAMapped, (void*) map->modelVertex, sizeof(float3) * map->noTrianglesHost * 3,  cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **meshNormalsCUDAMapped, (void*) map->modelNormal, sizeof(float3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
+		cudaMemcpy((void*) **meshTextureCUDAMapped, (void*) map->modelColor, sizeof(uchar3) * map->noTrianglesHost * 3, cudaMemcpyDeviceToDevice);
+		map->meshUpdated = false;
+	}
+
+	pangolin::GlSlProgram * program;
+	if (showNormals)
+		program = &shaderNormal;
+	else
+		program = &shaderPhong;
+
+	program->SaveBind();
+	program->SetUniform("viewMat", viewCam.GetModelViewMatrix());
+	program->SetUniform("projMat", viewCam.GetProjectionMatrix());
+	Eigen::Vector3f translation = currentCamPose.translation().cast<float>();
+	program->SetUniform("lightpos", translation(0), translation(1), translation(2));
+
+	glBindVertexArray(vaoVerticesAndNormal);
+	bufferVertices.Bind();
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(0);
+	bufferVertices.Unbind();
+
+	bufferNormals.Bind();
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, 0, 0);
+	glEnableVertexAttribArray(1);
+	bufferNormals.Unbind();
+
+	glDrawArrays(GL_TRIANGLES, 0, map->noTrianglesHost * 3);
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+	program->Unbind();
+	glBindVertexArray(0);
 }

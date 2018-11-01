@@ -5,11 +5,12 @@ layout(location = 1) in vec3 a_normal;
 
 uniform mat4 projMat;
 uniform mat4 viewMat;
+uniform vec3 lightpos;
 
 out vec4 a_color;
 
 void main() {
-	vec3 lightpos = vec3(0.0, 0.0, -1.0);
+	
 	gl_Position = projMat * viewMat * vec4(a_position, 1.0);
 	vec3 pos = a_position;
   	vec3 normal = a_normal;

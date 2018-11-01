@@ -1,4 +1,4 @@
-#include "DenseMap.h"
+#include "VoxelMap.h"
 #include "Settings.h"
 #include "PointCloud.h"
 #include "DeviceFuncs.h"
@@ -13,18 +13,18 @@ void VoxelMap::allocateDeviceMemory() {
 	heapCounter.create(1);
 	hashCounter.create(1);
 	noVisibleEntries.create(1);
-	heap.create(DeviceMap::NumSdfBlocks);
-	sdfBlock.create(DeviceMap::NumVoxels);
-	bucketMutex.create(DeviceMap::NumBuckets);
-	hashEntries.create(DeviceMap::NumEntries);
-	visibleEntries.create(DeviceMap::NumEntries);
+	heap.create(MapStruct::NumSdfBlocks);
+	sdfBlock.create(MapStruct::NumVoxels);
+	bucketMutex.create(MapStruct::NumBuckets);
+	hashEntries.create(MapStruct::NumEntries);
+	visibleEntries.create(MapStruct::NumEntries);
 
 	nBlocks.create(1);
 	noTriangles.create(1);
-	modelVertex.create(DeviceMap::MaxVertices);
-	modelNormal.create(DeviceMap::MaxVertices);
-	modelColor.create(DeviceMap::MaxVertices);
-	blockPoses.create(DeviceMap::NumEntries);
+	modelVertex.create(MapStruct::MaxVertices);
+	modelNormal.create(MapStruct::MaxVertices);
+	modelColor.create(MapStruct::MaxVertices);
+	blockPoses.create(MapStruct::NumEntries);
 
 	edgeTable.create(256);
 	vertexTable.create(256);
@@ -38,7 +38,7 @@ void VoxelMap::allocateDeviceMemory() {
 	zRangeMinEnlarged.create(160, 120);
 	zRangeMaxEnlarged.create(160, 120);
 	noRenderingBlocks.create(1);
-	renderingBlockList.create(DeviceMap::MaxRenderingBlocks);
+	renderingBlockList.create(MapStruct::MaxRenderingBlocks);
 
 	noKeys.create(1);
 	mutexKeys.create(KeyMap::MaxKeys);
@@ -69,8 +69,8 @@ void VoxelMap::UpdateVisibility(Frame * f, uint & no) {
 
 	CheckBlockVisibility(*this, noVisibleEntries, f->GpuRotation(), f->GpuInvRotation(),
 			f->GpuTranslation(), Frame::cols(0), Frame::rows(0), Frame::fx(0),
-			Frame::fy(0), Frame::cx(0), Frame::cy(0), DeviceMap::DepthMax,
-			DeviceMap::DepthMin, &no);
+			Frame::fy(0), Frame::cx(0), Frame::cy(0), MapStruct::DepthMax,
+			MapStruct::DepthMin, &no);
 }
 
 void VoxelMap::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
@@ -97,7 +97,7 @@ void VoxelMap::DefuseColor(const DeviceArray2D<float> & depth,
 
 	DefuseMapColor(depth, color, normal, noVisibleEntries, Rview, RviewInv, tview, *this,
 			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0),
-			DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
+			MapStruct::DepthMax, MapStruct::DepthMin, &no);
 
 }
 
@@ -109,13 +109,13 @@ void VoxelMap::FuseColor(const DeviceArray2D<float> & depth,
 
 	FuseMapColor(depth, color, normal, noVisibleEntries, Rview, RviewInv, tview, *this,
 			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0),
-			DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
+			MapStruct::DepthMax, MapStruct::DepthMin, &no);
 
 }
 
 void VoxelMap::RayTrace(uint noVisibleBlocks, Frame * f) {
 	RayTrace(noVisibleBlocks, f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(),
-			f->vmap[0], f->nmap[0], DeviceMap::DepthMin, DeviceMap::DepthMax,
+			f->vmap[0], f->nmap[0], MapStruct::DepthMin, MapStruct::DepthMax,
 			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0));
 }
 
@@ -159,11 +159,11 @@ void VoxelMap::CreateRAM() {
 	heapCounterRAM = new int[1];
 	hashCounterRAM = new int[1];
 	noVisibleEntriesRAM = new uint[1];
-	heapRAM = new int[DeviceMap::NumSdfBlocks];
-	bucketMutexRAM = new int[DeviceMap::NumBuckets];
-	sdfBlockRAM = new Voxel[DeviceMap::NumVoxels];
-	hashEntriesRAM = new HashEntry[DeviceMap::NumEntries];
-	visibleEntriesRAM = new HashEntry[DeviceMap::NumEntries];
+	heapRAM = new int[MapStruct::NumSdfBlocks];
+	bucketMutexRAM = new int[MapStruct::NumBuckets];
+	sdfBlockRAM = new Voxel[MapStruct::NumVoxels];
+	hashEntriesRAM = new HashEntry[MapStruct::NumEntries];
+	visibleEntriesRAM = new HashEntry[MapStruct::NumEntries];
 
 	mutexKeysRAM = new int[KeyMap::MaxKeys];
 	mapKeysRAM = new SURF[KeyMap::maxEntries];
@@ -349,9 +349,9 @@ VoxelMap::operator KeyMap() const {
 	return map;
 }
 
-VoxelMap::operator DeviceMap() const {
+VoxelMap::operator MapStruct() const {
 
-	DeviceMap map;
+	MapStruct map;
 
 	map.heapMem = heap;
 	map.heapCounter = heapCounter;
@@ -367,64 +367,14 @@ VoxelMap::operator DeviceMap() const {
 
 //======================== REFACOTRING ========================
 
-VoxelMap::VoxelMap(float voxelSize, int numSdfBlock, int numHashEntry)
-{
-	if(numHashEntry < numSdfBlock)
-	{
-		printf("ERROR creating the map.\n");
-		return;
-	}
-
-	param.voxelSize = voxelSize;
-	param.numSdfBlock = numSdfBlock;
-	param.numEntries = numHashEntry;
-	param.numBuckets = (uint)((float)numHashEntry * 0.75);
-	param.numExcessBlock = numHashEntry - param.numBuckets;
-	param.maxNumRenderingBlock = 260000;
-	param.numVoxels = numSdfBlock * param.blockSize3;
-	param.maxNumTriangles = 20000000; // that's roughly 700MB of memory
-	param.maxNumVertices = param.maxNumTriangles * 3;
-	param.truncateDist = voxelSize * 8;
-}
-
 VoxelMap::~VoxelMap()
 {
-	if(device_map.memoryAllocated)
-		releaseDeviceMemory();
 
-	if(host_map.memoryAllocated)
-		releaseHostMemory();
 }
 
 void VoxelMap::writeMapToDisk(std::string path)
 {
-	if(!host_map.memoryAllocated)
-		allocateHostMemory();
 
-	copyMapDeviceToHost();
-
-	auto file = std::fstream(path, std::ios::out | std::ios::binary);
-
-	// begin writing of general map info
-	file.write((const char*) &param.numSdfBlock, sizeof(int));
-	file.write((const char*) &param.numBuckets, sizeof(int));
-	file.write((const char*) &param.numVoxels, sizeof(int));
-	file.write((const char*) &param.numEntries, sizeof(int));
-
-	// begin writing of dense map
-	file.write((char*) host_map.ptr_heap, sizeof(int));
-	file.write((char*) host_map.ptr_entry, sizeof(int));
-	file.write((char*) host_map.num_visible_blocks, sizeof(uint));
-	file.write((char*) host_map.heap, sizeof(int) * param.numSdfBlock);
-	file.write((char*) host_map.mutex_bucket, sizeof(int) * param.numBuckets);
-	file.write((char*) host_map.sdf_blocks, sizeof(Voxel) * param.numVoxels);
-	file.write((char*) host_map.hash_table, sizeof(HashEntry) * param.numEntries);
-	file.write((char*) host_map.visible_entry, sizeof(HashEntry) * param.numEntries);
-
-	// clean up
-	file.close();
-
-	releaseHostMemory();
 }
 
 void VoxelMap::readMapFromDisk(std::string path)
@@ -444,50 +394,17 @@ void VoxelMap::copyMapHostToDevice()
 
 void VoxelMap::allocateHostMemory()
 {
-	if(host_map.memoryAllocated)
-	{
-		printf("Host memory IS already allocated, Exit.\n");
-		return;
-	}
-	else
-	{
-		host_map.ptr_entry = new int[1];
-		host_map.ptr_heap = new int[1];
-		host_map.heap = new int[param.numSdfBlock];
-		host_map.hash_table = new HashEntry[param.numEntries];
-		host_map.visible_entry = new HashEntry[param.numEntries];
-		host_map.mutex_bucket = new int[param.numBuckets];
 
-		host_map.memoryAllocated = true;
-	}
 }
 
 void VoxelMap::releaseHostMemory()
 {
-	if(host_map.memoryAllocated)
-	{
-		delete host_map.ptr_entry;
-		delete host_map.ptr_heap;
-		delete host_map.heap;
-		delete host_map.hash_table;
-		delete host_map.visible_entry;
-		delete host_map.mutex_bucket;
-		host_map.memoryAllocated = false;
-	}
+
 }
 
 void VoxelMap::releaseDeviceMemory()
 {
-	if(device_map.memoryAllocated)
-	{
-		cudaFree(device_map.ptr_entry);
-		cudaFree(device_map.ptr_heap);
-		cudaFree(device_map.heap);
-		cudaFree(device_map.hash_table);
-		cudaFree(device_map.visible_entry);
-		cudaFree(device_map.mutex_bucket);
-		device_map.memoryAllocated = false;
-	}
+
 }
 
 int VoxelMap::fusePointCloud(PointCloud* data)
@@ -506,8 +423,8 @@ int VoxelMap::fusePointCloud(PointCloud* data)
 			trackingFrame->getfy(),
 			trackingFrame->getcx(),
 			trackingFrame->getcy(),
-			DeviceMap::DepthMax,
-			DeviceMap::DepthMin,
+			MapStruct::DepthMax,
+			MapStruct::DepthMin,
 			&no);
 	return (int)no;
 }
@@ -522,8 +439,8 @@ void VoxelMap::takeSnapShot(PointCloud* data, int numVisibleBlocks)
 			trackingFrame->GpuTranslation(),
 			data->vmap[0],
 			data->nmap[0],
-			DeviceMap::DepthMin,
-			DeviceMap::DepthMax,
+			MapStruct::DepthMin,
+			MapStruct::DepthMax,
 			trackingFrame->getfx(),
 			trackingFrame->getfy(),
 			trackingFrame->getcx(),
@@ -545,8 +462,8 @@ uint VoxelMap::updateVisibility(PointCloud* data)
 			trackingFrame->getfy(),
 			trackingFrame->getcx(),
 			trackingFrame->getcy(),
-			DeviceMap::DepthMax,
-			DeviceMap::DepthMin,
+			MapStruct::DepthMax,
+			MapStruct::DepthMin,
 			&no);
 	return no;
 }

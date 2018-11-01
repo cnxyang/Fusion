@@ -27,7 +27,7 @@ ICPTracker::~ICPTracker()
 }
 
 // return frame to reference pose transformation
-SE3 ICPTracker::trackSE3(PointCloud * ref, PointCloud * target, SE3 estimate, bool useRGB)
+SE3 ICPTracker::trackSE3(PointCloud* ref, PointCloud* target, SE3 estimate, bool useRGB)
 {
 	// return empty transform if data are not properly initiated
 	// (normal won't happen)
