@@ -4,6 +4,7 @@
 #include <thread>
 #include <chrono>
 
+#ifndef RELEASE_MODE
 #define CONSOLE(text) do { \
 	auto now = std::chrono::system_clock::now(); \
 	auto time = std::chrono::system_clock::to_time_t(now); \
@@ -19,30 +20,37 @@
 	timeString.erase(timeString.find('\n', 0), 1); \
 	std::cerr << timeString << " : " << x << std::endl; \
 } while (0)
+#else
+#define CONSOLE(text)
+#define CONSOLE_ERR(x)
+#endif
 
 // Global Running States
 // this should be reloaded when
 // read a different map from the disk
-struct RuningStates
+struct SystemState
 {
-	RuningStates();
+	SystemState();
 
-	// Used for tracking
 	int numTrackedFrames;
 	int numTrackedKeyFrames;
-
-	// Used for mapping
-	float voxelSize;
+	bool showGeneratedMesh;
+	bool showInputImages;
+	bool localisatonOnly;
 };
 
-extern RuningStates state;
-extern bool displayDebugInfo;
+extern SystemState systemState;
+
+// Global Colour Schemes
+const float AliceBlue[3] = { 240, 248, 255 };
+
 
 /*
 	The following constants are used in the Mapping sub routine
 	CONSTANTS for building the map, these should never be changed
  */
-const int edgeTableHost[256] = {
+const int edgeTableHost[256] =
+{
 	0x0  , 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
 	0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
 	0x190, 0x99 , 0x393, 0x29a, 0x596, 0x49f, 0x795, 0x69c,

@@ -1,3 +1,4 @@
+#include "SlamSystem.h"
 #include <cmath>
 #include <chrono>
 #include <string>
@@ -7,8 +8,6 @@
 #include <pangolin/pangolin.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
-
-#include "Tracking.h"
 
 void load_tum_dataset(std::string & dataset_path,
 		std::vector<std::string> & depth_image_list,

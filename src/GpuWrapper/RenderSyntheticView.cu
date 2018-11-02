@@ -61,7 +61,7 @@ struct Projection {
 			tmp.x += (corner & 1) ? 1 : 0;
 			tmp.y += (corner & 2) ? 1 : 0;
 			tmp.z += (corner & 4) ? 1 : 0;
-			float3 pt3d = tmp * MapStruct::BlockSize * MapStruct::VoxelSize;
+			float3 pt3d = tmp * mapState.blockSize * mapState.voxelSize;
 			pt3d = RcurrInv * (pt3d - tcurr);
 			if (pt3d.z < 2e-1)
 				continue;
@@ -131,7 +131,7 @@ struct Projection {
 		RenderingBlock block;
 		int nx, ny;
 
-		if(x < noVisibleBlocks && visibleBlocks[x].ptr != EntryAvailable) {
+		if(x < noVisibleBlocks && visibleBlocks[x].next != EntryAvailable) {
 			valid = projectBlock(visibleBlocks[x].pos, block);
 			float dx = (float) block.lowerRight.x - block.upperLeft.x + 1;
 			float dy = (float) block.lowerRight.y - block.upperLeft.y + 1;
@@ -148,7 +148,7 @@ struct Projection {
 
 		int offset = ComputeOffset<1024>(requiredNoBlocks, noRenderingBlocks);
 		if (valid && offset != -1 &&
-			(offset + requiredNoBlocks) < MapStruct::MaxRenderingBlocks)
+			(offset + requiredNoBlocks) < mapState.maxNumRenderingBlocks)
 			createRenderingBlockList(offset, block, nx, ny);
 	}
 
@@ -387,14 +387,14 @@ struct Rendering {
 		pt3d.z = zRange.x;
 		pt3d.x = pt3d.z * ((float) x - cx) * invfx;
 		pt3d.y = pt3d.z * ((float) y - cy) * invfy;
-		float dist_s = norm(pt3d) * MapStruct::voxelSizeInv;
-		float3 block_s = (Rview * pt3d + tview) * MapStruct::voxelSizeInv;
+		float dist_s = norm(pt3d) * mapState.invVoxelSize();
+		float3 block_s = (Rview * pt3d + tview) * mapState.invVoxelSize();
 
 		pt3d.z = zRange.y;
 		pt3d.x = pt3d.z * ((float) x - cx) * invfx;
 		pt3d.y = pt3d.z * ((float) y - cy) * invfy;
-		float dist_e = norm(pt3d) * MapStruct::voxelSizeInv;
-		float3 block_e = (Rview * pt3d + tview) * MapStruct::voxelSizeInv;
+		float dist_e = norm(pt3d) * mapState.invVoxelSize();
+		float3 block_e = (Rview * pt3d + tview) * mapState.invVoxelSize();
 
 		float3 dir = normalised(block_e - block_s);
 		float3 result = block_s;
@@ -406,7 +406,7 @@ struct Rendering {
 		while (dist_s < dist_e) {
 			sdf = readSdf(result, b, valid_sdf);
 			if(!valid_sdf) {
-				step = MapStruct::BlockSize;
+				step = mapState.blockSize;
 			}
 			else {
 				if (sdf <= 0.1f && sdf >= -0.5f) {
@@ -417,9 +417,9 @@ struct Rendering {
 					break;
 
 				if (!isnan(sdf))
-					step = max(sdf * MapStruct::stepScale, 1.0f);
+					step = max(sdf * mapState.stepScale_raycast(), 1.0f);
 				else
-					step = MapStruct::BlockSize;
+					step = mapState.blockSize;
 			}
 
 			result += step * dir;
@@ -427,12 +427,12 @@ struct Rendering {
 		}
 
 		if(sdf <= 0.0f) {
-			step = sdf * MapStruct::stepScale;
+			step = sdf * mapState.stepScale_raycast();
 			result += step * dir;
 
 			sdf = readSdfInterped(result, b, valid_sdf);
 
-			step = sdf * MapStruct::stepScale;
+			step = sdf * mapState.stepScale_raycast();
 			result += step * dir;
 			found_pt = true;
 		}
@@ -441,7 +441,7 @@ struct Rendering {
 			float3 normal;
 			if(readNormal(result, b, normal)) {
 
-				result = RviewInv * (result * MapStruct::VoxelSize - tview);
+				result = RviewInv * (result * mapState.voxelSize - tview);
 
 				vmap.ptr(y)[x] = make_float4(result, 1.0);
 				nmap.ptr(y)[x] = make_float4(normal, 1.0);

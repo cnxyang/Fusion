@@ -5,7 +5,8 @@
 
 #define MaxThread 1024
 
-enum {
+enum
+{
 	EntryAvailable = -1,
 	EntryOccupied = -2
 };
@@ -18,7 +19,17 @@ struct MapState
 	// if not unusable at all.
 	int blockSize;
 	int blockSize3;
-	float blockWidth;
+
+	// parameters that control the size of the
+	// device memory needed in the allocation stage.
+	// Note that numBuckets should always be bigger
+	// than numSdfBlock as that's the requirement
+	// of hash table;
+	int maxNumBuckets;
+	int maxNumVoxelBlocks;
+	int maxNumMeshTriangles;
+	int maxNumHashEntries;
+	int maxNumRenderingBlocks;
 
 	// parameters control how far the camera sees
 	// should keep them in minimum as long as they
@@ -30,40 +41,27 @@ struct MapState
 	float depthMin_preprocess;
 	float depthMax_preprocess;
 
-	// parameters that control the size of the
-	// device memory needed in the allocation stage.
-	// Note that numBuckets should always be bigger
-	// than numSdfBlock as that's the requirement
-	// of hash table;
-	int maxNumBuckets;
-	int maxNumVoxelBlocks;
-	int maxNumMeshTriangles;
-	int maxNumMeshVertices;
-	int maxNumHashEntries;
-	int maxNumRenderingBlocks;
-
 	// parameters that won't affect system performance
 	// too much, generally just affect the appearance
 	// of the map and are free to be modified.
 	// Note that due to imperfections in the function
 	// PARRALLEL SCAN, too large voxelSize will not work.
 	float voxelSize;
-	float invVoxelSize;
-	float truncateDistance;
-	float stepScale_raycast;
+
+	__device__ __host__ int maxNumVoxels() const;
+	__device__ __host__ float blockWidth() const;
+	__device__ __host__ int maxNumMeshVertices() const;
+	__device__ __host__ float invVoxelSize() const;
+	__device__ __host__ int numExcessEntries() const;
+	__device__ __host__ float truncateDistance() const;
+	__device__ __host__ float stepScale_raycast() const;
 };
 
 __device__ extern MapState mapState;
 
-inline void updateMapState(MapState state)
-{
-	SafeCall(cudaMemcpyToSymbol(&mapState, &state, sizeof(MapState)));
-}
+void updateMapState(MapState state);
 
-inline void downloadMapState(MapState& state)
-{
-	SafeCall(cudaMemcpyFromSymbol(&state, &mapState, sizeof(MapState)));
-}
+void downloadMapState(MapState& state);
 
 struct __align__(8) RenderingBlock
 {
@@ -78,52 +76,52 @@ struct __align__(8) Voxel
 	unsigned char weight;
 	uchar3 color;
 
-	__device__ __forceinline__ Voxel();
-	__device__ __forceinline__ Voxel(float sdf, short weight, uchar3 rgb);
-	__device__ __forceinline__ void release();
-	__device__ __forceinline__ void getValue(float& sdf, uchar3& rgb) const;
-	__device__ __forceinline__ void operator=(const Voxel& other);
+	__device__  Voxel();
+	__device__ Voxel(float sdf, short weight, uchar3 rgb);
+	__device__ void release();
+	__device__ void getValue(float& sdf, uchar3& rgb) const;
+	__device__ void operator=(const Voxel& other);
 };
 
 struct __align__(16) HashEntry
 {
-	int ptr;
+	int next;
 	int offset;
 	int3 pos;
 
-	__device__ __forceinline__ HashEntry();
-	__device__ __forceinline__ HashEntry(int3 pos, int ptr, int offset);
-	__device__ __forceinline__ HashEntry(const HashEntry& other);
-	__device__ __forceinline__ void release();
-	__device__ __forceinline__ void operator=(const HashEntry& other);
-	__device__ __forceinline__ bool operator==(const int3& pos) const;
-	__device__ __forceinline__ bool operator==(const HashEntry& other) const;
+	__device__ HashEntry();
+	__device__ HashEntry(int3 pos, int next, int offset);
+	__device__ HashEntry(const HashEntry& other);
+	__device__ void release();
+	__device__ void operator=(const HashEntry& other);
+	__device__ bool operator==(const int3& pos) const;
+	__device__ bool operator==(const HashEntry& other) const;
 };
 
 struct MapStruct
 {
-	__device__ uint Hash(const int3 & pos);
-	__device__ Voxel FindVoxel(const int3 & pos);
-	__device__ Voxel FindVoxel(const float3 & pos);
-	__device__ Voxel FindVoxel(const float3 & pos, HashEntry & cache, bool & valid);
-	__device__ HashEntry FindEntry(const int3 & pos);
-	__device__ HashEntry FindEntry(const float3 & pos);
-	__device__ void CreateBlock(const int3 & blockPos);
-	__device__ bool FindVoxel(const int3 & pos, Voxel & vox);
-	__device__ bool FindVoxel(const float3 & pos, Voxel & vox);
-	__device__ HashEntry CreateEntry(const int3 & pos, const int & offset);
+	__device__ uint Hash(const int3& pos);
+	__device__ Voxel FindVoxel(const int3& pos);
+	__device__ Voxel FindVoxel(const float3& pos);
+	__device__ Voxel FindVoxel(const float3& pos, HashEntry& cache, bool& valid);
+	__device__ HashEntry FindEntry(const int3& pos);
+	__device__ HashEntry FindEntry(const float3& pos);
+	__device__ void CreateBlock(const int3& blockPos);
+	__device__ bool FindVoxel(const int3& pos, Voxel& vox);
+	__device__ bool FindVoxel(const float3& pos, Voxel& vox);
+	__device__ HashEntry CreateEntry(const int3& pos, const int& offset);
 
-	__device__ int3 worldPosToVoxelPos(float3 pos) const;
-	__device__ int3 voxelPosToBlockPos(const int3 & pos) const;
-	__device__ int3 blockPosToVoxelPos(const int3 & pos) const;
-	__device__ int3 voxelPosToLocalPos(const int3 & pos) const;
-	__device__ int3 localIdxToLocalPos(const int & idx) const;
-	__device__ int3 worldPosToBlockPos(const float3 & pos) const;
-	__device__ float3 worldPosToVoxelPosF(float3 pos) const;
-	__device__ float3 voxelPosToWorldPos(int3 pos) const;
-	__device__ float3 blockPosToWorldPos(const int3 & pos) const;
-	__device__ int localPosToLocalIdx(const int3 & pos) const;
-	__device__ int voxelPosToLocalIdx(const int3 & pos) const;
+	__device__ int3 posWorldToVoxel(float3 pos) const;
+	__device__ int3 posVoxelToBlock(const int3& pos) const;
+	__device__ int3 posBlockToVoxel(const int3& pos) const;
+	__device__ int3 posVoxelToLocal(const int3& pos) const;
+	__device__ int3 posIdxToLocal(const int& idx) const;
+	__device__ int3 posWorldToBlock(const float3& pos) const;
+	__device__ int posLocalToIdx(const int3& pos) const;
+	__device__ int posVoxelToIdx(const int3& pos) const;
+	__device__ float3 posWorldToVoxelFloat(float3 pos) const;
+	__device__ float3 posVoxelToWorld(int3 pos) const;
+	__device__ float3 posBlockToWorld(const int3& pos) const;
 
 	static constexpr uint BlockSize = 8;
 	static constexpr uint BlockSize3 = 512;
@@ -157,75 +155,6 @@ struct MapStruct
 	__host__ void releaseHostMemory();
 	__host__ void releaseDeviceMemory();
 };
-
-__device__ __forceinline__ HashEntry::HashEntry() :
-	pos(make_int3(0)), ptr(-1), offset(-1)
-{
-}
-
-__device__ __forceinline__ HashEntry::HashEntry(int3 pos, int ptr, int offset) :
-	pos(pos), ptr(ptr), offset(offset)
-{
-}
-
-__device__ __forceinline__ HashEntry::HashEntry(const HashEntry& other)
-{
-	pos = other.pos;
-	ptr = other.ptr;
-	offset = other.offset;
-}
-
-__device__ __forceinline__ void HashEntry::release()
-{
-	ptr = -1;
-}
-
-__device__ __forceinline__ void HashEntry::operator=(const HashEntry& other)
-{
-	pos = other.pos;
-	ptr = other.ptr;
-	offset = other.offset;
-}
-
-__device__ __forceinline__ bool HashEntry::operator==(const int3& pos) const
-{
-	return (this->pos == pos);
-}
-
-__device__ __forceinline__ bool HashEntry::operator==(const HashEntry& other) const
-{
-	return other.pos == pos;
-}
-
-__device__ __forceinline__ Voxel::Voxel()
-: sdf(std::nanf("0x7fffffff")), weight(0), color(make_uchar3(0))
-{
-}
-
-__device__ __forceinline__ Voxel::Voxel(float sdf, short weight, uchar3 rgb)
-: sdf(sdf), weight(weight), color(rgb)
-{
-}
-
-__device__ __forceinline__ void Voxel::release()
-{
-	sdf = std::nanf("0x7fffffff");
-	weight = 0;
-	color = make_uchar3(0);
-}
-
-__device__ __forceinline__ void Voxel::getValue(float& sdf, uchar3& color) const
-{
-	sdf = this->sdf;
-	color = this->color;
-}
-
-__device__ __forceinline__ void Voxel::operator=(const Voxel& other)
-{
-	sdf = other.sdf;
-	weight = other.weight;
-	color = other.color;
-}
 
 struct SURF
 {

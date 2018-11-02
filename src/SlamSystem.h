@@ -21,8 +21,6 @@ class KeyFrameGraph;
 struct Msg
 {
 	Msg(int msg) : data(msg) {}
-	Msg(int msg, std::string text, std::time_t time) :
-		data(msg), text(text), time(time) {}
 
 	enum
 	{
@@ -34,55 +32,62 @@ struct Msg
 		SYSTEM_SHUTDOWN,
 		TOGGLE_MESH_ON,
 		TOGGLE_MESH_OFF,
-		DISPLAY_MESSAGE
+		TOGGLE_IMAGE_ON,
+		TOGGLE_IMAGE_OFF,
 	};
 
 	int data;
-	std::string text;
-	std::time_t time;
 };
 
 class SlamSystem
 {
 public:
+
 	SlamSystem(int w, int h, Eigen::Matrix3f K);
+
 	SlamSystem(const SlamSystem&) = delete;
 	SlamSystem& operator=(const SlamSystem&) = delete;
+
 	~SlamSystem();
 
 	// Public APIs
+	void trackFrame(cv::Mat& image, cv::Mat& depth, int id, double timeStamp);
+
 	bool shouldQuit() const;
 	void queueMessage(Msg newmsg);
-	void trackFrame(cv::Mat& image, cv::Mat& depth, int id, double timeStamp);
+
 
 protected:
 
+	// Message loop
+	void processMessages();
+
+	// Utils
 	void rebootSystem();
 	void exportMeshAsFile();
-	void processMessages();
 	void systemReInitialise();
 	void writeBinaryMapToDisk();
 	void readBinaryMapFromDisk();
+
+	// Try build pose graph
 	void updateVisualisation();
 	void findConstraintsForNewKeyFrames(Frame* newKF);
-
 	void checkConstraints();
 	void tryTrackConstraint();
 
+	// Sub-routines
 	VoxelMap* map;
 	GlViewer* viewer;
 
 	// General control variables
 	bool keepRunning;
 	bool systemRunning;
-	bool dumpMapToDisk;
 
 	// Camera intrinsics
 	Eigen::Matrix3f K;
 
 	// Image parameters
 	int width, height;
-	int nImgsProcessed;
 
 	// Multi-threading loop
 	void loopVisualisation();
@@ -111,10 +116,6 @@ protected:
 
 	std::mutex messageQueueMutex;
 	std::queue<Msg> messageQueue;
-
-	bool toggleShowMesh;
-	bool toggleShowImage;
-	int numTrackedKeyFrames;
 
 	// Images used for debugging
 	void displayDebugImages(int ms);

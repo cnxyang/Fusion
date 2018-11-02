@@ -1,30 +1,43 @@
 #include "VoxelMap.h"
 #include "Settings.h"
+#include "Frame.h"
 #include "PointCloud.h"
 #include "DeviceFuncs.h"
 
 VoxelMap::VoxelMap() :
 		meshUpdated(false), hasNewKFFlag(false) {
-	allocateDeviceMemory();
+
 }
 
-void VoxelMap::allocateDeviceMemory() {
+void VoxelMap::allocateDeviceMemory()
+{
+	currentState.blockSize = 8;
+	currentState.blockSize3 = 512;
+	currentState.depthMin_raycast = 0.1f;
+	currentState.depthMax_raycast = 3.0f;
+	currentState.voxelSize = 0.006f;
+	currentState.maxNumBuckets = 1000000;
+	currentState.maxNumHashEntries = 1500000;
+	currentState.maxNumVoxelBlocks = 700000;
+	currentState.maxNumRenderingBlocks = 260000;
+	currentState.maxNumMeshTriangles = 20000000;
+	updateMapState(currentState);
 
 	heapCounter.create(1);
 	hashCounter.create(1);
 	noVisibleEntries.create(1);
-	heap.create(MapStruct::NumSdfBlocks);
-	sdfBlock.create(MapStruct::NumVoxels);
-	bucketMutex.create(MapStruct::NumBuckets);
-	hashEntries.create(MapStruct::NumEntries);
-	visibleEntries.create(MapStruct::NumEntries);
+	heap.create(currentState.maxNumVoxelBlocks);
+	sdfBlock.create(currentState.maxNumVoxels());
+	bucketMutex.create(currentState.maxNumBuckets);
+	hashEntries.create(currentState.maxNumHashEntries);
+	visibleEntries.create(currentState.maxNumHashEntries);
 
 	nBlocks.create(1);
 	noTriangles.create(1);
-	modelVertex.create(MapStruct::MaxVertices);
-	modelNormal.create(MapStruct::MaxVertices);
-	modelColor.create(MapStruct::MaxVertices);
-	blockPoses.create(MapStruct::NumEntries);
+	modelVertex.create(currentState.maxNumMeshVertices());
+	modelNormal.create(currentState.maxNumMeshVertices());
+	modelColor.create(currentState.maxNumMeshVertices());
+	blockPoses.create(currentState.maxNumHashEntries);
 
 	edgeTable.create(256);
 	vertexTable.create(256);
@@ -38,7 +51,7 @@ void VoxelMap::allocateDeviceMemory() {
 	zRangeMinEnlarged.create(160, 120);
 	zRangeMaxEnlarged.create(160, 120);
 	noRenderingBlocks.create(1);
-	renderingBlockList.create(MapStruct::MaxRenderingBlocks);
+	renderingBlockList.create(currentState.maxNumRenderingBlocks);
 
 	noKeys.create(1);
 	mutexKeys.create(KeyMap::MaxKeys);
@@ -47,8 +60,61 @@ void VoxelMap::allocateDeviceMemory() {
 	surfKeys.create(3000);
 	mapKeyIndex.create(3000);
 
-	Reset();
+	CONSOLE("===============================");
+	CONSOLE("VOXEL MAP successfully created.");
+	CONSOLE("COUNT(HASH ENTRY) - " + std::to_string(currentState.maxNumHashEntries));
+	CONSOLE("COUNT(VOXEL BLOCK) - " + std::to_string(currentState.maxNumVoxels()));
+	CONSOLE("===============================");
+
+	resetMapStruct();
 }
+//
+//void VoxelMap::allocateDeviceMemory(MapState state) {
+//
+//	heapCounter.create(1);
+//	hashCounter.create(1);
+//	noVisibleEntries.create(1);
+//	heap.create(MapStruct::NumSdfBlocks);
+//	sdfBlock.create(MapStruct::NumVoxels);
+//	bucketMutex.create(MapStruct::NumBuckets);
+//	hashEntries.create(MapStruct::NumEntries);
+//	visibleEntries.create(MapStruct::NumEntries);
+//
+//	nBlocks.create(1);
+//	noTriangles.create(1);
+//	modelVertex.create(MapStruct::MaxVertices);
+//	modelNormal.create(MapStruct::MaxVertices);
+//	modelColor.create(MapStruct::MaxVertices);
+//	blockPoses.create(MapStruct::NumEntries);
+//
+//	edgeTable.create(256);
+//	vertexTable.create(256);
+//	triangleTable.create(16, 256);
+//	edgeTable.upload(edgeTableHost);
+//	vertexTable.upload(vertexTableHost);
+//	triangleTable.upload(triangleTableHost);
+//
+//	zRangeMin.create(80, 60);
+//	zRangeMax.create(80, 60);
+//	zRangeMinEnlarged.create(160, 120);
+//	zRangeMaxEnlarged.create(160, 120);
+//	noRenderingBlocks.create(1);
+//	renderingBlockList.create(MapStruct::MaxRenderingBlocks);
+//
+//	noKeys.create(1);
+//	mutexKeys.create(KeyMap::MaxKeys);
+//	mapKeys.create(KeyMap::maxEntries);
+//	tmpKeys.create(KeyMap::maxEntries);
+//	surfKeys.create(3000);
+//	mapKeyIndex.create(3000);
+//
+//	CONSOLE("===============================");
+//	CONSOLE("VOXEL MAP successfully created.");
+//	CONSOLE("COUNT(HASH ENTRY) - " + std::to_string(MapStruct::NumEntries));
+//	CONSOLE("COUNT(VOXEL BLOCK) - " + std::to_string(MapStruct::NumVoxels));
+//	CONSOLE("===============================");
+//	resetMapStruct();
+//}
 
 void VoxelMap::ForwardWarp(Frame * last, Frame * next) {
 	ForwardWarping(last->vmap[0], last->nmap[0], next->vmap[0], next->nmap[0],
@@ -57,20 +123,20 @@ void VoxelMap::ForwardWarp(Frame * last, Frame * next) {
 			Frame::cy(0));
 }
 
-void VoxelMap::UpdateVisibility(const KeyFrame * kf, uint & no) {
-
-//	CheckBlockVisibility(*this, noVisibleEntries, kf->GpuRotation(),
-//			kf->GpuInvRotation(), kf->GpuTranslation(), Frame::cols(0),
-//			Frame::rows(0), Frame::fx(0), Frame::fy(0), Frame::cx(0),
-//			Frame::cy(0), DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
-}
+//void VoxelMap::UpdateVisibility(const KeyFrame * kf, uint & no) {
+//
+////	CheckBlockVisibility(*this, noVisibleEntries, kf->GpuRotation(),
+////			kf->GpuInvRotation(), kf->GpuTranslation(), Frame::cols(0),
+////			Frame::rows(0), Frame::fx(0), Frame::fy(0), Frame::cx(0),
+////			Frame::cy(0), DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
+//}
 
 void VoxelMap::UpdateVisibility(Frame * f, uint & no) {
 
 	CheckBlockVisibility(*this, noVisibleEntries, f->GpuRotation(), f->GpuInvRotation(),
 			f->GpuTranslation(), Frame::cols(0), Frame::rows(0), Frame::fx(0),
-			Frame::fy(0), Frame::cx(0), Frame::cy(0), MapStruct::DepthMax,
-			MapStruct::DepthMin, &no);
+			Frame::fy(0), Frame::cx(0), Frame::cy(0), currentState.depthMin_raycast,
+			currentState.depthMax_raycast, &no);
 }
 
 void VoxelMap::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
@@ -95,9 +161,10 @@ void VoxelMap::DefuseColor(const DeviceArray2D<float> & depth,
 		Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, uint & no) {
 
-	DefuseMapColor(depth, color, normal, noVisibleEntries, Rview, RviewInv, tview, *this,
-			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0),
-			MapStruct::DepthMax, MapStruct::DepthMin, &no);
+	DefuseMapColor(depth, color, normal, noVisibleEntries, Rview, RviewInv,
+			tview, *this, Frame::fx(0), Frame::fy(0), Frame::cx(0),
+			Frame::cy(0), currentState.depthMin_raycast,
+			currentState.depthMax_raycast, &no);
 
 }
 
@@ -107,15 +174,16 @@ void VoxelMap::FuseColor(const DeviceArray2D<float> & depth,
 		Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, uint & no) {
 
-	FuseMapColor(depth, color, normal, noVisibleEntries, Rview, RviewInv, tview, *this,
-			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0),
-			MapStruct::DepthMax, MapStruct::DepthMin, &no);
+	FuseMapColor(depth, color, normal, noVisibleEntries, Rview, RviewInv, tview,
+			*this, Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0),
+			currentState.depthMin_raycast, currentState.depthMax_raycast, &no);
 
 }
 
 void VoxelMap::RayTrace(uint noVisibleBlocks, Frame * f) {
-	RayTrace(noVisibleBlocks, f->GpuRotation(), f->GpuInvRotation(), f->GpuTranslation(),
-			f->vmap[0], f->nmap[0], MapStruct::DepthMin, MapStruct::DepthMax,
+	RayTrace(noVisibleBlocks, f->GpuRotation(), f->GpuInvRotation(),
+			f->GpuTranslation(), f->vmap[0], f->nmap[0],
+			currentState.depthMin_raycast, currentState.depthMax_raycast,
 			Frame::fx(0), Frame::fy(0), Frame::cx(0), Frame::cy(0));
 }
 
@@ -156,17 +224,19 @@ void VoxelMap::UpdateMapKeys() {
 
 void VoxelMap::CreateRAM() {
 
-	heapCounterRAM = new int[1];
-	hashCounterRAM = new int[1];
-	noVisibleEntriesRAM = new uint[1];
-	heapRAM = new int[MapStruct::NumSdfBlocks];
-	bucketMutexRAM = new int[MapStruct::NumBuckets];
-	sdfBlockRAM = new Voxel[MapStruct::NumVoxels];
-	hashEntriesRAM = new HashEntry[MapStruct::NumEntries];
-	visibleEntriesRAM = new HashEntry[MapStruct::NumEntries];
-
-	mutexKeysRAM = new int[KeyMap::MaxKeys];
-	mapKeysRAM = new SURF[KeyMap::maxEntries];
+//	downloadMapState(currentState);
+//
+//	heapCounterRAM = new int[1];
+//	hashCounterRAM = new int[1];
+//	noVisibleEntriesRAM = new uint[1];
+//	heapRAM = new int[MapStruct::NumSdfBlocks];
+//	bucketMutexRAM = new int[MapStruct::NumBuckets];
+//	sdfBlockRAM = new Voxel[MapStruct::NumVoxels];
+//	hashEntriesRAM = new HashEntry[MapStruct::NumEntries];
+//	visibleEntriesRAM = new HashEntry[MapStruct::NumEntries];
+//
+//	mutexKeysRAM = new int[KeyMap::MaxKeys];
+//	mapKeysRAM = new SURF[KeyMap::maxEntries];
 }
 
 void VoxelMap::DownloadToRAM() {
@@ -221,7 +291,7 @@ bool VoxelMap::HasNewKF() {
 	return hasNewKFFlag;
 }
 
-void VoxelMap::FuseKeyFrame(const KeyFrame * kf) {
+//void VoxelMap::FuseKeyFrame(const KeyFrame * kf) {
 
 //	if (keyFrames.count(kf))
 //		return;
@@ -293,50 +363,52 @@ void VoxelMap::FuseKeyFrame(const KeyFrame * kf) {
 //	poseGraph.insert(newKF);
 //
 //	hasNewKFFlag = true;
-}
+//}
 
-void VoxelMap::FindLocalGraph(KeyFrame * kf) {
+//void VoxelMap::FindLocalGraph(KeyFrame * kf) {
+//
+////	const float distTH = 0.5f;
+////	const float angleTH = 0.3f;
+////	Eigen::Vector3f viewDir = kf->Rotation().rightCols<1>();
+////
+////	std::vector<KeyFrame *> kfCandidates;
+////
+////	for(std::set<KeyFrame *>::iterator iter = poseGraph.begin(),lend = poseGraph.end();	iter != lend; ++iter) {
+////
+////		KeyFrame * candidate = *iter;
+////
+////		if(candidate->frameId == kf->frameId)
+////			continue;
+////
+////		float dist = candidate->Translation().dot(kf->Translation());
+////		if(dist > distTH)
+////			continue;
+////
+////		Eigen::Vector3f dir = candidate->Rotation().rightCols<1>();
+////		float angle = viewDir.dot(dir);
+////
+////		if(angle < angleTH)
+////			continue;
+////
+////		kfCandidates.push_back(candidate);
+////		std::cout << angle << "/" << angleTH << "  " << dist << "/" << distTH << std::endl;
+////	}
+//}
+//
+//void VoxelMap::FuseKeyPoints(Frame * f) {
+//
+//	std::cout << "NOT IMPLEMENTED" << std::endl;
+//}
 
-//	const float distTH = 0.5f;
-//	const float angleTH = 0.3f;
-//	Eigen::Vector3f viewDir = kf->Rotation().rightCols<1>();
-//
-//	std::vector<KeyFrame *> kfCandidates;
-//
-//	for(std::set<KeyFrame *>::iterator iter = poseGraph.begin(),lend = poseGraph.end();	iter != lend; ++iter) {
-//
-//		KeyFrame * candidate = *iter;
-//
-//		if(candidate->frameId == kf->frameId)
-//			continue;
-//
-//		float dist = candidate->Translation().dot(kf->Translation());
-//		if(dist > distTH)
-//			continue;
-//
-//		Eigen::Vector3f dir = candidate->Rotation().rightCols<1>();
-//		float angle = viewDir.dot(dir);
-//
-//		if(angle < angleTH)
-//			continue;
-//
-//		kfCandidates.push_back(candidate);
-//		std::cout << angle << "/" << angleTH << "  " << dist << "/" << distTH << std::endl;
-//	}
-}
+void VoxelMap::resetMapStruct()
+{
 
-void VoxelMap::FuseKeyPoints(Frame * f) {
-
-	std::cout << "NOT IMPLEMENTED" << std::endl;
-}
-
-void VoxelMap::Reset() {
+	CONSOLE("Re-Initialising Device Memory.");
 
 	ResetMap(*this);
 	ResetKeyPoints(*this);
 
 	mapKeys.clear();
-	keyFrames.clear();
 }
 
 VoxelMap::operator KeyMap() const {
@@ -423,8 +495,8 @@ int VoxelMap::fusePointCloud(PointCloud* data)
 			trackingFrame->getfy(),
 			trackingFrame->getcx(),
 			trackingFrame->getcy(),
-			MapStruct::DepthMax,
-			MapStruct::DepthMin,
+			currentState.depthMax_raycast,
+			currentState.depthMin_raycast,
 			&no);
 	return (int)no;
 }
@@ -439,8 +511,8 @@ void VoxelMap::takeSnapShot(PointCloud* data, int numVisibleBlocks)
 			trackingFrame->GpuTranslation(),
 			data->vmap[0],
 			data->nmap[0],
-			MapStruct::DepthMin,
-			MapStruct::DepthMax,
+			currentState.depthMin_raycast,
+			currentState.depthMax_raycast,
 			trackingFrame->getfx(),
 			trackingFrame->getfy(),
 			trackingFrame->getcx(),
@@ -462,8 +534,8 @@ uint VoxelMap::updateVisibility(PointCloud* data)
 			trackingFrame->getfy(),
 			trackingFrame->getcx(),
 			trackingFrame->getcy(),
-			MapStruct::DepthMax,
-			MapStruct::DepthMin,
+			currentState.depthMax_raycast,
+			currentState.depthMin_raycast,
 			&no);
 	return no;
 }

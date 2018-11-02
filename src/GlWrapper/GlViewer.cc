@@ -1,6 +1,7 @@
 #include "KeyFrame.h"
 #include "GlViewer.h"
 #include "VoxelMap.h"
+#include "Settings.h"
 #include "PointCloud.h"
 #include <unistd.h>
 #include <algorithm>
@@ -19,79 +20,79 @@ GlViewer::GlViewer(std::string title, int w, int h, Eigen::Matrix3f K) :
 		bufferSizeVertices(0), slam(NULL), bufferSizeTriangles(0)
 {
 	// create a OpenGL context and bind to current thread
-	pangolin::CreateWindowAndBind(windowTitle, 2560, 1440);
+	pangolin::CreateWindowAndBind(windowTitle, 4*w, 3*h);
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	// TODO: these files paths should be in a config file
+	// PATH to all OpenGL shaders.
 	std::string phongShaderPath = "src/GlWrapper/OpenGL/VertexShader.phong.glsl";
 	std::string normalShaderPath = "src/GlWrapper/OpenGL/VertexShader.normal.glsl";
 	std::string rgbShaderPath = "src/GlWrapper/OpenGL/VertexShader.color.glsl";
 	std::string fragmentShaderPath = "src/GlWrapper/OpenGL/FragmentShader.glsl";
 
-	// Load and compile phong shader
+	// LOAD and compile the phong shader
 	shaderPhong.AddShaderFromFile(GlSlVertexShader, phongShaderPath);
 	shaderPhong.AddShaderFromFile(GlSlFragmentShader, fragmentShaderPath);
 	shaderPhong.Link();
 
-	// Load and compile normal shader
+	// LOAD and compile the normal shader
 	shaderNormal.AddShaderFromFile(GlSlVertexShader, normalShaderPath);
 	shaderNormal.AddShaderFromFile(GlSlFragmentShader, fragmentShaderPath);
 	shaderNormal.Link();
 
-	// Load and compile texture shader
+	// LOAD and compile the texture shader
 	shaderTexture.AddShaderFromFile(GlSlVertexShader, rgbShaderPath);
 	shaderTexture.AddShaderFromFile(GlSlFragmentShader, fragmentShaderPath);
 	shaderTexture.Link();
 
-	// Main camera settings
+	// MAIN camera settings
 	viewCam = pangolin::OpenGlRenderState(
 			pangolin::ProjectionMatrix(w, h, K(0, 0), K(1, 1), K(0, 2), K(1, 2), 0.1f, 100.0f),
 			pangolin::ModelViewLookAtRUB(0.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, -1.f, 0.f)
 	);
 
-	// Generate array object for rendering
+	// GENERATE array object for rendering
 	glGenVertexArrays(1, &vaoVerticesAndNormal);
 	glGenVertexArrays(1, &vaoFULL);
 
-	// Initialise vertex array for shaded mesh
+	// INITIALISE vertex array for shaded mesh
 	bufferVertices.Reinitialise(
 			GlArrayBuffer,
-			MapStruct::MaxVertices,
+			60000000,
 			GL_FLOAT, 3,
 			cudaGraphicsMapFlagsWriteDiscard,
 			GL_STREAM_DRAW);
 
-	// Initialise vertex array for coloured normal
+	// INITIALISE vertex array for coloured normal
 	bufferNormals.Reinitialise(
 			GlArrayBuffer,
-			MapStruct::MaxVertices,
+			60000000,
 			GL_FLOAT, 3,
 			cudaGraphicsMapFlagsWriteDiscard,
 			GL_STREAM_DRAW);
 
-	// Initialise vertex array for shaded rgb
+	// INITIALISE vertex array for shaded rgb
 	bufferTexture.Reinitialise(
 			GlArrayBuffer,
-			MapStruct::MaxVertices,
+			60000000,
 			GL_UNSIGNED_BYTE, 3,
 			cudaGraphicsMapFlagsWriteDiscard,
 			GL_STREAM_DRAW);
 
-	// Bind vertex array to CUDA
+	// MAP vertex array to CUDA
 	meshVerticesCUDAMapped = new CudaScopedMappedPtr(bufferVertices);
 	meshNormalsCUDAMapped = new CudaScopedMappedPtr(bufferNormals);
 	meshTextureCUDAMapped = new CudaScopedMappedPtr(bufferTexture);
 
-	// Initialise texture array
+	// INITIALISE texture array
 	imageRGB.Reinitialise(w, h, GL_R8, true, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
 	imageDepth.Reinitialise(w, h, GL_RGBA, true, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	imageSynthetic.Reinitialise(w, h, GL_RGBA, true, 0,  GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	imageBirdsEye.Reinitialise(w, h, GL_RGBA, true, 0,  GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
-	// bind texture array to CUDA
+	// MAP texture array to CUDA
 	imageRGBCUDAMapped = new CudaScopedMappedArray(imageRGB);
 	imageDepthCUDAMapped = new CudaScopedMappedArray(imageDepth);
 	imageSyntheticCUDAMapped = new CudaScopedMappedArray(imageSynthetic);
@@ -113,7 +114,7 @@ GlViewer::GlViewer(std::string title, int w, int h, Eigen::Matrix3f K) :
 			AddDisplay(imageDepthView).
 			AddDisplay(imageRGBView);
 
-	// create menu entry i.e. a bunch of buttons
+	// CREATE menu entry i.e. a bunch of buttons
 	panelMainMenu = CreatePanel("ui").SetBounds(0.0, 1.0, 0.0, Attach::Pix(200), true);
 	buttonSystemReset = new PushButton("ui.System Reset");
 	buttonShowPoseGraph = new CheckBoxOff("ui.Show Pose Graph");
@@ -134,12 +135,12 @@ GlViewer::GlViewer(std::string title, int w, int h, Eigen::Matrix3f K) :
 	buttonWriteMapToDiskBinary = new PushButton("ui.Write Map to Disk");
 	buttonReadMapFromDiskBinary = new PushButton("ui.Read Map From Disk");
 
-	// Key Bindings
+	// KEY Bindings
 	// CTL + r / R to restart the system.
 	RegisterKeyPressCallback(PANGO_CTRL + 'r', SetVarFunctor<bool>("ui.System Reset", true));
 	RegisterKeyPressCallback(PANGO_CTRL + 'R', SetVarFunctor<bool>("ui.System Reset", true));
 
-	// unbind current context from the main thread
+	// UNBIND current context from the main thread
 	pangolin::GetBoundWindow()->RemoveCurrent();
 }
 
@@ -189,28 +190,41 @@ void GlViewer::setCurrentImages(PointCloud* data)
 
 void GlViewer::processMessages()
 {
-	// if SYSTEM RESET
+	// SYSTEM RESET
 	if (Pushed(*buttonSystemReset))
 	{
 		*buttonToggleLocalisationMode = false;
 		slam->queueMessage(Msg(Msg::SYSTEM_RESET));
 	}
 
-	// if EXPORT MESH TO FILE
+	// EXPORT MESH TO FILE
 	if (Pushed(*buttonExportMeshToFile))
 		slam->queueMessage(Msg(Msg::EXPORT_MESH_TO_FILE));
 
-	// if WRITE MAP TO BINARY FILE
+	// WRITE MAP TO BINARY FILE
 	if (Pushed(*buttonWriteMapToDiskBinary))
 	{
 		slam->queueMessage(Msg(Msg::WRITE_BINARY_MAP_TO_DISK));
 	}
 
-	// if READ MAP FROM BINARY FILE
+	// READ MAP FROM BINARY FILE
 	if (Pushed(*buttonReadMapFromDiskBinary))
 	{
 		slam->queueMessage(Msg(Msg::READ_BINARY_MAP_FROM_DISK));
 		*buttonToggleLocalisationMode = true;
+	}
+
+	// MESH IS REQUESTED
+	if (*buttonRenderSceneMesh || *buttonRenderSceneNormal || *buttonRenderSceneRGB)
+	{
+		if(!systemState.showGeneratedMesh)
+			slam->queueMessage(Msg(Msg::TOGGLE_MESH_ON));
+	}
+	// NOT REQUESTING MESH
+	else
+	{
+		if(systemState.showGeneratedMesh)
+			slam->queueMessage(Msg(Msg::TOGGLE_MESH_OFF));
 	}
 }
 
@@ -340,7 +354,7 @@ void GlViewer::drawKeyFrameGraph() const
 		node.push_back(pose.translation()(0));
 		node.push_back(pose.translation()(1));
 		node.push_back(pose.translation()(2));
-		glColor3fv(RGBKeyFrameGraph);
+		glColor3fv(AliceBlue);
 		glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_LINE_STRIP, 3);
 	}
 

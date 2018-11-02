@@ -1,8 +1,12 @@
 #include "Settings.h"
 
-bool displayDebugInfo = true;
+SystemState::SystemState()
+{
+	numTrackedFrames = 0;
+	numTrackedKeyFrames = 0;
+	showGeneratedMesh = true;
+	showInputImages = true;
+	localisatonOnly = false;
+}
 
-RuningStates::RuningStates() :
-	numTrackedFrames(0), numTrackedKeyFrames(0) {}
-
-RuningStates state;
+SystemState systemState;

@@ -85,8 +85,7 @@ struct Fusion {
 			return;
 
 		float z = depth.ptr(y)[x];
-		if (isnan(z) || z < MapStruct::DepthMin ||
-			z > MapStruct::DepthMax)
+		if (isnan(z) || z < MapStruct::DepthMin || z > MapStruct::DepthMax)
 			return;
 
 		float thresh = MapStruct::TruncateDist / 2;
@@ -104,7 +103,7 @@ struct Fusion {
 		dir = dir / (float) (nSteps - 1);
 
 		for (int i = 0; i < nSteps; ++i) {
-			int3 blockPos = map.voxelPosToBlockPos(make_int3(pt_near));
+			int3 blockPos = map.posVoxelToBlock(make_int3(pt_near));
 			map.CreateBlock(blockPos);
 			pt_near += dir;
 		}
@@ -120,7 +119,7 @@ struct Fusion {
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
 		if (x < map.hashEntries.size) {
 			HashEntry& e = map.hashEntries[x];
-			if (e.ptr != EntryAvailable) {
+			if (e.next != EntryAvailable) {
 				if (CheckBlockVisibility(e.pos)) {
 					bScan = true;
 					val = 1;
@@ -144,16 +143,16 @@ struct Fusion {
 			return;
 
 		HashEntry& entry = map.visibleEntries[blockIdx.x];
-		if (entry.ptr == EntryAvailable)
+		if (entry.next == EntryAvailable)
 			return;
 
-		int3 block_pos = map.blockPosToVoxelPos(entry.pos);
+		int3 block_pos = map.posBlockToVoxel(entry.pos);
 
 		#pragma unroll
 		for(int i = 0; i < 8; ++i) {
 			int3 localPos = make_int3(threadIdx.x, threadIdx.y, i);
-			int locId = map.localPosToLocalIdx(localPos);
-			float3 pos = map.voxelPosToWorldPos(block_pos + localPos);
+			int locId = map.posLocalToIdx(localPos);
+			float3 pos = map.posVoxelToWorld(block_pos + localPos);
 			pos = RviewInv * (pos - tview);
 			int2 uv = make_int2(project(pos));
 			if (uv.x < 0 || uv.y < 0 || uv.x >= cols || uv.y >= rows)
@@ -175,7 +174,7 @@ struct Fusion {
 
 				float w = cos(make_float3(-nl) * normalised(make_float3(Rview.rowx.z, Rview.rowy.z, Rview.rowz.z)));
 				float3 val = make_float3(rgb.ptr(uv.y)[uv.x]);
-				Voxel & prev = map.voxelBlocks[entry.ptr + locId];
+				Voxel & prev = map.voxelBlocks[entry.next + locId];
 				if(prev.weight == 0) {
 					prev = Voxel(sdf, 1, make_uchar3(val));
 				} else {
@@ -197,16 +196,16 @@ struct Fusion {
 			return;
 
 		HashEntry& entry = map.visibleEntries[blockIdx.x];
-		if (entry.ptr == EntryAvailable)
+		if (entry.next == EntryAvailable)
 			return;
 
-		int3 block_pos = map.blockPosToVoxelPos(entry.pos);
+		int3 block_pos = map.posBlockToVoxel(entry.pos);
 
 		#pragma unroll
 		for(int i = 0; i < 8; ++i) {
 			int3 localPos = make_int3(threadIdx.x, threadIdx.y, i);
-			int locId = map.localPosToLocalIdx(localPos);
-			float3 pos = map.voxelPosToWorldPos(block_pos + localPos);
+			int locId = map.posLocalToIdx(localPos);
+			float3 pos = map.posVoxelToWorld(block_pos + localPos);
 			pos = RviewInv * (pos - tview);
 			int2 uv = make_int2(project(pos));
 			if (uv.x < 0 || uv.y < 0 || uv.x >= cols || uv.y >= rows)
@@ -229,7 +228,7 @@ struct Fusion {
 				float w = nl * normalised(make_float4(pos));
 				w = 1;
 				float3 val = make_float3(rgb.ptr(uv.y)[uv.x]);
-				Voxel & prev = map.voxelBlocks[entry.ptr + locId];
+				Voxel & prev = map.voxelBlocks[entry.next + locId];
 				if(prev.weight == 0) {
 					return;
 				} else {
@@ -446,7 +445,7 @@ __global__ void ResetHashKernel(MapStruct map) {
 		map.visibleEntries[x].release();
 	}
 
-	if (x < MapStruct::NumBuckets) {
+	if (x < map.bucketMutex.size) {
 		map.bucketMutex[x] = EntryAvailable;
 	}
 }
@@ -475,6 +474,9 @@ void ResetMap(MapStruct map) {
 	dim3 block(DivUp((int) MapStruct::NumEntries, thread.x));
 
 	ResetHashKernel<<<block, thread>>>(map);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
 
 	block = dim3(DivUp((int) MapStruct::NumSdfBlocks, thread.x));
 	ResetSdfBlockKernel<<<block, thread>>>(map);

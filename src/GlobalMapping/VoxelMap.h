@@ -1,13 +1,12 @@
 #pragma once
 #include "SlamSystem.h"
-#include "Tracking.h"
-#include "KeyFrame.h"
 #include "MapStruct.h"
+#include "Settings.h"
 #include <opencv2/opencv.hpp>
 #include <vector>
 
+class Frame;
 class KeyMap;
-class Tracker;
 class SlamSystem;
 class PointCloud;
 
@@ -17,7 +16,7 @@ public:
 
 	VoxelMap();
 
-	void Reset();
+	void resetMapStruct();
 
 	void Release();
 
@@ -35,11 +34,11 @@ public:
 
 	bool HasNewKF();
 
-	void FuseKeyFrame(const KeyFrame * kf);
+//	void FuseKeyFrame(const KeyFrame * kf);
 
 	void FuseKeyPoints(Frame * f);
 
-	void UpdateVisibility(const KeyFrame * kf, uint & no);
+//	void UpdateVisibility(const KeyFrame * kf, uint & no);
 
 	void UpdateVisibility(Frame * f, uint & no);
 
@@ -49,7 +48,7 @@ public:
 
 	void RayTrace(uint noVisibleBlocks, Frame * f);
 
-	void RayTrace(uint noVisibleBlocks, KeyFrame * f);
+//	void RayTrace(uint noVisibleBlocks, KeyFrame * f);
 
 	void RayTraceWithColor(uint noVisibleBlocks, Frame * f);
 
@@ -98,8 +97,8 @@ public:
 	DeviceArray<uchar3> modelColor;
 	std::vector<SURF> hostKeys;
 
-	std::vector<const KeyFrame *> localMap;
-	std::set<const KeyFrame *> keyFrames;
+//	std::vector<const KeyFrame *> localMap;
+//	std::set<const KeyFrame *> keyFrames;
 
 	// Host Memory Spaces
 	int * heapRAM;
@@ -114,12 +113,12 @@ public:
 	int * mutexKeysRAM;
 	SURF * mapKeysRAM;
 
-	KeyFrame * newKF;
+//	KeyFrame * newKF;
 
 	// test for pose graph optimization
-	std::set<KeyFrame *> poseGraph;
+//	std::set<KeyFrame *> poseGraph;
 
-	void FindLocalGraph(KeyFrame * kf);
+//	void FindLocalGraph(KeyFrame * kf);
 
 	// General map structure
 	DeviceArray<int> heap;
@@ -157,12 +156,45 @@ public:
 
 	//======================== REFACOTRING ========================
 
-	VoxelMap(float voxelSize, int numSdfBlock, int numHashEntry);
+public:
 
-	VoxelMap(bool);
 	VoxelMap(const VoxelMap&) = delete;
 	VoxelMap& operator=(const VoxelMap&) = delete;
 	~VoxelMap();
+
+	MapStruct* device, host;
+	MapState currentState;
+
+	int getMaxNumMeshTriangles() const
+	{
+		return currentState.maxNumMeshTriangles;
+	}
+
+	inline void createDeviceMemory(MapState* initialState = 0)
+	{
+		if(initialState && !device)
+		{
+			device = new MapStruct();
+
+			CONSOLE("===============================");
+			CONSOLE("Device VOXEL MAP successfully created.");
+			CONSOLE("COUNT(HASH ENTRY) - " + std::to_string(initialState->maxNumHashEntries));
+			CONSOLE("COUNT(VOXEL BLOCK) - " + std::to_string(initialState->maxNumVoxelBlocks * initialState->blockSize3));
+			CONSOLE("===============================");
+		}
+	}
+
+	inline void createHostMemory(MapState* initialState = 0)
+	{
+		if(initialState)
+		{
+			CONSOLE("===============================");
+			CONSOLE("Host VOXEL MAP successfully created.");
+			CONSOLE("COUNT(HASH ENTRY) - " + std::to_string(initialState->maxNumHashEntries));
+			CONSOLE("COUNT(VOXEL BLOCK) - " + std::to_string(initialState->maxNumVoxelBlocks * initialState->blockSize3));
+			CONSOLE("===============================");
+		}
+	}
 
 	void writeMapToDisk(std::string path);
 	void readMapFromDisk(std::string path);
@@ -176,6 +208,7 @@ public:
 
 	// in between
 	void allocateDeviceMemory();
+	void allocateDeviceMemory(MapState state);
 
 protected:
 

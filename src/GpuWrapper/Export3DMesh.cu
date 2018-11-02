@@ -25,8 +25,8 @@ struct MeshEngine {
 		__syncthreads();
 
 		uint val = 0;
-		if (x < MapStruct::NumEntries && map.hashEntries[x].ptr >= 0) {
-			int3 pos = map.hashEntries[x].pos * MapStruct::BlockSize;
+		if (x < mapState.maxNumHashEntries && map.hashEntries[x].next >= 0) {
+			int3 pos = map.hashEntries[x].pos * mapState.blockSize;
 			scan = true;
 			val = 1;
 		}
@@ -260,15 +260,15 @@ struct MeshEngine {
 
 	__device__ inline void MarchingCube() {
 		int x = blockIdx.y * gridDim.x + blockIdx.x;
-		if(*noTriangles >= MapStruct::MaxTriangles || x >= *noBlocks)
+		if(*noTriangles >= mapState.maxNumMeshTriangles || x >= *noBlocks)
 			return;
 
 		float3 vlist[12];
 		float3 nlist[12];
 		uchar3 clist[12];
 
-		int3 pos = blockPos[x] * MapStruct::BlockSize;
-		for(int i = 0; i < MapStruct::BlockSize; ++i) {
+		int3 pos = blockPos[x] * mapState.blockSize;
+		for(int i = 0; i < mapState.blockSize; ++i) {
 			int3 localPos = make_int3(threadIdx.x, threadIdx.y, i);
 			int cubeIdx = buildVertexList(vlist, nlist, clist, pos + localPos);
 			if(cubeIdx <= 0)
@@ -278,12 +278,12 @@ struct MeshEngine {
 			uint offset = atomicAdd(noTriangles, noTriangleNeeded);
 			for(int i = 0; i < noTriangleNeeded; ++i) {
 				int tid = offset + i;
-				if(tid >= MapStruct::MaxTriangles)
+				if(tid >= mapState.maxNumMeshTriangles)
 					return;
 
-				vertices[tid * 3 + 0] = vlist[triangleTable.ptr(cubeIdx)[i * 3 + 0]] * MapStruct::VoxelSize;
-				vertices[tid * 3 + 1] = vlist[triangleTable.ptr(cubeIdx)[i * 3 + 1]] * MapStruct::VoxelSize;
-				vertices[tid * 3 + 2] = vlist[triangleTable.ptr(cubeIdx)[i * 3 + 2]] * MapStruct::VoxelSize;
+				vertices[tid * 3 + 0] = vlist[triangleTable.ptr(cubeIdx)[i * 3 + 0]] * mapState.voxelSize;
+				vertices[tid * 3 + 1] = vlist[triangleTable.ptr(cubeIdx)[i * 3 + 1]] * mapState.voxelSize;
+				vertices[tid * 3 + 2] = vlist[triangleTable.ptr(cubeIdx)[i * 3 + 2]] * mapState.voxelSize;
 				normals[tid * 3 + 0] = normalised(nlist[triangleTable.ptr(cubeIdx)[i * 3 + 0]]);
 				normals[tid * 3 + 1] = normalised(nlist[triangleTable.ptr(cubeIdx)[i * 3 + 1]]);
 				normals[tid * 3 + 2] = normalised(nlist[triangleTable.ptr(cubeIdx)[i * 3 + 2]]);

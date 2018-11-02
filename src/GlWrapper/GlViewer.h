@@ -1,16 +1,15 @@
 #pragma once
 
-#include <atomic>
-#include <vector>
 #include "SlamSystem.h"
 #include "Utilities/SophusUtil.h"
+#include <atomic>
+#include <vector>
 #include <pangolin/pangolin.h>
 #include <pangolin/gl/glcuda.h>
 #include <pangolin/gl/glvbo.h>
 
-class SlamSystem;
-class Tracker;
 class VoxelMap;
+class SlamSystem;
 
 class GlViewer
 {
