@@ -291,23 +291,27 @@ struct Rendering {
 	Matrix3f Rview, RviewInv;
 	float3 tview;
 
-	__device__ __inline__ float readSdf(const float3 & pt3d, HashEntry & cache, bool & valid) {
+	__device__ __inline__ float readSdf(const float3 & pt3d, HashEntry & cache, bool & valid)
+	{
 		Voxel voxel = map.FindVoxel(pt3d, cache, valid);
 		if (voxel.weight == 0)
 			valid = false;
 		return voxel.sdf;
 	}
 
-	__device__ __inline__ uchar3 readColor(const float3 & pt3d, HashEntry & cache) {
+	__device__ __inline__ uchar3 readColor(const float3 & pt3d, HashEntry & cache)
+	{
 		bool valid;
 		Voxel voxel = map.FindVoxel(pt3d, cache, valid);
 		return voxel.color;
 	}
 
-	__device__ __inline__ float readSdfInterped(const float3 & pt, HashEntry & cache, bool & valid) {
+	__device__ __inline__ float readSdfInterped(const float3 & pt, HashEntry & cache, bool & valid)
+	{
 
 		float3 xyz = pt - floor(pt);
 		float sdf[2], result[4];
+
 		sdf[0] = map.FindVoxel(pt, cache, valid).sdf;
 		sdf[1] = map.FindVoxel(pt + make_float3(1, 0, 0), cache, valid).sdf;
 		result[0] = (1.0f - xyz.x) * sdf[0] + xyz.x * sdf[1];
@@ -328,7 +332,8 @@ struct Rendering {
 		return (1.0f - xyz.z) * result[2] + xyz.z * result[3];
 	}
 
-	__device__ __inline__ bool readNormal(const float3 & pt, HashEntry & cache, float3 & n) {
+	__device__ __inline__ bool readNormal(const float3 & pt, HashEntry & cache, float3 & n)
+	{
 
 		bool valid;
 		float sdf[6];
@@ -361,8 +366,8 @@ struct Rendering {
 		return true;
 	}
 
-	__device__ __inline__ void operator()() {
-
+	__device__ __inline__ void operator()()
+	{
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
 		int y = blockDim.y * blockIdx.y + threadIdx.y;
 		if (x >= cols || y >= rows)
@@ -403,15 +408,16 @@ struct Rendering {
 		bool found_pt = false;
 		float step;
 		HashEntry b;
-		while (dist_s < dist_e) {
+
+		while (dist_s < dist_e)
+		{
 			sdf = readSdf(result, b, valid_sdf);
-			if(!valid_sdf) {
+			if(!valid_sdf)
 				step = mapState.blockSize;
-			}
-			else {
-				if (sdf <= 0.1f && sdf >= -0.5f) {
+			else
+			{
+				if (sdf <= 0.1f && sdf >= -0.5f)
 					sdf = readSdfInterped(result, b, valid_sdf);
-				}
 
 				if (sdf <= 0.0f)
 					break;
@@ -426,7 +432,8 @@ struct Rendering {
 			dist_s += step;
 		}
 
-		if(sdf <= 0.0f) {
+		if(sdf <= 0.0f)
+		{
 			step = sdf * mapState.stepScale_raycast();
 			result += step * dir;
 
@@ -437,12 +444,12 @@ struct Rendering {
 			found_pt = true;
 		}
 
-		if(found_pt) {
+		if(found_pt)
+		{
 			float3 normal;
-			if(readNormal(result, b, normal)) {
-
+			if(readNormal(result, b, normal))
+			{
 				result = RviewInv * (result * mapState.voxelSize - tview);
-
 				vmap.ptr(y)[x] = make_float4(result, 1.0);
 				nmap.ptr(y)[x] = make_float4(normal, 1.0);
 			}

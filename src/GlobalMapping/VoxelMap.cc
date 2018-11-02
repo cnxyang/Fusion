@@ -21,6 +21,8 @@ void VoxelMap::allocateDeviceMemory()
 	currentState.maxNumVoxelBlocks = 700000;
 	currentState.maxNumRenderingBlocks = 260000;
 	currentState.maxNumMeshTriangles = 20000000;
+
+	hostMapState = currentState;
 	updateMapState(currentState);
 
 	heapCounter.create(1);
@@ -68,53 +70,6 @@ void VoxelMap::allocateDeviceMemory()
 
 	resetMapStruct();
 }
-//
-//void VoxelMap::allocateDeviceMemory(MapState state) {
-//
-//	heapCounter.create(1);
-//	hashCounter.create(1);
-//	noVisibleEntries.create(1);
-//	heap.create(MapStruct::NumSdfBlocks);
-//	sdfBlock.create(MapStruct::NumVoxels);
-//	bucketMutex.create(MapStruct::NumBuckets);
-//	hashEntries.create(MapStruct::NumEntries);
-//	visibleEntries.create(MapStruct::NumEntries);
-//
-//	nBlocks.create(1);
-//	noTriangles.create(1);
-//	modelVertex.create(MapStruct::MaxVertices);
-//	modelNormal.create(MapStruct::MaxVertices);
-//	modelColor.create(MapStruct::MaxVertices);
-//	blockPoses.create(MapStruct::NumEntries);
-//
-//	edgeTable.create(256);
-//	vertexTable.create(256);
-//	triangleTable.create(16, 256);
-//	edgeTable.upload(edgeTableHost);
-//	vertexTable.upload(vertexTableHost);
-//	triangleTable.upload(triangleTableHost);
-//
-//	zRangeMin.create(80, 60);
-//	zRangeMax.create(80, 60);
-//	zRangeMinEnlarged.create(160, 120);
-//	zRangeMaxEnlarged.create(160, 120);
-//	noRenderingBlocks.create(1);
-//	renderingBlockList.create(MapStruct::MaxRenderingBlocks);
-//
-//	noKeys.create(1);
-//	mutexKeys.create(KeyMap::MaxKeys);
-//	mapKeys.create(KeyMap::maxEntries);
-//	tmpKeys.create(KeyMap::maxEntries);
-//	surfKeys.create(3000);
-//	mapKeyIndex.create(3000);
-//
-//	CONSOLE("===============================");
-//	CONSOLE("VOXEL MAP successfully created.");
-//	CONSOLE("COUNT(HASH ENTRY) - " + std::to_string(MapStruct::NumEntries));
-//	CONSOLE("COUNT(VOXEL BLOCK) - " + std::to_string(MapStruct::NumVoxels));
-//	CONSOLE("===============================");
-//	resetMapStruct();
-//}
 
 void VoxelMap::ForwardWarp(Frame * last, Frame * next) {
 	ForwardWarping(last->vmap[0], last->nmap[0], next->vmap[0], next->nmap[0],
@@ -122,14 +77,6 @@ void VoxelMap::ForwardWarp(Frame * last, Frame * next) {
 			next->GpuTranslation(), Frame::fx(0), Frame::fy(0), Frame::cx(0),
 			Frame::cy(0));
 }
-
-//void VoxelMap::UpdateVisibility(const KeyFrame * kf, uint & no) {
-//
-////	CheckBlockVisibility(*this, noVisibleEntries, kf->GpuRotation(),
-////			kf->GpuInvRotation(), kf->GpuTranslation(), Frame::cols(0),
-////			Frame::rows(0), Frame::fx(0), Frame::fy(0), Frame::cx(0),
-////			Frame::cy(0), DeviceMap::DepthMax, DeviceMap::DepthMin, &no);
-//}
 
 void VoxelMap::UpdateVisibility(Frame * f, uint & no) {
 
@@ -290,115 +237,6 @@ bool VoxelMap::HasNewKF() {
 
 	return hasNewKFFlag;
 }
-
-//void VoxelMap::FuseKeyFrame(const KeyFrame * kf) {
-
-//	if (keyFrames.count(kf))
-//		return;
-//
-//	keyFrames.insert(kf);
-//
-//	cv::Mat desc;
-//	std::vector<int> index;
-//	std::vector<int> keyIndex;
-//	std::vector<SURF> keyChain;
-//	kf->descriptors.download(desc);
-//	kf->outliers.resize(kf->N);
-//	std::fill(kf->outliers.begin(), kf->outliers.end(), true);
-//	int noK = std::min(kf->N, (int) surfKeys.size);
-//
-//	kf->pt3d.resize(kf->N);
-//
-//	for (int i = 0; i < noK; ++i) {
-//
-//		if (kf->observations[i] > 0) {
-//			SURF key;
-//			Eigen::Vector3f pt = kf->GetWorldPoint(i);
-//			key.pos = {pt(0), pt(1), pt(2)};
-//			key.normal = kf->pointNormal[i];
-//			key.valid = true;
-//
-//			for (int j = 0; j < 64; ++j) {
-//				key.descriptor[j] = desc.at<float>(i, j);
-//			}
-//
-//			index.push_back(i);
-//			keyChain.push_back(key);
-//			keyIndex.push_back(kf->keyIndex[i]);
-//			kf->outliers[i] = false;
-//		}
-//	}
-//
-//	std::cout << "Num KP fused : " << std::count(kf->outliers.begin(), kf->outliers.end(), false) << std::endl;
-//
-//	surfKeys.upload(keyChain.data(), keyChain.size());
-//	mapKeyIndex.upload(keyIndex.data(), keyIndex.size());
-//
-//	InsertKeyPoints(*this, surfKeys, mapKeyIndex, keyChain.size());
-//
-//	mapKeyIndex.download(keyIndex.data(), keyIndex.size());
-//	surfKeys.download(keyChain.data(), keyChain.size());
-//
-//	for(int i = 0; i < index.size(); ++i) {
-//		int idx = index[i];
-//		kf->keyIndex[idx] = keyIndex[i];
-//		float3 pos = keyChain[i].pos;
-//		kf->mapPoints[idx] << pos.x, pos.y, pos.z;
-//	}
-//
-//	if(localMap.size() > 0) {
-//		if(localMap.size() >= 7) {
-//			localMap.erase(localMap.begin());
-//			localMap.push_back(kf);
-//		}
-//		else
-//			localMap.push_back(kf);
-//	}
-//	else
-//		localMap.push_back(kf);
-//
-//	newKF = const_cast<KeyFrame *>(kf);
-//
-//	FindLocalGraph(newKF);
-//	poseGraph.insert(newKF);
-//
-//	hasNewKFFlag = true;
-//}
-
-//void VoxelMap::FindLocalGraph(KeyFrame * kf) {
-//
-////	const float distTH = 0.5f;
-////	const float angleTH = 0.3f;
-////	Eigen::Vector3f viewDir = kf->Rotation().rightCols<1>();
-////
-////	std::vector<KeyFrame *> kfCandidates;
-////
-////	for(std::set<KeyFrame *>::iterator iter = poseGraph.begin(),lend = poseGraph.end();	iter != lend; ++iter) {
-////
-////		KeyFrame * candidate = *iter;
-////
-////		if(candidate->frameId == kf->frameId)
-////			continue;
-////
-////		float dist = candidate->Translation().dot(kf->Translation());
-////		if(dist > distTH)
-////			continue;
-////
-////		Eigen::Vector3f dir = candidate->Rotation().rightCols<1>();
-////		float angle = viewDir.dot(dir);
-////
-////		if(angle < angleTH)
-////			continue;
-////
-////		kfCandidates.push_back(candidate);
-////		std::cout << angle << "/" << angleTH << "  " << dist << "/" << distTH << std::endl;
-////	}
-//}
-//
-//void VoxelMap::FuseKeyPoints(Frame * f) {
-//
-//	std::cout << "NOT IMPLEMENTED" << std::endl;
-//}
 
 void VoxelMap::resetMapStruct()
 {

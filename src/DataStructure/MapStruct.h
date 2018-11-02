@@ -57,7 +57,10 @@ struct MapState
 	__device__ __host__ float stepScale_raycast() const;
 };
 
+extern MapState hostMapState;
+
 __device__ extern MapState mapState;
+
 
 void updateMapState(MapState state);
 
@@ -123,32 +126,14 @@ struct MapStruct
 	__device__ float3 posVoxelToWorld(int3 pos) const;
 	__device__ float3 posBlockToWorld(const int3& pos) const;
 
-	static constexpr uint BlockSize = 8;
-	static constexpr uint BlockSize3 = 512;
-	static constexpr float DepthMin = 0.1f;
-	static constexpr float DepthMax = 3.0f;
-	static constexpr uint NumExcess = 500000;
-	static constexpr uint NumBuckets = 1000000;
-	static constexpr uint NumSdfBlocks = 700000;
-	static constexpr uint NumVoxels = NumSdfBlocks * BlockSize3;
-	static constexpr uint MaxTriangles = 20000000; // roughly 700MB memory
-	static constexpr uint MaxVertices = MaxTriangles * 3;
-	static constexpr float VoxelSize = 0.006f;
-	static constexpr float TruncateDist = VoxelSize * 8;
-	static constexpr int MaxRenderingBlocks = 260000;
-	static constexpr float voxelSizeInv = 1.0 / VoxelSize;
-	static constexpr float blockWidth = VoxelSize * BlockSize;
-	static constexpr uint NumEntries = NumBuckets + NumExcess;
-	static constexpr float stepScale = 0.5 * TruncateDist * voxelSizeInv;
-
-	PtrSz<int> heapMem;
-	PtrSz<int> entryPtr;
-	PtrSz<int> heapCounter;
-	PtrSz<int> bucketMutex;
-	PtrSz<Voxel> voxelBlocks;
-	PtrSz<uint> noVisibleBlocks;
-	PtrSz<HashEntry> hashEntries;
-	PtrSz<HashEntry> visibleEntries;
+	int* heapMem;
+	int* entryPtr;
+	int* heapCounter;
+	int* bucketMutex;
+	Voxel* voxelBlocks;
+	uint* noVisibleBlocks;
+	HashEntry* hashEntries;
+	HashEntry* visibleEntries;
 
 	__host__ void allocateHostMemory();
 	__host__ void allocateDeviceMemory();
