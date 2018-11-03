@@ -92,11 +92,13 @@ protected:
 	// Multi-threading loop
 	void loopVisualisation();
 	void loopOptimization();
+	void loopMapGeneration();
 	void loopConstraintSearch();
 
 	// Multi-threading variables
 	std::thread threadVisualisation;
 	std::thread threadOptimization;
+	std::thread threadMapGeneration;
 	std::thread threadConstraintSearch;
 
 	Frame* currentKeyFrame;

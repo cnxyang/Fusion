@@ -1,15 +1,15 @@
-#include "SlamSystem.h"
 #include "Frame.h"
 #include "GlViewer.h"
+#include "VoxelMap.h"
+#include "Settings.h"
+#include "SlamSystem.h"
 #include "PointCloud.h"
 #include "ICPTracker.h"
-#include "VoxelMap.h"
 #include "EigenUtils.h"
-#include "Settings.h"
 
-#include <unordered_set>
-#include <fstream>
 #include <chrono>
+#include <fstream>
+#include <unordered_set>
 
 SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 	width(w), height(h), K(K), keepRunning(true),
@@ -36,6 +36,7 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 
 	threadConstraintSearch = std::thread(&SlamSystem::loopConstraintSearch, this);
 	threadVisualisation = std::thread(&SlamSystem::loopVisualisation, this);
+//	threadMapGeneration = std::thread(&SlamSystem::loopMapGeneration, this);
 
 	CONSOLE("SLAM System Successfully Initiated.");
 }
@@ -135,8 +136,8 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 		std::swap(trackingReference, trackingTarget);
 
 		// do a raycast to ensure we have a copy of the map
-		int numVisibleBlocks = map->fusePointCloud(trackingReference);
-		map->takeSnapShot(trackingReference, numVisibleBlocks);
+		int numVisibleBlocks = map->fuseImages(trackingReference);
+		map->raycast(trackingReference, numVisibleBlocks);
 		trackingReference->generatePyramid();
 		latestTrackedFrame = currentFrame;
 		currentKeyFrame = currentFrame;
@@ -159,7 +160,7 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 	latestTrackedFrame = currentFrame;
 
 	// Do a raycast to ensure we have a copy of the map
-	int numVisibleBlocks = map->fusePointCloud(trackingTarget);
+	int numVisibleBlocks = map->fuseImages(trackingTarget);
 
 	// Update visualisation
 	updateVisualisation();
@@ -175,7 +176,7 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 		if(closenessScore > 2.f)
 		{
 			std::swap(trackingReference, trackingTarget);
-			map->takeSnapShot(trackingReference);
+			map->raycast(trackingReference);
 			trackingReference->generatePyramid();
 			currentKeyFrame = currentFrame;
 			viewer->keyFrameGraph.push_back(currentKeyFrame->pose());
@@ -236,6 +237,21 @@ void SlamSystem::queueMessage(Msg newmsg)
 {
 	std::unique_lock<std::mutex> lock(messageQueueMutex);
 	messageQueue.push(newmsg);
+}
+
+void SlamSystem::loopMapGeneration()
+{
+	CONSOLE("Map Generation Thread Started.");
+
+	while(keepRunning)
+	{
+		while(!viewer->shouldQuit())
+		{
+
+		}
+	}
+
+	CONSOLE("Map Generation Thread Exited.");
 }
 
 void SlamSystem::loopVisualisation()
@@ -404,8 +420,8 @@ void SlamSystem::exportMeshAsFile() {
 	delete host_color;
 }
 
-void SlamSystem::writeBinaryMapToDisk() {
-
+void SlamSystem::writeBinaryMapToDisk()
+{
 //	map->DownloadToRAM();
 //
 //	auto file = std::fstream("/home/xyang/map.bin", std::ios::out | std::ios::binary);
@@ -440,8 +456,8 @@ void SlamSystem::writeBinaryMapToDisk() {
 //	map->ReleaseRAM();
 }
 
-void SlamSystem::readBinaryMapFromDisk() {
-
+void SlamSystem::readBinaryMapFromDisk()
+{
 //	int NumSdfBlocks;
 //	int NumBuckets;
 //	int NumVoxels;

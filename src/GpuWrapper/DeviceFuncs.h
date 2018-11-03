@@ -24,7 +24,7 @@ void Raycast(MapStruct map, DeviceArray2D<float4> & vmap,
 		Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, float invfx, float invfy, float cx, float cy);
 
-bool CreateRenderingBlocks(const DeviceArray<HashEntry> & visibleBlocks,
+bool CreateRenderingBlocks(MapStruct* map,
 		DeviceArray2D<float> & zRangeX,
 		DeviceArray2D<float> & zRangeY,
 		const float & depthMax, const float & depthMin,

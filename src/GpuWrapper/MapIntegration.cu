@@ -310,7 +310,7 @@ void CheckBlockVisibility(MapStruct map,
 	fuse.minDepth = depthMin;
 
 	dim3 thread = dim3(1024);
-	dim3 block = dim3(DivUp((int) hostMapState.maxNumHashEntries, thread.x));
+	dim3 block = dim3(DivUp((int) currentState.maxNumHashEntries, thread.x));
 
 	CheckVisibleBlockKernel<<<block, thread>>>(fuse);
 
@@ -357,8 +357,8 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 	fuse.height = rows;
 	fuse.width = cols;
 	fuse.noVisibleBlocks = noVisibleBlocks;
-	fuse.maxDepth = hostMapState.depthMax_raycast;
-	fuse.minDepth = hostMapState.depthMin_raycast;
+	fuse.maxDepth = currentState.depthMax_raycast;
+	fuse.minDepth = currentState.depthMin_raycast;
 
 	dim3 thread(16, 8);
 	dim3 block(DivUp(cols, thread.x), DivUp(rows, thread.y));
@@ -369,7 +369,7 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 	SafeCall(cudaGetLastError());
 
 	thread = dim3(1024);
-	block = dim3(DivUp((int) hostMapState.maxNumHashEntries, thread.x));
+	block = dim3(DivUp((int) currentState.maxNumHashEntries, thread.x));
 
 	CheckVisibleBlockKernel<<<block, thread>>>(fuse);
 
@@ -391,20 +391,11 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 }
 
 void DefuseMapColor(const DeviceArray2D<float> & depth,
-				  	const DeviceArray2D<uchar3> & color,
-				  	const DeviceArray2D<float4> & nmap,
-				  	DeviceArray<uint> & noVisibleBlocks,
-				  	Matrix3f Rview,
-				  	Matrix3f RviewInv,
-				  	float3 tview,
-				  	MapStruct map,
-				  	float fx,
-				  	float fy,
-				  	float cx,
-				  	float cy,
-				  	float depthMax,
-				  	float depthMin,
-				  	uint * host_data) {
+		const DeviceArray2D<uchar3> & color, const DeviceArray2D<float4> & nmap,
+		DeviceArray<uint> & noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
+		float3 tview, MapStruct map, float fx, float fy, float cx, float cy,
+		float depthMax, float depthMin, uint * host_data)
+{
 
 	int cols = depth.cols;
 	int rows = depth.rows;
@@ -427,11 +418,11 @@ void DefuseMapColor(const DeviceArray2D<float> & depth,
 	fuse.height = rows;
 	fuse.width = cols;
 	fuse.noVisibleBlocks = noVisibleBlocks;
-	fuse.maxDepth = hostMapState.depthMax_raycast;
-	fuse.minDepth = hostMapState.depthMin_raycast;
+	fuse.maxDepth = currentState.depthMax_raycast;
+	fuse.minDepth = currentState.depthMin_raycast;
 
 	dim3 thread = dim3(1024);
-	dim3 block = dim3(DivUp((int) hostMapState.maxNumHashEntries, thread.x));
+	dim3 block = dim3(DivUp((int) currentState.maxNumHashEntries, thread.x));
 
 	CheckVisibleBlockKernel<<<block, thread>>>(fuse);
 
@@ -452,8 +443,8 @@ void DefuseMapColor(const DeviceArray2D<float> & depth,
 	SafeCall(cudaGetLastError());
 }
 
-__global__ void ResetHashKernel(MapStruct map) {
-
+__global__ void ResetHashKernel(MapStruct map)
+{
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	if(x < mapState.maxNumHashEntries) {
 		map.hashEntries[x].release();
@@ -465,8 +456,8 @@ __global__ void ResetHashKernel(MapStruct map) {
 	}
 }
 
-__global__ void ResetSdfBlockKernel(MapStruct map) {
-
+__global__ void ResetSdfBlockKernel(MapStruct map)
+{
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	if(x < mapState.maxNumVoxelBlocks) {
 		map.heapMem[x] = mapState.maxNumVoxelBlocks - x - 1;
@@ -486,14 +477,14 @@ __global__ void ResetSdfBlockKernel(MapStruct map) {
 void ResetMap(MapStruct map) {
 
 	dim3 thread(1024);
-	dim3 block(DivUp((int) hostMapState.maxNumHashEntries, thread.x));
+	dim3 block(DivUp((int) currentState.maxNumHashEntries, thread.x));
 
 	ResetHashKernel<<<block, thread>>>(map);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 
-	block = dim3(DivUp((int) hostMapState.maxNumVoxelBlocks, thread.x));
+	block = dim3(DivUp((int) currentState.maxNumVoxelBlocks, thread.x));
 	ResetSdfBlockKernel<<<block, thread>>>(map);
 
 	SafeCall(cudaDeviceSynchronize());

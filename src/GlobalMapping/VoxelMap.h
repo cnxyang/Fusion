@@ -70,27 +70,27 @@ public:
 	std::vector<SURF> hostKeys;
 
 	// Host Memory Spaces
-	int * heapRAM;
-	int * heapCounterRAM;
-	int * hashCounterRAM;
-	int * bucketMutexRAM;
-	Voxel * sdfBlockRAM;
-	uint * noVisibleEntriesRAM;
-	HashEntry * hashEntriesRAM;
-	HashEntry * visibleEntriesRAM;
+//	int * heapRAM;
+//	int * heapCounterRAM;
+//	int * hashCounterRAM;
+//	int * bucketMutexRAM;
+//	Voxel * sdfBlockRAM;
+//	uint * noVisibleEntriesRAM;
+//	HashEntry * hashEntriesRAM;
+//	HashEntry * visibleEntriesRAM;
 
 	int * mutexKeysRAM;
 	SURF * mapKeysRAM;
 
 	// General map structure
-	DeviceArray<int> heap;
-	DeviceArray<int> heapCounter;
-	DeviceArray<int> hashCounter;
-	DeviceArray<int> bucketMutex;
-	DeviceArray<Voxel> sdfBlock;
+//	DeviceArray<int> heap;
+//	DeviceArray<int> heapCounter;
+//	DeviceArray<int> hashCounter;
+//	DeviceArray<int> bucketMutex;
+//	DeviceArray<Voxel> sdfBlock;
 	DeviceArray<uint> noVisibleEntries;
-	DeviceArray<HashEntry> hashEntries;
-	DeviceArray<HashEntry> visibleEntries;
+//	DeviceArray<HashEntry> hashEntries;
+//	DeviceArray<HashEntry> visibleEntries;
 
 	// Used for rendering
 	DeviceArray<uint> noRenderingBlocks;
@@ -120,30 +120,54 @@ public:
 
 public:
 
+	VoxelMap(int w, int h);
 	VoxelMap(const VoxelMap&) = delete;
 	VoxelMap& operator=(const VoxelMap&) = delete;
 	~VoxelMap();
 
-	MapStruct* device, host;
-	MapState currentState;
-
-	void writeMapToDisk(std::string path);
-	void readMapFromDisk(std::string path);
+	// Public APIS
+	void allocateDeviceMemory();
+	void allocateDeviceMap();
+	void allocateHostMap();
+	void releaseHostMap();
+	void releaseDeviceMap();
 	void copyMapDeviceToHost();
 	void copyMapHostToDevice();
-	void allocateHostMemory();
-	void releaseHostMemory();
-	void releaseDeviceMemory();
-	void takeSnapShot(PointCloud* data, int numVisibleBlocks = -1);
-	int fusePointCloud(PointCloud* data);
+	void writeMapToDisk(const char* path);
+	void readMapFromDisk(const char path);
+	void exportMesh(Mesh3D* mesh);
 
-	void allocateDeviceMemory();
+	void raycast(PointCloud* data, int n = -1);
+	int fuseImages(PointCloud* data);
 
-protected:
+private:
 
 	uint updateVisibility(PointCloud* data);
 
-	// temporary variables
-	uint numCurrentViewBlock;
-	Frame * lastCheckFrame;
+	struct Data
+	{
+		// Used for a variety of reasons
+		DeviceArray<uint> numVisibleEntries;
+
+		// Used for rendering the synthetic view
+		DeviceArray<uint> numRenderingBlocks;
+		DeviceArray2D<float2> zRangeSyntheticView;
+		DeviceArray2D<float2> zRangeTopdownView;
+		DeviceArray<RenderingBlock> renderingBlocks;
+
+		// Used for meshing the scene.
+		DeviceArray<uint> numExistedBlocks;
+		DeviceArray<int3> blockPositions;
+		DeviceArray<uint> totalNumTriangle;
+
+		// Constant look-up tables
+		DeviceArray<int> constEdgeTable;
+		DeviceArray<int> constVertexTable;
+		DeviceArray2D<int> constTriangleTtable;
+
+	} data;
+
+	MapStruct* device, * host;
+	int width, height;
+	Eigen::Matrix3f K;
 };

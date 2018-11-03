@@ -1,7 +1,7 @@
 #include "MapStruct.h"
 
-MapState hostMapState;
-
+MapState currentState;
+bool stateInitialised = false;
 __device__ MapState mapState;
 
 __device__ __host__ int MapState::maxNumVoxels() const
@@ -39,14 +39,14 @@ __device__ __host__ float MapState::stepScale_raycast() const
 	return 0.5 * truncateDistance() * invVoxelSize();
 }
 
-void updateMapState(MapState state)
+void updateMapState()
 {
-	SafeCall(cudaMemcpyToSymbol(mapState, &state, sizeof(MapState)));
+	SafeCall(cudaMemcpyToSymbol(mapState, &currentState, sizeof(MapState)));
 }
 
-void downloadMapState(MapState& state)
+void downloadMapState()
 {
-	SafeCall(cudaMemcpyFromSymbol(&state, mapState, sizeof(MapState)));
+	SafeCall(cudaMemcpyFromSymbol(&currentState, mapState, sizeof(MapState)));
 }
 
 __device__ HashEntry::HashEntry() :

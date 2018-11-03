@@ -19,6 +19,8 @@ struct MapState
 	// if not unusable at all.
 	int blockSize;
 	int blockSize3;
+	int renderingBlockSize;
+	int minMaxSubSample;
 
 	// parameters that control the size of the
 	// device memory needed in the allocation stage.
@@ -57,14 +59,19 @@ struct MapState
 	__device__ __host__ float stepScale_raycast() const;
 };
 
-extern MapState hostMapState;
-
+extern bool stateInitialised;
+extern MapState currentState;
 __device__ extern MapState mapState;
 
+void updateMapState();
+void downloadMapState();
 
-void updateMapState(MapState state);
-
-void downloadMapState(MapState& state);
+struct Mesh3D
+{
+	float4* vertex;
+	float4* normal;
+	uchar4* color;
+};
 
 struct __align__(8) RenderingBlock
 {
@@ -134,11 +141,6 @@ struct MapStruct
 	uint* noVisibleBlocks;
 	HashEntry* hashEntries;
 	HashEntry* visibleEntries;
-
-	__host__ void allocateHostMemory();
-	__host__ void allocateDeviceMemory();
-	__host__ void releaseHostMemory();
-	__host__ void releaseDeviceMemory();
 };
 
 struct SURF

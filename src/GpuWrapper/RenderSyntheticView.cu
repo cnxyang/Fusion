@@ -1,72 +1,73 @@
 #include "DeviceFuncs.h"
 #include "DeviceParallelScan.h"
 
-#define minMaxSubSample 8
-#define renderingBlockSizeX 16
-#define renderingBlockSizeY 16
+struct Projection
+{
+	int width;
+	int height;
 
-struct Projection {
-
-	int cols, rows;
-
-	Matrix3f RcurrInv;
+	Matrix3f invRcurr;
 	float3 tcurr;
 	float depthMax, depthMin;
 	float fx, fy, cx, cy;
 
-	uint * noRenderingBlocks;
+	uint* noRenderingBlocks;
 	uint noVisibleBlocks;
 
-	PtrSz<HashEntry> visibleBlocks;
+	HashEntry* visibleBlocks;
 	mutable PtrStepSz<float> zRangeX;
 	mutable PtrStep<float> zRangeY;
 	mutable PtrSz<RenderingBlock> renderingBlockList;
 
-	__device__ __inline__ float2 project(const float3 & pt3d) const {
-
+	__device__ __inline__ float2 project(const float3 & pt3d) const
+	{
 		float2 pt2d;
 		pt2d.x = fx * pt3d.x / pt3d.z + cx;
 		pt2d.y = fy * pt3d.y / pt3d.z + cy;
 		return pt2d;
 	}
 
-	__device__ __inline__ void atomicMax(float* add, float val) const {
+	__device__ __inline__ void atomicMax(float* add, float val) const
+	{
 		int* address_as_i = (int*) add;
 		int old = *address_as_i, assumed;
-		do {
+		do
+		{
 			assumed = old;
 			old = atomicCAS(address_as_i, assumed,
 					__float_as_int(fmaxf(val, __int_as_float(assumed))));
 		} while (assumed != old);
 	}
 
-	__device__ __inline__ void atomicMin(float* add, float val) const {
+	__device__ __inline__ void atomicMin(float* add, float val) const
+	{
 		int* address_as_i = (int*) add;
 		int old = *address_as_i, assumed;
-		do {
+		do
+		{
 			assumed = old;
 			old = atomicCAS(address_as_i, assumed,
 					__float_as_int(fminf(val, __int_as_float(assumed))));
 		} while (assumed != old);
 	}
 
-	__device__ __inline__ bool projectBlock(const int3 & pos,
-										RenderingBlock & block) const {
-
+	__device__ __inline__ bool projectBlock(const int3 & pos, RenderingBlock & block) const
+	{
 		block.upperLeft = make_short2(zRangeX.cols, zRangeX.rows);
 		block.lowerRight = make_short2(-1, -1);
 		block.zRange = make_float2(depthMax, depthMin);
-		for (int corner = 0; corner < 8; ++corner) {
+		for (int corner = 0; corner < 8; ++corner)
+		{
 			int3 tmp = pos;
 			tmp.x += (corner & 1) ? 1 : 0;
 			tmp.y += (corner & 2) ? 1 : 0;
 			tmp.z += (corner & 4) ? 1 : 0;
 			float3 pt3d = tmp * mapState.blockSize * mapState.voxelSize;
-			pt3d = RcurrInv * (pt3d - tcurr);
+			pt3d = invRcurr * (pt3d - tcurr);
 			if (pt3d.z < 2e-1)
 				continue;
 
-			float2 pt2d = project(pt3d) / minMaxSubSample;
+			float2 pt2d = project(pt3d) / mapState.minMaxSubSample;
 
 			if (block.upperLeft.x > floor(pt2d.x))
 				block.upperLeft.x = (int) floor(pt2d.x);
@@ -102,17 +103,18 @@ struct Projection {
 		return true;
 	}
 
-	__device__ __inline__ void createRenderingBlockList(int & offset,
-			const RenderingBlock & block, int & nx, int & ny) const {
-
+	__device__ __inline__ void createRenderingBlockList(int & offset, const RenderingBlock & block, int & nx, int & ny) const
+	{
 		for (int y = 0; y < ny; ++y)
-			for (int x = 0; x < ny; ++x) {
-				if (offset < renderingBlockList.size) {
+			for (int x = 0; x < ny; ++x)
+			{
+				if (offset < renderingBlockList.size)
+				{
 					RenderingBlock & b(renderingBlockList[offset++]);
-					b.upperLeft.x = block.upperLeft.x + x * renderingBlockSizeX;
-					b.upperLeft.y = block.upperLeft.y + y * renderingBlockSizeY;
-					b.lowerRight.x = block.upperLeft.x + renderingBlockSizeX;
-					b.lowerRight.y = block.upperLeft.y + renderingBlockSizeY;
+					b.upperLeft.x = block.upperLeft.x + x * mapState.renderingBlockSize;
+					b.upperLeft.y = block.upperLeft.y + y * mapState.renderingBlockSize;
+					b.lowerRight.x = block.upperLeft.x + mapState.renderingBlockSize;
+					b.lowerRight.y = block.upperLeft.y + mapState.renderingBlockSize;
 					if (b.lowerRight.x > block.lowerRight.x)
 						b.lowerRight.x = block.lowerRight.x;
 					if (b.lowerRight.y > block.lowerRight.y)
@@ -122,8 +124,8 @@ struct Projection {
 			}
 	}
 
-	__device__ __inline__ void operator()() const {
-
+	__device__ __inline__ void operator()() const
+	{
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
 
 		bool valid = false;
@@ -131,16 +133,19 @@ struct Projection {
 		RenderingBlock block;
 		int nx, ny;
 
-		if(x < noVisibleBlocks && visibleBlocks[x].next != EntryAvailable) {
+		if(x < noVisibleBlocks && visibleBlocks[x].next != EntryAvailable)
+		{
 			valid = projectBlock(visibleBlocks[x].pos, block);
 			float dx = (float) block.lowerRight.x - block.upperLeft.x + 1;
 			float dy = (float) block.lowerRight.y - block.upperLeft.y + 1;
-			nx = __float2int_ru(dx / renderingBlockSizeX);
-			ny = __float2int_ru(dy / renderingBlockSizeY);
-			if (valid) {
+			nx = __float2int_ru(dx / mapState.renderingBlockSize);
+			ny = __float2int_ru(dy / mapState.renderingBlockSize);
+			if (valid)
+			{
 				requiredNoBlocks = nx * ny;
 				uint totalNoBlocks = *noRenderingBlocks + requiredNoBlocks;
-				if (totalNoBlocks >= renderingBlockList.size) {
+				if (totalNoBlocks >= renderingBlockList.size)
+				{
 					requiredNoBlocks = 0;
 				}
 			}
@@ -152,8 +157,8 @@ struct Projection {
 			createRenderingBlockList(offset, block, nx, ny);
 	}
 
-	__device__ __inline__ void fillBlocks() const {
-
+	__device__ __inline__ void fillBlocks() const
+	{
 		int x = threadIdx.x;
 		int y = threadIdx.y;
 
@@ -178,15 +183,18 @@ struct Projection {
 	}
 };
 
-__global__ void projectBlockKernel(const Projection proj) {
+__global__ void projectBlockKernel(const Projection proj)
+{
 	proj();
 }
 
-__global__ void fillBlocksKernel(const Projection proj) {
+__global__ void fillBlocksKernel(const Projection proj)
+{
 	proj.fillBlocks();
 }
 
-__global__ void fillDepthRangeKernel(PtrStepSz<float> range) {
+__global__ void fillDepthRangeKernel(PtrStepSz<float> range)
+{
 	int x = blockDim.x * blockIdx.x + threadIdx.x;
 	int y = blockDim.y * blockIdx.y + threadIdx.y;
 	if(x >= range.cols || y >= range.rows)
@@ -195,21 +203,19 @@ __global__ void fillDepthRangeKernel(PtrStepSz<float> range) {
 	range.ptr(y)[x] = 100;
 }
 
-bool CreateRenderingBlocks(const DeviceArray<HashEntry> & visibleBlocks,
-						  DeviceArray2D<float> & zRangeX,
-						  DeviceArray2D<float> & zRangeY,
-						  const float & depthMax,
-						  const float & depthMin,
-						  DeviceArray<RenderingBlock> & renderingBlockList,
-						  DeviceArray<uint> & noRenderingBlocks,
-						  Matrix3f RviewInv,
-						  float3 tview,
-						  uint noVisibleBlocks,
-						  float fx,
-						  float fy,
-						  float cx,
-						  float cy) {
-
+bool CreateRenderingBlocks(MapStruct* map,
+						   DeviceArray2D<float> & zRangeX,
+						   DeviceArray2D<float> & zRangeY,
+						   const float & depthMax,
+						   const float & depthMin,
+						   DeviceArray<RenderingBlock> & renderingBlockList,
+						   DeviceArray<uint> & noRenderingBlocks,
+						   Matrix3f RviewInv,
+						   float3 tview,
+						   uint noVisibleBlocks,
+						   float fx, float fy,
+						   float cx, float cy)
+{
 	if(noVisibleBlocks == 0)
 		return false;
 
@@ -222,10 +228,10 @@ bool CreateRenderingBlocks(const DeviceArray<HashEntry> & visibleBlocks,
 	proj.fy = fy;
 	proj.cx = cx;
 	proj.cy = cy;
-	proj.visibleBlocks = visibleBlocks;
-	proj.cols = cols;
-	proj.rows = rows;
-	proj.RcurrInv = RviewInv;
+	proj.visibleBlocks = map->visibleEntries;
+	proj.width = cols;
+	proj.height = rows;
+	proj.invRcurr = RviewInv;
 	proj.tcurr = tview;
 	proj.zRangeX = zRangeX;
 	proj.zRangeY = zRangeY;
@@ -242,8 +248,10 @@ bool CreateRenderingBlocks(const DeviceArray<HashEntry> & visibleBlocks,
 
 	zRangeY.clear();
 	float zRangeMax[60][80];
-	for(int i = 0; i < 80; ++i) {
-		for(int j = 0; j < 60; ++j) {
+	for(int i = 0; i < 80; ++i)
+	{
+		for(int j = 0; j < 60; ++j)
+		{
 			zRangeMax[j][i] = 100.f;
 		}
 	}
@@ -260,7 +268,8 @@ bool CreateRenderingBlocks(const DeviceArray<HashEntry> & visibleBlocks,
 	uint totalBlocks;
 	noRenderingBlocks.download((void*) &totalBlocks);
 
-	if (totalBlocks == 0) {
+	if (totalBlocks == 0)
+	{
 		return false;
 	}
 
@@ -377,8 +386,8 @@ struct Rendering {
 		nmap.ptr(y)[x] = make_float4(__int_as_float(0x7fffffff));
 
 		int2 locId;
-		locId.x = __float2int_rd((float) x / minMaxSubSample);
-		locId.y = __float2int_rd((float) y / minMaxSubSample);
+		locId.x = __float2int_rd((float) x / mapState.minMaxSubSample);
+		locId.y = __float2int_rd((float) y / mapState.minMaxSubSample);
 
 		float2 zRange;
 		zRange.x = zRangeX.ptr(locId.y)[locId.x];

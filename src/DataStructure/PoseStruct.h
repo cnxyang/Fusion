@@ -19,3 +19,10 @@ public:
 	SE3 thisToParent;
 	SE3 camToWorld;
 };
+
+class DevicePoseStruct
+{
+	Matrix3f Rotation;
+	Matrix3f InvRotation;
+	float3 translation;
+};

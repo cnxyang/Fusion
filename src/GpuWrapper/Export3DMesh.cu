@@ -330,7 +330,7 @@ uint MeshScene(DeviceArray<uint> & noOccupiedBlocks,
 	engine.noVertexTable = vertexTable;
 
 	dim3 thread(1024);
-	dim3 block = dim3(DivUp(hostMapState.maxNumHashEntries, thread.x));
+	dim3 block = dim3(DivUp(currentState.maxNumHashEntries, thread.x));
 
 	CheckBlockKernel<<<block, thread>>>(engine);
 	SafeCall(cudaGetLastError());
@@ -349,7 +349,7 @@ uint MeshScene(DeviceArray<uint> & noOccupiedBlocks,
 	SafeCall(cudaDeviceSynchronize());
 
 	noTotalTriangles.download((void*) &host_data);
-	host_data = min(host_data, hostMapState.maxNumMeshTriangles);
+	host_data = min(host_data, currentState.maxNumMeshTriangles);
 
 	return host_data;
 }
