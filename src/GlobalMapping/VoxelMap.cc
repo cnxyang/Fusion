@@ -1,6 +1,6 @@
+#include "Frame.h"
 #include "VoxelMap.h"
 #include "Settings.h"
-#include "Frame.h"
 #include "PointCloud.h"
 #include "DeviceFuncs.h"
 
@@ -24,19 +24,14 @@ VoxelMap::VoxelMap() :
 	currentState.maxNumMeshTriangles = 20000000;
 
 	updateMapState();
-}
-
-void VoxelMap::allocateDeviceMemory()
-{
 	data.numVisibleEntries.create(1);
 
-	allocateDeviceMap();
 	nBlocks.create(1);
 	noTriangles.create(1);
+	blockPoses.create(currentState.maxNumHashEntries);
 	modelVertex.create(currentState.maxNumMeshVertices());
 	modelNormal.create(currentState.maxNumMeshVertices());
 	modelColor.create(currentState.maxNumMeshVertices());
-	blockPoses.create(currentState.maxNumHashEntries);
 
 	edgeTable.create(256);
 	vertexTable.create(256);
@@ -47,8 +42,6 @@ void VoxelMap::allocateDeviceMemory()
 
 	zRangeMin.create(80, 60);
 	zRangeMax.create(80, 60);
-	zRangeMinEnlarged.create(160, 120);
-	zRangeMaxEnlarged.create(160, 120);
 	noRenderingBlocks.create(1);
 	renderingBlockList.create(currentState.maxNumRenderingBlocks);
 
@@ -58,42 +51,40 @@ void VoxelMap::allocateDeviceMemory()
 	tmpKeys.create(KeyMap::maxEntries);
 	surfKeys.create(3000);
 	mapKeyIndex.create(3000);
-
-	resetMapStruct();
 }
 
-void VoxelMap::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
-		float depthMin, float depthMax, float fx, float fy, float cx, float cy,
-		uint & no)
-{
-	CheckBlockVisibility(*device, data.numVisibleEntries, Rview, RviewInv, tview, 640,
-			480, fx, fy, cx, cy, depthMax, depthMin, &no);
-}
+//void VoxelMap::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
+//		float depthMin, float depthMax, float fx, float fy, float cx, float cy,
+//		uint & no)
+//{
+//	CheckBlockVisibility(*device, data.numVisibleEntries, Rview, RviewInv, tview, 640,
+//			480, fx, fy, cx, cy, depthMax, depthMin, &no);
+//}
 
-void VoxelMap::DefuseColor(const DeviceArray2D<float> & depth,
-		const DeviceArray2D<uchar3> & color,
-		const DeviceArray2D<float4> & normal,
-		Matrix3f Rview, Matrix3f RviewInv,
-		float3 tview, uint & no)
-{
-	DefuseMapColor(depth, color, normal, data.numVisibleEntries, Rview,
-			RviewInv, tview, *device, Frame::fx(0), Frame::fy(0), Frame::cx(0),
-			Frame::cy(0), currentState.depthMin_raycast,
-			currentState.depthMax_raycast, &no);
+//void VoxelMap::DefuseColor(const DeviceArray2D<float> & depth,
+//		const DeviceArray2D<uchar3> & color,
+//		const DeviceArray2D<float4> & normal,
+//		Matrix3f Rview, Matrix3f RviewInv,
+//		float3 tview, uint & no)
+//{
+//	DefuseMapColor(depth, color, normal, data.numVisibleEntries, Rview,
+//			RviewInv, tview, *device, Frame::fx(0), Frame::fy(0), Frame::cx(0),
+//			Frame::cy(0), currentState.depthMin_raycast,
+//			currentState.depthMax_raycast, &no);
+//
+//}
 
-}
-
-void VoxelMap::FuseColor(const DeviceArray2D<float> & depth,
-		const DeviceArray2D<uchar3> & color,
-		const DeviceArray2D<float4> & normal,
-		Matrix3f Rview, Matrix3f RviewInv,
-		float3 tview, uint & no)
-{
-	FuseMapColor(depth, color, normal, data.numVisibleEntries, Rview, RviewInv,
-			tview, *device, Frame::fx(0), Frame::fy(0), Frame::cx(0),
-			Frame::cy(0), currentState.depthMin_raycast,
-			currentState.depthMax_raycast, &no);
-}
+//void VoxelMap::FuseColor(const DeviceArray2D<float> & depth,
+//		const DeviceArray2D<uchar3> & color,
+//		const DeviceArray2D<float4> & normal,
+//		Matrix3f Rview, Matrix3f RviewInv,
+//		float3 tview, uint & no)
+//{
+//	FuseMapColor(depth, color, normal, data.numVisibleEntries, Rview, RviewInv,
+//			tview, *device, Frame::fx(0), Frame::fy(0), Frame::cx(0),
+//			Frame::cy(0), currentState.depthMin_raycast,
+//			currentState.depthMax_raycast, &no);
+//}
 
 void VoxelMap::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float4> & nmap,
@@ -119,8 +110,8 @@ void VoxelMap::CreateModel()
 	}
 }
 
-void VoxelMap::UpdateMapKeys()
-{
+//void VoxelMap::UpdateMapKeys()
+//{
 //	noKeys.clear();
 //	CollectKeyPoints(*device, tmpKeys, noKeys);
 //
@@ -129,10 +120,10 @@ void VoxelMap::UpdateMapKeys()
 //		hostKeys.resize(noKeysHost);
 //		tmpKeys.download(hostKeys.data(), noKeysHost);
 //	}
-}
+//}
 
-void VoxelMap::CreateRAM()
-{
+//void VoxelMap::CreateRAM()
+//{
 //	downloadMapState(currentState);
 //
 //	heapCounterRAM = new int[1];
@@ -146,10 +137,10 @@ void VoxelMap::CreateRAM()
 //
 //	mutexKeysRAM = new int[KeyMap::MaxKeys];
 //	mapKeysRAM = new SURF[KeyMap::maxEntries];
-}
+//}
 
-void VoxelMap::DownloadToRAM()
-{
+//void VoxelMap::DownloadToRAM()
+//{
 //	CreateRAM();
 
 //	heapCounter.download(heapCounterRAM);
@@ -163,10 +154,10 @@ void VoxelMap::DownloadToRAM()
 //
 //	mutexKeys.download(mutexKeysRAM);
 //	mapKeys.download(mapKeysRAM);
-}
+//}
 
-void VoxelMap::UploadFromRAM()
-{
+//void VoxelMap::UploadFromRAM()
+//{
 //	heapCounter.upload(heapCounterRAM);
 //	hashCounter.upload(hashCounterRAM);
 //	data.numVisibleEntries.upload(data.numVisibleEntriesRAM);
@@ -178,10 +169,10 @@ void VoxelMap::UploadFromRAM()
 //
 //	mutexKeys.upload(mutexKeysRAM);
 //	mapKeys.upload(mapKeysRAM);
-}
+//}
 
-void VoxelMap::ReleaseRAM()
-{
+//void VoxelMap::ReleaseRAM()
+//{
 //	delete [] heapCounterRAM;
 //	delete [] hashCounterRAM;
 //	delete [] data.numVisibleEntriesRAM;
@@ -193,45 +184,36 @@ void VoxelMap::ReleaseRAM()
 //
 //	delete [] mutexKeysRAM;
 //	delete [] mapKeysRAM;
-}
-
-bool VoxelMap::HasNewKF()
-{
-	return hasNewKFFlag;
-}
-
-void VoxelMap::resetMapStruct()
-{
-
-	CONSOLE("Re-Initialising Device Memory.");
-	ResetMap(*device);
-//	ResetKeyPoints(*device);
-
-//	mapKeys.clear();
-}
-
-VoxelMap::operator KeyMap() const
-{
-	KeyMap map;
-	map.Keys = mapKeys;
-	map.Mutex = mutexKeys;
-	return map;
-}
-
-VoxelMap::operator MapStruct() const
-{
-//	MapStruct map;
-//	map.heapMem = heap;
-//	map.heapCounter = heapCounter;
-//	map.noVisibleBlocks = data.numVisibleEntries;
-//	map.bucketMutex = bucketMutex;
-//	map.hashEntries = hashEntries;
-//	map.visibleEntries = visibleEntries;
-//	map.voxelBlocks = sdfBlock;
-//	map.entryPtr = hashCounter;
+//}
 //
+//bool VoxelMap::HasNewKF()
+//{
+//	return hasNewKFFlag;
+//}
+
+
+//VoxelMap::operator KeyMap() const
+//{
+//	KeyMap map;
+//	map.Keys = mapKeys;
+//	map.Mutex = mutexKeys;
 //	return map;
-}
+//}
+
+//VoxelMap::operator MapStruct() const
+//{
+////	MapStruct map;
+////	map.heapMem = heap;
+////	map.heapCounter = heapCounter;
+////	map.noVisibleBlocks = data.numVisibleEntries;
+////	map.bucketMutex = bucketMutex;
+////	map.hashEntries = hashEntries;
+////	map.visibleEntries = visibleEntries;
+////	map.voxelBlocks = sdfBlock;
+////	map.entryPtr = hashCounter;
+////
+////	return map;
+//}
 
 
 int VoxelMap::fuseImages(PointCloud* pc)
@@ -346,7 +328,13 @@ VoxelMap::~VoxelMap()
 	data.constTriangleTtable.release();
 }
 
-void VoxelMap::copyMapDeviceToHost()
+void VoxelMap::resetMapStruct()
+{
+	CONSOLE("Re-Initialising Device Memory.");
+	ResetMap(*device);
+}
+
+void VoxelMap::copyMapToHost()
 {
 	if(host && device)
 	{
@@ -359,10 +347,10 @@ void VoxelMap::copyMapDeviceToHost()
 		cudaMemcpyFromSymbol(host->voxelBlocks, device->voxelBlocks, sizeof(Voxel) * currentState.maxNumVoxels());
 	}
 	else
-		CONSOLE_ERR("COPY Map called without an ACTIVE map.");
+		CONSOLE_ERR("COPY MAP called without an ACTIVE map.");
 }
 
-void VoxelMap::copyMapHostToDevice()
+void VoxelMap::copyMapToDevice()
 {
 	if(host && device)
 	{
@@ -375,7 +363,7 @@ void VoxelMap::copyMapHostToDevice()
 		cudaMemcpyToSymbol(device->voxelBlocks, host->voxelBlocks, sizeof(Voxel) * currentState.maxNumVoxels());
 	}
 	else
-		CONSOLE_ERR("COPY Map called without an ACTIVE map.");
+		CONSOLE_ERR("COPY MAP called without an ACTIVE map.");
 }
 
 void VoxelMap::allocateDeviceMap()
@@ -399,6 +387,8 @@ void VoxelMap::allocateDeviceMap()
 		CONSOLE("COUNT(VOXEL BLOCK) - " + std::to_string(currentState.maxNumVoxels()));
 		CONSOLE("SIZE(VOXEL) - " + std::to_string(currentState.voxelSize));
 		CONSOLE("===============================");
+
+		resetMapStruct();
 	}
 	else
 	{

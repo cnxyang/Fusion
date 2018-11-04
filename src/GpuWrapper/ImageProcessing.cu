@@ -45,7 +45,7 @@ void FilterDepth(const DeviceArray2D<unsigned short> & depth,
 		float depthScale, float depthCutoff) {
 
 	dim3 thread(8, 8);
-	dim3 block(DivUp(depth.cols, thread.x), DivUp(depth.rows, thread.y));
+	dim3 block(divUp(depth.cols, thread.x), divUp(depth.rows, thread.y));
 
 	FilterDepthKernel<<<block, thread>>>(depth, rawDepth, filteredDepth, 1.0 / depthScale, depthCutoff);
 
@@ -82,7 +82,7 @@ void ComputeVMap(const DeviceArray2D<float> & depth,
 		float depthCutoff) {
 
 	dim3 thread(8, 8);
-	dim3 block(DivUp(depth.cols, thread.x), DivUp(depth.rows, thread.y));
+	dim3 block(divUp(depth.cols, thread.x), divUp(depth.rows, thread.y));
 
 	ComputeVMapKernel<<<block, thread>>>(depth, vmap, 1.0 / fx, 1.0 / fy, cx, cy, depthCutoff);
 
@@ -116,7 +116,7 @@ __global__ void ComputeNMapKernel(PtrStepSz<float4> vmap,
 void ComputeNMap(const DeviceArray2D<float4> & vmap, DeviceArray2D<float4> & nmap) {
 
 	dim3 block(8, 8);
-	dim3 grid(DivUp(vmap.cols, block.x), DivUp(vmap.rows, block.y));
+	dim3 grid(divUp(vmap.cols, block.x), divUp(vmap.rows, block.y));
 
 	ComputeNMapKernel<<<grid, block>>>(vmap, nmap);
 
@@ -160,7 +160,7 @@ void PyrDownGaussKernel(const PtrStepSz<T> src, PtrStepSz<U> dst) {
 void PyrDownGauss(const DeviceArray2D<float> & src, DeviceArray2D<float> & dst) {
 
 	dim3 thread(8, 8);
-	dim3 block(DivUp(dst.cols, thread.x), DivUp(dst.rows, thread.y));
+	dim3 block(divUp(dst.cols, thread.x), divUp(dst.rows, thread.y));
 
 	PyrDownGaussKernel<float, float> <<<block, thread>>>(src, dst);
 
@@ -172,7 +172,7 @@ void PyrDownGauss(const DeviceArray2D<unsigned char> & src,
 		DeviceArray2D<unsigned char> & dst) {
 
 	dim3 thread(8, 8);
-	dim3 block(DivUp(src.cols, thread.x), DivUp(src.rows, thread.y));
+	dim3 block(divUp(src.cols, thread.x), divUp(src.rows, thread.y));
 
 	PyrDownGaussKernel<unsigned char, unsigned char> <<<block, thread>>>(src, dst);
 
@@ -196,7 +196,7 @@ void ImageToIntensity(const DeviceArray2D<uchar3> & rgb,
 		DeviceArray2D<unsigned char> & image) {
 
 	dim3 thread(8, 8);
-	dim3 block(DivUp(image.cols, thread.x), DivUp(image.rows, thread.y));
+	dim3 block(divUp(image.cols, thread.x), divUp(image.rows, thread.y));
 
 	ImageToIntensityKernel<<<block, thread>>>(rgb, image);
 
@@ -240,7 +240,7 @@ void ComputeDerivativeImage(DeviceArray2D<unsigned char> & image,
 		DeviceArray2D<short> & dx, DeviceArray2D<short> & dy) {
 
     dim3 block(8, 8);
-    dim3 grid(DivUp(image.cols, block.x), DivUp(image.rows, block.y));
+    dim3 grid(divUp(image.cols, block.x), divUp(image.rows, block.y));
 
     ComputeDerivativeImageKernel<<<grid, block>>>(image, dx, dy);
 
@@ -282,7 +282,7 @@ void ResizeMap(const DeviceArray2D<float4>& vsrc, const DeviceArray2D<float4>& n
 			   DeviceArray2D<float4>& vdst, DeviceArray2D<float4>& ndst) {
 
 	dim3 thread(8, 8);
-	dim3 block(DivUp(vdst.cols, thread.x), DivUp(vdst.rows, thread.y));
+	dim3 block(divUp(vdst.cols, thread.x), divUp(vdst.rows, thread.y));
 
 	ResizeMapKernel<<<block, thread>>>(vsrc, nsrc, vdst, ndst);
 
@@ -375,7 +375,7 @@ void RenderImage(const DeviceArray2D<float4> & points,
 				 DeviceArray2D<uchar4> & image) {
 
 	dim3 block(8, 4);
-	dim3 grid(DivUp(points.cols, block.x), DivUp(points.rows, block.y));
+	dim3 grid(divUp(points.cols, block.x), divUp(points.rows, block.y));
 
 	RenderImageDevice<<<grid, block>>>(points, normals, light_pose, image);
 
@@ -401,7 +401,7 @@ __global__ void depthToImageKernel(PtrStepSz<float> depth, PtrStepSz<uchar4> ima
 void DepthToImage(const DeviceArray2D<float> & depth,
 				  DeviceArray2D<uchar4> & image) {
 	dim3 block(32, 8);
-	dim3 grid(DivUp(image.cols, block.x), DivUp(image.rows, block.y));
+	dim3 grid(divUp(image.cols, block.x), divUp(image.rows, block.y));
 
 	depthToImageKernel<<<grid, block>>>(depth, image);
 
@@ -423,7 +423,7 @@ __global__ void rgbImageToRgbaKernel(PtrStepSz<uchar3> image, PtrStepSz<uchar4> 
 void RgbImageToRgba(const DeviceArray2D<uchar3> & image,
 				    DeviceArray2D<uchar4> & rgba) {
 	dim3 block(32, 8);
-	dim3 grid(DivUp(image.cols, block.x), DivUp(image.rows, block.y));
+	dim3 grid(divUp(image.cols, block.x), divUp(image.rows, block.y));
 
 	rgbImageToRgbaKernel<<<grid, block>>>(image, rgba);
 
@@ -462,7 +462,7 @@ void ForwardWarping(const DeviceArray2D<float4> & srcVMap,
 		float cy) {
 
 	dim3 thread(8, 8);
-	dim3 block(DivUp(srcVMap.cols, thread.x), DivUp(srcVMap.rows, thread.y));
+	dim3 block(divUp(srcVMap.cols, thread.x), divUp(srcVMap.rows, thread.y));
 
 	dstVMap.clear();
 	ForwardWarpingKernel<<<block, thread>>>(srcVMap, srcNMap, dstVMap, dstNMap,

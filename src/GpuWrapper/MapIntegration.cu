@@ -310,7 +310,7 @@ void CheckBlockVisibility(MapStruct map,
 	fuse.minDepth = depthMin;
 
 	dim3 thread = dim3(1024);
-	dim3 block = dim3(DivUp((int) currentState.maxNumHashEntries, thread.x));
+	dim3 block = dim3(divUp((int) currentState.maxNumHashEntries, thread.x));
 
 	CheckVisibleBlockKernel<<<block, thread>>>(fuse);
 
@@ -361,7 +361,7 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 	fuse.minDepth = currentState.depthMin_raycast;
 
 	dim3 thread(16, 8);
-	dim3 block(DivUp(cols, thread.x), DivUp(rows, thread.y));
+	dim3 block(divUp(cols, thread.x), divUp(rows, thread.y));
 
 	CreateBlocksKernel<<<block, thread>>>(fuse);
 
@@ -369,7 +369,7 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 	SafeCall(cudaGetLastError());
 
 	thread = dim3(1024);
-	block = dim3(DivUp((int) currentState.maxNumHashEntries, thread.x));
+	block = dim3(divUp((int) currentState.maxNumHashEntries, thread.x));
 
 	CheckVisibleBlockKernel<<<block, thread>>>(fuse);
 
@@ -422,7 +422,7 @@ void DefuseMapColor(const DeviceArray2D<float> & depth,
 	fuse.minDepth = currentState.depthMin_raycast;
 
 	dim3 thread = dim3(1024);
-	dim3 block = dim3(DivUp((int) currentState.maxNumHashEntries, thread.x));
+	dim3 block = dim3(divUp((int) currentState.maxNumHashEntries, thread.x));
 
 	CheckVisibleBlockKernel<<<block, thread>>>(fuse);
 
@@ -477,14 +477,14 @@ __global__ void ResetSdfBlockKernel(MapStruct map)
 void ResetMap(MapStruct map) {
 
 	dim3 thread(1024);
-	dim3 block(DivUp((int) currentState.maxNumHashEntries, thread.x));
+	dim3 block(divUp((int) currentState.maxNumHashEntries, thread.x));
 
 	ResetHashKernel<<<block, thread>>>(map);
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
 
-	block = dim3(DivUp((int) currentState.maxNumVoxelBlocks, thread.x));
+	block = dim3(divUp((int) currentState.maxNumVoxelBlocks, thread.x));
 	ResetSdfBlockKernel<<<block, thread>>>(map);
 
 	SafeCall(cudaDeviceSynchronize());
@@ -499,7 +499,7 @@ __global__ void ResetKeyPointsKernel(KeyMap map) {
 void ResetKeyPoints(KeyMap map) {
 
 	dim3 thread(1024);
-	dim3 block(DivUp((int) KeyMap::maxEntries, thread.x));
+	dim3 block(divUp((int) KeyMap::maxEntries, thread.x));
 
 	ResetKeyPointsKernel<<<block, thread>>>(map);
 
@@ -569,7 +569,7 @@ void CollectKeyPoints(KeyMap map, DeviceArray<SURF> & keys, DeviceArray<uint> & 
 	fuse.nokeys = noKeys;
 
 	dim3 thread(1024);
-	dim3 block(DivUp(map.Keys.size, thread.x));
+	dim3 block(divUp(map.Keys.size, thread.x));
 
 	CollectKeyPointsKernel<<<block, thread>>>(fuse);
 
@@ -591,7 +591,7 @@ void InsertKeyPoints(KeyMap map, DeviceArray<SURF> & keys,
 	fuse.index = keyIndex;
 
 	dim3 thread(1024);
-	dim3 block(DivUp(size, thread.x));
+	dim3 block(divUp(size, thread.x));
 
 	InsertKeyPointsKernel<<<block, thread>>>(fuse);
 

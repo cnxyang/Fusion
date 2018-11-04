@@ -65,7 +65,7 @@ void BuildAdjacencyMatrix(cv::cuda::GpuMat & adjecencyMatrix,
 	int rows = adjecencyMatrix.rows;
 
 	dim3 thread(8, 8);
-	dim3 block(DivUp(cols, thread.x), DivUp(rows, thread.y));
+	dim3 block(divUp(cols, thread.x), divUp(rows, thread.y));
 
 	BuildAdjecencyMatrixKernel<<<block, thread>>>(adjecencyMatrix, frameKeys, mapKeys, dist);
 
@@ -116,7 +116,7 @@ void CheckVisibility(DeviceArray<float3> & pt3d, DeviceArray<float2> & pt2d,
 		int rows) {
 
 	dim3 thread(MaxThread);
-	dim3 block(DivUp(pt3d.size, thread.x));
+	dim3 block(divUp(pt3d.size, thread.x));
 
 	CheckVisibilityKernel<<<block, thread>>>(pt3d, pt2d, match, RcurrInv, tcurr,
 			Rlast, tlast, fx, fy, cx, cy, cols, rows);

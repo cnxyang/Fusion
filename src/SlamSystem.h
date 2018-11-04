@@ -103,14 +103,17 @@ protected:
 
 	Frame* currentKeyFrame;
 	Frame* latestTrackedFrame;
-
 	KeyFrameGraph* keyFrameGraph;
 
 	// Used for frame-to-model tracking
+	ICPTracker* tracker;
 	PointCloud* trackingReference;
 	PointCloud* trackingTarget;
-	ICPTracker* tracker;
+
+	// Used for constraint searching
 	ICPTracker* constraintTracker;
+	PointCloud* firstFrame;
+	PointCloud* secondFrame;
 
 	// Used for constraint searching
 	std::deque<Frame*> newKeyFrames;
@@ -119,15 +122,13 @@ protected:
 	std::mutex messageQueueMutex;
 	std::queue<Msg> messageQueue;
 
-	// Images used for debugging
-	void displayDebugImages(int ms);
-
 	cv::Mat imageReference;
-	cv::Mat depthReference;
 	cv::Mat imageTarget;
+	cv::Mat depthReference;
 	cv::Mat depthTarget;
 	cv::Mat nmapReference;
 	cv::Mat nmapTarget;
+	void displayDebugImages(int ms);
 };
 
 inline bool SlamSystem::shouldQuit() const

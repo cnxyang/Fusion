@@ -18,7 +18,7 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 	latestTrackedFrame(NULL)
 {
 	map = new VoxelMap();
-	map->allocateDeviceMemory();
+	map->allocateDeviceMap();
 
 	tracker = new ICPTracker(w, h, K);
 	tracker->setIterations({ 10, 5, 3 });
@@ -288,10 +288,6 @@ void SlamSystem::loopOptimization()
 void SlamSystem::loopConstraintSearch()
 {
 	CONSOLE("Constraint Search Thread Started.");
-
-	// Used for constraint searching
-	PointCloud* firstFrame = new PointCloud();
-	PointCloud* secondFrame = new PointCloud();
 
 	std::unique_lock<std::mutex> lock(newKeyFrameMutex);
 

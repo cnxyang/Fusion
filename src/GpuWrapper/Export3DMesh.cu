@@ -330,7 +330,7 @@ uint MeshScene(DeviceArray<uint> & noOccupiedBlocks,
 	engine.noVertexTable = vertexTable;
 
 	dim3 thread(1024);
-	dim3 block = dim3(DivUp(currentState.maxNumHashEntries, thread.x));
+	dim3 block = dim3(divUp(currentState.maxNumHashEntries, thread.x));
 
 	CheckBlockKernel<<<block, thread>>>(engine);
 	SafeCall(cudaGetLastError());
@@ -342,7 +342,7 @@ uint MeshScene(DeviceArray<uint> & noOccupiedBlocks,
 		return 0;
 
 	thread = dim3(8, 8, 1);
-	block = dim3(DivUp(host_data, 16), 16, 1);
+	block = dim3(divUp(host_data, 16), 16, 1);
 
 	MeshSceneKernel<<<block, thread>>>(engine);
 	SafeCall(cudaGetLastError());

@@ -42,6 +42,9 @@ __device__ __host__ float MapState::stepScale_raycast() const
 void updateMapState()
 {
 	SafeCall(cudaMemcpyToSymbol(mapState, &currentState, sizeof(MapState)));
+
+	if(!stateInitialised)
+		stateInitialised = true;
 }
 
 void downloadMapState()

@@ -243,8 +243,8 @@ bool CreateRenderingBlocks(MapStruct* map,
 
 	dim3 block, thread;
 	thread = dim3(16, 4);
-	block.x = DivUp(cols, thread.x);
-	block.y = DivUp(rows, thread.y);
+	block.x = divUp(cols, thread.x);
+	block.y = divUp(rows, thread.y);
 
 	zRangeY.clear();
 	float zRangeMax[60][80];
@@ -258,7 +258,7 @@ bool CreateRenderingBlocks(MapStruct* map,
 	zRangeX.upload(zRangeMax);
 
 	thread = dim3(1024);
-	block = dim3(DivUp((int) noVisibleBlocks, block.x));
+	block = dim3(divUp((int) noVisibleBlocks, block.x));
 
 	projectBlockKernel<<<block, thread>>>(proj);
 
@@ -507,8 +507,8 @@ void Raycast(MapStruct map,
 
 	dim3 block;
 	dim3 thread(4, 8);
-	block.x = DivUp(cols, thread.x);
-	block.y = DivUp(rows, thread.y);
+	block.x = divUp(cols, thread.x);
+	block.y = divUp(rows, thread.y);
 
 	RayCastKernel<<<block, thread>>>(cast);
 
