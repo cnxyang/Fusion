@@ -10,7 +10,9 @@ class PointCloud;
 class ICPTracker
 {
 public:
+
 	static const int NUM_PYRS = 3;
+
 	ICPTracker(int w, int h, Eigen::Matrix3f K);
 	~ICPTracker();
 
@@ -27,7 +29,7 @@ public:
 protected:
 
 	// temporary variables
-	// used for icp reduction
+	// used for ICP reduction
 	DeviceArray<float> outSE3;
 	DeviceArray2D<float> sumSE3;
 	DeviceArray<int> outRES;
@@ -37,7 +39,6 @@ protected:
 	// the number of iterations per layer
 	// NOTE: should set manually before tracking
 	int iterations[NUM_PYRS];
-
 };
 
 inline void ICPTracker::setIterations(std::vector<float> iter)

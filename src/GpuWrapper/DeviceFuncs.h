@@ -124,8 +124,7 @@ void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
  */
 void ICPStep(DeviceArray2D<float4> & nextVMap, DeviceArray2D<float4> & lastVMap,
 		DeviceArray2D<float4> & nextNMap, DeviceArray2D<float4> & lastNMap,
-		Matrix3f Rcurr, float3 tcurr, Matrix3f Rlast, Matrix3f RlastInv,
-		float3 tlast, CameraIntrinsics K, DeviceArray2D<float> & sum,
+		Matrix3f Rcurr, float3 tcurr, CameraIntrinsics K, DeviceArray2D<float> & sum,
 		DeviceArray<float> & out, float * residual, double * matrixA_host,
 		double * vectorB_host);
 

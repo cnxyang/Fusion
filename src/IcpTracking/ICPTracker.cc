@@ -65,7 +65,7 @@ SE3 ICPTracker::trackSE3(PointCloud* ref, PointCloud* target, SE3 estimate, bool
 	K.cy = ref->frame->getcy(0);
 
 	// Store current frame poses
-	SE3 refPose = ref->frame->pose();
+	SE3 refPose = SE3();
 	SE3 frameToRef = estimate;
 	SE3 framePose = refPose * frameToRef.inverse();
 
@@ -79,9 +79,6 @@ SE3 ICPTracker::trackSE3(PointCloud* ref, PointCloud* target, SE3 estimate, bool
 					ref->nmap[level],
 					SE3toMatrix3f(framePose),
 					SE3toFloat3(framePose),
-					SE3toMatrix3f(refPose),
-					SE3toMatrix3f(refPose.inverse()),
-					SE3toFloat3(refPose),
 					K(level),
 					sumSE3,
 					outSE3,

@@ -9,7 +9,8 @@
 	auto now = std::chrono::system_clock::now(); \
 	auto time = std::chrono::system_clock::to_time_t(now); \
 	std::string timeString = std::ctime(&time); \
-	timeString.erase(timeString.find('\n', 0), 1); \
+	if(timeString.size() != 0)\
+		timeString.erase(timeString.find('\n', 0), 1); \
 	std::cout << timeString << " : " << text << std::endl; \
 } while (0)
 

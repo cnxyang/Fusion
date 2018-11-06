@@ -1,7 +1,7 @@
 #include <chrono>
 #include <iostream>
-
-#include "Solver.h"
+#include "Frame.h"
+#include "SE3Tracker.h"
 
 bool Solver::PoseEstimate(std::vector<Eigen::Vector3d> & src,
 						  std::vector<Eigen::Vector3d> & ref,
@@ -183,4 +183,27 @@ bool Solver::PoseEstimate(std::vector<Eigen::Vector3d> & src,
 	}
 
 	return true;
+}
+
+AOTracker::AOTracker(int w, int h, Eigen::Matrix3f K) :
+	width(w), height(h)
+{
+	SURFDetector = cv::xfeatures2d::SURF::create();
+	BRISKExtracter = cv::BRISK::create(30, 4);
+}
+
+void AOTracker::importReferenceFrame(Frame* frame)
+{
+
+}
+
+void AOTracker::trackReferenceFrame(Frame* frame)
+{
+	Eigen::Matrix3d Rotation;
+	Eigen::Vector3d translation;
+	const int maxIteration = 100;
+	for (int i = 0; i < maxIteration; ++i)
+	{
+
+	}
 }

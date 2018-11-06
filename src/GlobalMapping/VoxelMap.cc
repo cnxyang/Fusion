@@ -53,39 +53,6 @@ VoxelMap::VoxelMap() :
 	mapKeyIndex.create(3000);
 }
 
-//void VoxelMap::UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
-//		float depthMin, float depthMax, float fx, float fy, float cx, float cy,
-//		uint & no)
-//{
-//	CheckBlockVisibility(*device, data.numVisibleEntries, Rview, RviewInv, tview, 640,
-//			480, fx, fy, cx, cy, depthMax, depthMin, &no);
-//}
-
-//void VoxelMap::DefuseColor(const DeviceArray2D<float> & depth,
-//		const DeviceArray2D<uchar3> & color,
-//		const DeviceArray2D<float4> & normal,
-//		Matrix3f Rview, Matrix3f RviewInv,
-//		float3 tview, uint & no)
-//{
-//	DefuseMapColor(depth, color, normal, data.numVisibleEntries, Rview,
-//			RviewInv, tview, *device, Frame::fx(0), Frame::fy(0), Frame::cx(0),
-//			Frame::cy(0), currentState.depthMin_raycast,
-//			currentState.depthMax_raycast, &no);
-//
-//}
-
-//void VoxelMap::FuseColor(const DeviceArray2D<float> & depth,
-//		const DeviceArray2D<uchar3> & color,
-//		const DeviceArray2D<float4> & normal,
-//		Matrix3f Rview, Matrix3f RviewInv,
-//		float3 tview, uint & no)
-//{
-//	FuseMapColor(depth, color, normal, data.numVisibleEntries, Rview, RviewInv,
-//			tview, *device, Frame::fx(0), Frame::fy(0), Frame::cx(0),
-//			Frame::cy(0), currentState.depthMin_raycast,
-//			currentState.depthMax_raycast, &no);
-//}
-
 void VoxelMap::RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, DeviceArray2D<float4> & vmap,	DeviceArray2D<float4> & nmap,
 		float depthMin, float depthMax, float fx, float fy, float cx, float cy)
@@ -110,112 +77,6 @@ void VoxelMap::CreateModel()
 	}
 }
 
-//void VoxelMap::UpdateMapKeys()
-//{
-//	noKeys.clear();
-//	CollectKeyPoints(*device, tmpKeys, noKeys);
-//
-//	noKeys.download(&noKeysHost);
-//	if(noKeysHost != 0) {
-//		hostKeys.resize(noKeysHost);
-//		tmpKeys.download(hostKeys.data(), noKeysHost);
-//	}
-//}
-
-//void VoxelMap::CreateRAM()
-//{
-//	downloadMapState(currentState);
-//
-//	heapCounterRAM = new int[1];
-//	hashCounterRAM = new int[1];
-//	data.numVisibleEntriesRAM = new uint[1];
-//	heapRAM = new int[MapStruct::NumSdfBlocks];
-//	bucketMutexRAM = new int[MapStruct::NumBuckets];
-//	sdfBlockRAM = new Voxel[MapStruct::NumVoxels];
-//	hashEntriesRAM = new HashEntry[MapStruct::NumEntries];
-//	visibleEntriesRAM = new HashEntry[MapStruct::NumEntries];
-//
-//	mutexKeysRAM = new int[KeyMap::MaxKeys];
-//	mapKeysRAM = new SURF[KeyMap::maxEntries];
-//}
-
-//void VoxelMap::DownloadToRAM()
-//{
-//	CreateRAM();
-
-//	heapCounter.download(heapCounterRAM);
-//	hashCounter.download(hashCounterRAM);
-//	data.numVisibleEntries.download(data.numVisibleEntriesRAM);
-//	heap.download(heapRAM);
-//	bucketMutex.download(bucketMutexRAM);
-//	sdfBlock.download(sdfBlockRAM);
-//	hashEntries.download(hashEntriesRAM);
-//	visibleEntries.download(visibleEntriesRAM);
-//
-//	mutexKeys.download(mutexKeysRAM);
-//	mapKeys.download(mapKeysRAM);
-//}
-
-//void VoxelMap::UploadFromRAM()
-//{
-//	heapCounter.upload(heapCounterRAM);
-//	hashCounter.upload(hashCounterRAM);
-//	data.numVisibleEntries.upload(data.numVisibleEntriesRAM);
-//	heap.upload(heapRAM);
-//	bucketMutex.upload(bucketMutexRAM);
-//	sdfBlock.upload(sdfBlockRAM);
-//	hashEntries.upload(hashEntriesRAM);
-//	visibleEntries.upload(visibleEntriesRAM);
-//
-//	mutexKeys.upload(mutexKeysRAM);
-//	mapKeys.upload(mapKeysRAM);
-//}
-
-//void VoxelMap::ReleaseRAM()
-//{
-//	delete [] heapCounterRAM;
-//	delete [] hashCounterRAM;
-//	delete [] data.numVisibleEntriesRAM;
-//	delete [] heapRAM;
-//	delete [] bucketMutexRAM;
-//	delete [] sdfBlockRAM;
-//	delete [] hashEntriesRAM;
-//	delete [] visibleEntriesRAM;
-//
-//	delete [] mutexKeysRAM;
-//	delete [] mapKeysRAM;
-//}
-//
-//bool VoxelMap::HasNewKF()
-//{
-//	return hasNewKFFlag;
-//}
-
-
-//VoxelMap::operator KeyMap() const
-//{
-//	KeyMap map;
-//	map.Keys = mapKeys;
-//	map.Mutex = mutexKeys;
-//	return map;
-//}
-
-//VoxelMap::operator MapStruct() const
-//{
-////	MapStruct map;
-////	map.heapMem = heap;
-////	map.heapCounter = heapCounter;
-////	map.noVisibleBlocks = data.numVisibleEntries;
-////	map.bucketMutex = bucketMutex;
-////	map.hashEntries = hashEntries;
-////	map.visibleEntries = visibleEntries;
-////	map.voxelBlocks = sdfBlock;
-////	map.entryPtr = hashCounter;
-////
-////	return map;
-//}
-
-
 int VoxelMap::fuseImages(PointCloud* pc)
 {
 	uint no;
@@ -224,9 +85,9 @@ int VoxelMap::fuseImages(PointCloud* pc)
 			pc->image_raw,
 			pc->nmap[0],
 			data.numVisibleEntries,
-			trackingFrame->GpuRotation(),
-			trackingFrame->GpuInvRotation(),
-			trackingFrame->GpuTranslation(),
+			SE3toMatrix3f(trackingFrame->pose()),
+			SE3toMatrix3f(trackingFrame->pose().inverse()),
+			SE3toFloat3(trackingFrame->pose()),
 			*device,
 			trackingFrame->getfx(),
 			trackingFrame->getfy(),
@@ -243,9 +104,9 @@ void VoxelMap::raycast(PointCloud* data, int numVisibleBlocks)
 	Frame* trackingFrame = data->frame;
 	uint no = numVisibleBlocks < 0 ? updateVisibility(data) : (uint) numVisibleBlocks;
 	RayTrace(no,
-			trackingFrame->GpuRotation(),
-			trackingFrame->GpuInvRotation(),
-			trackingFrame->GpuTranslation(),
+			SE3toMatrix3f(trackingFrame->pose()),
+			SE3toMatrix3f(trackingFrame->pose().inverse()),
+			SE3toFloat3(trackingFrame->pose()),
 			data->vmap[0],
 			data->nmap[0],
 			currentState.depthMin_raycast,
@@ -262,9 +123,9 @@ uint VoxelMap::updateVisibility(PointCloud* pc)
 	Frame* trackingFrame = pc->frame;
 	CheckBlockVisibility(*device,
 			data.numVisibleEntries,
-			trackingFrame->GpuRotation(),
-			trackingFrame->GpuInvRotation(),
-			trackingFrame->GpuTranslation(),
+			SE3toMatrix3f(trackingFrame->pose()),
+			SE3toMatrix3f(trackingFrame->pose().inverse()),
+			SE3toFloat3(trackingFrame->pose()),
 			trackingFrame->width(),
 			trackingFrame->height(),
 			trackingFrame->getfx(),

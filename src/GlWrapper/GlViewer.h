@@ -29,7 +29,7 @@ public:
 	inline void enableGlContext() const;
 	inline void disableGlContext() const;
 	inline void setCurrentCamPose(SE3 pose);
-	inline void setKeyFrameGraph(std::vector<SE3>&);
+	inline void setKeyFrameGraph(std::vector<Frame*>);
 
 	inline void setVoxelMap(VoxelMap* map);
 	inline void setSlamSystem(SlamSystem* system);
@@ -46,7 +46,8 @@ public:
 	pangolin::CudaScopedMappedArray* imageSyntheticCUDAMapped;
 	pangolin::CudaScopedMappedArray* imageBirdsEyeCUDAMapped;
 
-	std::vector<SE3> keyFrameGraph;
+	std::vector<Frame*> keyFrameGraph;
+	std::mutex keyFrameGraphMutex;
 	std::mutex mutexMeshUpdate;
 
 protected:
@@ -54,7 +55,7 @@ protected:
 	void drawTexturedMesh();
 	void drawShadedMesh(bool bNormal);
 	void drawCurrentCamera() const;
-	void drawKeyFrameGraph() const;
+	void drawKeyFrameGraph();
 	void drawKeyPointsToScreen() const;
 	void drawRGBViewToCamera() const;
 	void drawSyntheticViewToCamera() const;
@@ -184,7 +185,8 @@ inline void GlViewer::setCurrentCamPose(SE3 pose)
 	currentCamPose = pose;
 }
 
-inline void GlViewer::setKeyFrameGraph(std::vector<SE3>& graph)
+inline void GlViewer::setKeyFrameGraph(std::vector<Frame*> graph)
 {
+	std::unique_lock<std::mutex> lock(keyFrameGraphMutex);
 	keyFrameGraph = graph;
 }

@@ -25,35 +25,10 @@ public:
 	void UploadFromRAM();
 	void ReleaseRAM();
 	bool HasNewKF();
-//	void FuseKeyPoints(Frame * f);
-//	void UpdateVisibility(Frame * f, uint & no);
-//	void DefuseColor(Frame * f, uint & no);
-//	void FuseColor(Frame * f, uint & no);
-//	void RayTrace(uint noVisibleBlocks, Frame * f);
-//	void RayTraceWithColor(uint noVisibleBlocks, Frame * f);
-//	void ForwardWarp(Frame * last, Frame * next);
-//	void UpdateVisibility(Matrix3f Rview, Matrix3f RviewInv, float3 tview,
-//			float depthMin, float depthMax, float fx, float fy, float cx,
-//			float cy, uint & no);
-//	void FuseColor(const DeviceArray2D<float> & depth,
-//			const DeviceArray2D<uchar3> & color,
-//			const DeviceArray2D<float4> & normal, Matrix3f Rview,
-//			Matrix3f RviewInv, float3 tview, uint & no);
-//	void DefuseColor(const DeviceArray2D<float> & depth,
-//			const DeviceArray2D<uchar3> & color,
-//			const DeviceArray2D<float4> & normal, Matrix3f Rview,
-//			Matrix3f RviewInv, float3 tview, uint & no);
 	void RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
 			float3 tview, DeviceArray2D<float4> & vmap,
 			DeviceArray2D<float4> & nmap, float depthMin, float depthMax,
 			float fx, float fy, float cx, float cy);
-//	void RayTraceWithColor(uint noVisibleBlocks, Matrix3f Rview,
-//			Matrix3f RviewInv, float3 tview, DeviceArray2D<float4> & vmap,
-//			DeviceArray2D<float4> & nmap, DeviceArray2D<uchar3> & color,
-//			float depthMin, float depthMax, float fx, float fy, float cx,
-//			float cy);
-//	operator KeyMap() const;
-//	operator MapStruct() const;
 
 	std::atomic<bool> meshUpdated;
 	std::atomic<bool> mapPointsUpdated;
@@ -69,28 +44,10 @@ public:
 	DeviceArray<uchar3> modelColor;
 	std::vector<SURF> hostKeys;
 
-	// Host Memory Spaces
-//	int * heapRAM;
-//	int * heapCounterRAM;
-//	int * hashCounterRAM;
-//	int * bucketMutexRAM;
-//	Voxel * sdfBlockRAM;
-//	uint * noVisibleEntriesRAM;
-//	HashEntry * hashEntriesRAM;
-//	HashEntry * visibleEntriesRAM;
-
 	int * mutexKeysRAM;
 	SURF * mapKeysRAM;
 
-	// General map structure
-//	DeviceArray<int> heap;
-//	DeviceArray<int> heapCounter;
-//	DeviceArray<int> hashCounter;
-//	DeviceArray<int> bucketMutex;
-//	DeviceArray<Voxel> sdfBlock;
 	DeviceArray<uint> noVisibleEntries;
-//	DeviceArray<HashEntry> hashEntries;
-//	DeviceArray<HashEntry> visibleEntries;
 
 	// Used for rendering
 	DeviceArray<uint> noRenderingBlocks;

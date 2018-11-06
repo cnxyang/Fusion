@@ -1,4 +1,4 @@
-#include "KeyFrame.h"
+#include "Frame.h"
 #include "GlViewer.h"
 #include "VoxelMap.h"
 #include "Settings.h"
@@ -345,20 +345,36 @@ void GlViewer::drawCurrentCamera() const
 	glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_LINE_STRIP, 3);
 }
 
-void GlViewer::drawKeyFrameGraph() const
+void GlViewer::drawKeyFrameGraph()
 {
+	std::unique_lock<std::mutex> lock(keyFrameGraphMutex);
 	std::vector<GLfloat> node;
-	for (SE3 pose : keyFrameGraph)
+	std::vector<GLfloat> edge;
+	for (Frame* frame : keyFrameGraph)
 	{
-		std::vector<GLfloat> cam = getTransformedCam(pose, 0.5);
-		node.push_back(pose.translation()(0));
-		node.push_back(pose.translation()(1));
-		node.push_back(pose.translation()(2));
+		std::vector<GLfloat> cam = getTransformedCam(frame->pose(), 0.5);
+		node.push_back(frame->pose().translation()(0));
+		node.push_back(frame->pose().translation()(1));
+		node.push_back(frame->pose().translation()(2));
+
 		glColor3fv(AliceBlue);
 		glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_LINE_STRIP, 3);
+
+		for(Frame* neigbour : frame->neighbors)
+		{
+			edge.push_back(frame->pose().translation()(0));
+			edge.push_back(frame->pose().translation()(1));
+			edge.push_back(frame->pose().translation()(2));
+			edge.push_back(neigbour->pose().translation()(0));
+			edge.push_back(neigbour->pose().translation()(1));
+			edge.push_back(neigbour->pose().translation()(2));
+		}
+
+		glColor3f(0.0f, 1.0f, 0.0f);
+		glDrawVertices(edge.size() / 3, (GLfloat*) &edge[0], GL_LINES, 3);
 	}
 
-	glColor3f(0.0f, 1.0f, 0.0f);
+	glColor3f(0.0f, 0.0f, 1.0f);
 	glDrawVertices(node.size() / 3, (GLfloat*) &node[0], GL_LINE_STRIP, 3);
 }
 

@@ -44,7 +44,6 @@ class SlamSystem
 public:
 
 	SlamSystem(int w, int h, Eigen::Matrix3f K);
-
 	SlamSystem(const SlamSystem&) = delete;
 	SlamSystem& operator=(const SlamSystem&) = delete;
 
@@ -71,7 +70,7 @@ protected:
 
 	// Try build pose graph
 	void updateVisualisation();
-	void findConstraintsForNewKeyFrames(Frame* newKF);
+	void findConstraintsForNewKFs(Frame* newKF);
 	void checkConstraints();
 	void tryTrackConstraint();
 
@@ -94,6 +93,9 @@ protected:
 	void loopOptimization();
 	void loopMapGeneration();
 	void loopConstraintSearch();
+	bool Optimization(int it, float minDelta);
+	bool doFinalOptimization;
+	bool newConstraintAdded;
 
 	// Multi-threading variables
 	std::thread threadVisualisation;
@@ -129,6 +131,13 @@ protected:
 	cv::Mat nmapReference;
 	cv::Mat nmapTarget;
 	void displayDebugImages(int ms);
+
+	std::deque<Frame*> keyFramesToBeMapped;
+	std::mutex keyFramesToBeMappedMutex;
+	bool havePoseUpdate;
+
+	const int distWeight = 4;
+	const int usageWeight = 1;
 };
 
 inline bool SlamSystem::shouldQuit() const

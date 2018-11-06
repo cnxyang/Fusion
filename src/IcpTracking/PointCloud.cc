@@ -29,7 +29,7 @@ PointCloud::~PointCloud()
 	depth_float.release();
 }
 
-void PointCloud::generateCloud(Frame* frame)
+void PointCloud::generateCloud(Frame* frame, bool useRGB)
 {
 	if(!memoryAllocated)
 	{
@@ -40,9 +40,13 @@ void PointCloud::generateCloud(Frame* frame)
 			vmap[level].create(width, height);
 			nmap[level].create(width, height);
 			depth[level].create(width, height);
-			image[level].create(width, height);
-			dIdx[level].create(width, height);
-			dIdy[level].create(width, height);
+
+			if(useRGB)
+			{
+				image[level].create(width, height);
+				dIdx[level].create(width, height);
+				dIdy[level].create(width, height);
+			}
 
 			if(level == 0)
 			{
@@ -58,19 +62,25 @@ void PointCloud::generateCloud(Frame* frame)
 	// Upload raw depth onto GPU memory
 	depth_ushort.upload(frame->data.depth.data, frame->data.depth.step);
 
-	// Upload raw color onto GPU memory
+	// Upload raw colour onto GPU memory
 	image_raw.upload(frame->data.image.data, frame->data.image.step);
 
 	// Do a bilateral filtering before goes into tracking
 	FilterDepth(depth_ushort, depth_float, depth[0], DEPTH_SCALE, DEPTH_CUTOFF);
 
 	// Convert RGB images into gray-scale images
-	ImageToIntensity(image_raw, image[0]);
+	if(useRGB)
+	{
+		ImageToIntensity(image_raw, image[0]);
+	}
 
 	// Generate image pyramids
 	for(int level = 1; level < NUM_PYRS; ++level) {
 		PyrDownGauss(depth[level - 1], depth[level]);
-		PyrDownGauss(image[level - 1], image[level]);
+		if(useRGB)
+		{
+			PyrDownGauss(image[level - 1], image[level]);
+		}
 	}
 
 	// Generate vertices and normals;
@@ -87,8 +97,11 @@ void PointCloud::generateCloud(Frame* frame)
 		// Normals
 		ComputeNMap(vmap[level], nmap[level]);
 
-		// Compute derivative images ( sobel operation )
-		ComputeDerivativeImage(image[level], dIdx[level], dIdy[level]);
+		if(useRGB)
+		{
+			// Compute derivative images ( sobel operation )
+			ComputeDerivativeImage(image[level], dIdx[level], dIdy[level]);
+		}
 	}
 
 	// Update reference frame

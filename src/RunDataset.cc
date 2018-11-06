@@ -14,7 +14,8 @@ void load_tum_dataset(std::string & dataset_path,
 		std::vector<std::string> & rgb_image_list,
 		std::vector<double> & time_stamp_list);
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
 //
 //	if (argc != 2) {
 //		exit(-1);
@@ -65,11 +66,8 @@ int main(int argc, char** argv) {
 	SlamSystem slam(640, 480, K);
 
 
-	for (int i = 0; i < 8560; ++i) {
-
-		if(slam.shouldQuit())
-			return 0;
-
+	for (int i = 0; i < 8560 && !slam.shouldQuit(); ++i)
+	{
 		std::stringstream ss;
 		ss << std::setfill('0') << std::setw(6) << i;
 		std::string number = "";
@@ -83,17 +81,9 @@ int main(int argc, char** argv) {
 
 		cv::Mat depth = cv::imread(std::string("/home/xyang/Downloads/apt0/") + img_depth, cv::IMREAD_UNCHANGED);
 		cv::Mat image = cv::imread(std::string("/home/xyang/Downloads/apt0/") + img_rgb, cv::IMREAD_UNCHANGED);
-//		cv::imshow("depth", depth);
-//		cv::imshow("image", image);
-//		int key = cv::waitKey(5);
-//		if(key == 27)
-//			return 0;
-//		slam.trackFrame(image, depth, i, 0);
 		cvtColor(image, image, cv::COLOR_BGR2RGB);
 		slam.trackFrame(image, depth, i, 0);
 	}
-
-//	slam.JoinViewer();
 }
 
 void load_tum_dataset(std::string & dataset_path,

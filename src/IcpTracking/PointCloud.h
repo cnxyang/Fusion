@@ -13,7 +13,7 @@ struct PointCloud
 
 	~PointCloud();
 
-	void generateCloud(Frame* frame);
+	void generateCloud(Frame* frame, bool useRGB = true);
 	void setReferenceFrame(Frame* frame);
 	void generatePyramid();
 

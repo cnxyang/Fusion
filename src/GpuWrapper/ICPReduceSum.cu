@@ -212,10 +212,7 @@ void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
 struct ICPReduce {
 
 	Matrix3f Rcurr;
-	Matrix3f Rlast;
-	Matrix3f RlastInv;
 	float3 tcurr;
-	float3 tlast;
 	PtrStep<float4> VMapCurr, VMapLast;
 	PtrStep<float4> NMapCurr, NMapLast;
 	int cols, rows, N;
@@ -232,28 +229,25 @@ struct ICPReduce {
 			return false;
 
 		vcurr_g = Rcurr * vcurr_c + tcurr;
-		float3 vcurr_p = RlastInv * (vcurr_g - tlast);
 
-		float invz = 1.0 / vcurr_p.z;
-		int u = (int) (vcurr_p.x * invz * fx + cx + 0.5);
-		int v = (int) (vcurr_p.y * invz * fy + cy + 0.5);
+		float invz = 1.0 / vcurr_g.z;
+		int u = (int) (vcurr_g.x * invz * fx + cx + 0.5);
+		int v = (int) (vcurr_g.y * invz * fy + cy + 0.5);
 		if (u < 0 || v < 0 || u >= cols || v >= rows)
 			return false;
 
-		float3 vlast_c = make_float3(VMapLast.ptr(v)[u]);
-		vlast_g = Rlast * vlast_c + tlast;
+		vlast_g = make_float3(VMapLast.ptr(v)[u]);
 
 		float3 ncurr_c = make_float3(NMapCurr.ptr(y)[x]);
 		float3 ncurr_g = Rcurr * ncurr_c;
 
-		float3 nlast_c = make_float3(NMapLast.ptr(v)[u]);
-		nlast_g = Rlast * nlast_c;
+		nlast_g = make_float3(NMapLast.ptr(v)[u]);
 
 		float dist = norm(vlast_g - vcurr_g);
 		float sine = norm(cross(ncurr_g, nlast_g));
 
 		return (sine < angleThresh && dist <= distThresh && !isnan(ncurr_c.x)
-				&& !isnan(nlast_c.x));
+				&& !isnan(nlast_g.x));
 	}
 
 	__device__ __inline__ void getRow(int & i, float * sum) const {
@@ -267,9 +261,6 @@ struct ICPReduce {
 		float row[7] = { 0, 0, 0, 0, 0, 0, 0 };
 
 		if (found) {
-			nlast = RlastInv * nlast;
-			vcurr = RlastInv * (vcurr - tlast);
-			vlast = RlastInv * (vlast - tlast);
 			*(float3*) &row[0] = -nlast;
 			*(float3*) &row[3] = cross(nlast, vlast);
 			row[6] = -nlast * (vcurr - vlast);
@@ -322,9 +313,6 @@ void ICPStep(DeviceArray2D<float4> & nextVMap,
 			 DeviceArray2D<float4> & lastNMap,
 			 Matrix3f Rcurr,
 			 float3 tcurr,
-			 Matrix3f Rlast,
-			 Matrix3f RlastInv,
-			 float3 tlast,
 			 CameraIntrinsics K,
 			 DeviceArray2D<float> & sum,
 			 DeviceArray<float> & out,
@@ -346,9 +334,6 @@ void ICPStep(DeviceArray2D<float4> & nextVMap,
 	icp.N = cols * rows;
 	icp.Rcurr = Rcurr;
 	icp.tcurr = tcurr;
-	icp.Rlast = Rlast;
-	icp.RlastInv = RlastInv;
-	icp.tlast = tlast;
 	icp.angleThresh = 0.6;
 	icp.distThresh = 0.1;
 	icp.fx = K.fx;
