@@ -14,14 +14,15 @@ public:
 };
 
 class Frame;
+class MapPoint;
 
-class KeyPointStruct
+struct KeyPointStruct
 {
-	KeyPointStruct();
 	SE3& pose() { return frame->pose(); }
 	Frame* frame;
+	cv::Mat descriptors;
 	std::vector<cv::KeyPoint> keyPoints;
-	cv::cuda::GpuMat descriptors;
+	std::vector<MapPoint*> mapPoints;
 };
 
 // Implementation of Absolute Orientation
@@ -30,12 +31,18 @@ class AOTracker
 public:
 	AOTracker(int w, int h, Eigen::Matrix3f K);
 	void importReferenceFrame(Frame* frame);
-	void trackReferenceFrame(Frame* frame);
-	void extractKeyPoints(Frame* frame, KeyPointStruct* points);
+	void trackReferenceFrame(Frame* frame, Frame* ref, int iterations);
+	void extractKeyPoints(Frame* frame, KeyPointStruct*& points);
 
 private:
 
 	int width, height;
+	KeyPointStruct* referenceKP;
 	cv::Ptr<cv::BRISK> BRISKExtracter;
 	cv::Ptr<cv::xfeatures2d::SURF> SURFDetector;
+	cv::Ptr<cv::DescriptorMatcher> matcher;
+
+	const int NUM_MINIMUM_MATCH = 10;
+	const float RATIO_TEST_TH = 0.9;
+	const float MINIMUM_INLIER_TH = 0.5;
 };

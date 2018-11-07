@@ -1,7 +1,7 @@
 #pragma once
 #include <g2o/core/sparse_optimizer.h>
 #include <g2o/types/sba/types_six_dof_expmap.h>
-#include "DataStructure/Frame.h"
+#include "Frame.h"
 #include <mutex>
 #include <unordered_set>
 

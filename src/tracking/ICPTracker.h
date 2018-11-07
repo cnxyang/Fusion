@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Utilities/DeviceArray.h"
-#include "Utilities/SophusUtil.h"
+#include "DeviceArray.h"
+#include "SophusUtil.h"
 #include <Eigen/Core>
 
 class Frame;

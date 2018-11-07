@@ -1,7 +1,7 @@
 #pragma once
 
 #include "SlamSystem.h"
-#include "Utilities/SophusUtil.h"
+#include "SophusUtil.h"
 #include <atomic>
 #include <vector>
 #include <pangolin/pangolin.h>

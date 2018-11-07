@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Utilities/DeviceArray.h"
+#include "DeviceArray.h"
 
 class Frame;
 

@@ -1,7 +1,8 @@
-#include <chrono>
-#include <iostream>
 #include "Frame.h"
-#include "SE3Tracker.h"
+#include "AOTracker.h"
+#include <chrono>
+
+using namespace std::chrono;
 
 bool Solver::PoseEstimate(std::vector<Eigen::Vector3d> & src,
 						  std::vector<Eigen::Vector3d> & ref,
@@ -185,11 +186,14 @@ bool Solver::PoseEstimate(std::vector<Eigen::Vector3d> & src,
 	return true;
 }
 
+#include "Settings.h"
+
 AOTracker::AOTracker(int w, int h, Eigen::Matrix3f K) :
-	width(w), height(h)
+	width(w), height(h), referenceKP(0)
 {
 	SURFDetector = cv::xfeatures2d::SURF::create();
 	BRISKExtracter = cv::BRISK::create(30, 4);
+	matcher = cv::DescriptorMatcher::create(cv::NORM_L2);
 }
 
 void AOTracker::importReferenceFrame(Frame* frame)
@@ -197,13 +201,72 @@ void AOTracker::importReferenceFrame(Frame* frame)
 
 }
 
-void AOTracker::trackReferenceFrame(Frame* frame)
+void AOTracker::trackReferenceFrame(Frame* frame, Frame* ref, int iterations)
 {
 	Eigen::Matrix3d Rotation;
 	Eigen::Vector3d translation;
-	const int maxIteration = 100;
-	for (int i = 0; i < maxIteration; ++i)
-	{
 
+	if(!frame->keyPoints)
+	{
+		extractKeyPoints(frame, frame->keyPoints);
 	}
+
+	// use knn to find 2 nearest neigbour match
+	std::vector<cv::DMatch> results;
+	std::vector<std::vector<cv::DMatch>> matches;
+	matcher->knnMatch(frame->keyPoints->descriptors, referenceKP->descriptors, matches, 2);
+
+	// filter out useful key point matches
+	for(int i = 0; i < matches.size(); ++i)
+	{
+		cv::DMatch& first = matches[i][0];
+		cv::DMatch& second = matches[i][1];
+		if(first.distance < RATIO_TEST_TH * second.distance)
+		{
+			results.push_back(first);
+		}
+		else
+		{
+			results.push_back(first);
+			results.push_back(second);
+		}
+	}
+
+	if(results.size() < NUM_MINIMUM_MATCH)
+		return;
+
+	// SEED the random number generator using current system time
+	auto now = system_clock::now();
+	srand(duration_cast<microseconds>(now.time_since_epoch()).count());
+
+	// Generate random samples
+	std::vector<std::vector<int>> samples;
+	for (int i = 0; i < iterations; ++i)
+	{
+		for (int j = 0; j < 3; ++j)
+		{
+			samples[i].push_back(rand() % results.size());
+		}
+	}
+
+	for (auto sample : samples)
+	{
+		Eigen::Vector3d srcPoints[3];
+		Eigen::Vector3d dstPoints[3];
+		for(int i = 0; i < 3; ++i)
+		{
+			int queryIdx = results[sample[i]].queryIdx;
+			int trainIdx = results[sample[i]].trainIdx;
+
+		}
+	}
+}
+
+void AOTracker::extractKeyPoints(Frame* frame, KeyPointStruct*& points)
+{
+	points = new KeyPointStruct();
+	cv::Mat image;
+	cv::cvtColor(frame->data.image, image, cv::COLOR_RGB2GRAY);
+	SURFDetector->detect(image, points->keyPoints);
+	BRISKExtracter->compute(image, points->keyPoints, points->descriptors);
 }

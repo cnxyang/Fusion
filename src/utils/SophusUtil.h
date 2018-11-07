@@ -1,6 +1,6 @@
 #pragma once
 #include <sophus/se3.hpp>
-#include "Utilities/VectorMath.h"
+#include "VectorMath.h"
 #include <g2o/types/sba/types_six_dof_expmap.h>
 
 typedef Sophus::SE3d SE3;
