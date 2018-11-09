@@ -203,8 +203,7 @@ void AOTracker::importReferenceFrame(Frame* frame)
 
 void AOTracker::trackReferenceFrame(Frame* frame, Frame* ref, int iterations)
 {
-	Eigen::Matrix3d Rotation;
-	Eigen::Vector3d translation;
+	SE3 frameToRef = SE3();
 
 	if(!frame->keyPoints)
 	{

@@ -80,22 +80,46 @@ void VoxelMap::CreateModel()
 int VoxelMap::fuseImages(PointCloud* pc)
 {
 	uint no;
-	Frame* trackingFrame = pc->frame;
+
 	FuseMapColor(pc->depth_float,
-			pc->image_raw,
-			pc->nmap[0],
-			data.numVisibleEntries,
-			SE3toMatrix3f(trackingFrame->pose()),
-			SE3toMatrix3f(trackingFrame->pose().inverse()),
-			SE3toFloat3(trackingFrame->pose()),
-			*device,
-			trackingFrame->getfx(),
-			trackingFrame->getfy(),
-			trackingFrame->getcx(),
-			trackingFrame->getcy(),
-			currentState.depthMax_raycast,
-			currentState.depthMin_raycast,
-			&no);
+				 pc->image_raw,
+				 pc->nmap[0],
+				 data.numVisibleEntries,
+				 SE3toMatrix3f(pc->frame->pose()),
+				 SE3toMatrix3f(pc->frame->pose().inverse()),
+				 SE3toFloat3(pc->frame->pose()),
+				 *device,
+				 pc->frame->fx(),
+				 pc->frame->fy(),
+				 pc->frame->cx(),
+				 pc->frame->cy(),
+				 currentState.depthMax_raycast,
+				 currentState.depthMin_raycast,
+				 &no);
+
+	return (int)no;
+}
+
+int VoxelMap::defuseImages(PointCloud* pc)
+{
+	uint no;
+
+	DeFuseMap(pc->depth_float,
+			  pc->image_raw,
+			  pc->nmap[0],
+			  data.numVisibleEntries,
+			  SE3toMatrix3f(pc->frame->pose()),
+			  SE3toMatrix3f(pc->frame->pose().inverse()),
+			  SE3toFloat3(pc->frame->pose()),
+			  *device,
+			  pc->frame->fx(),
+			  pc->frame->fy(),
+			  pc->frame->cx(),
+			  pc->frame->cy(),
+			  currentState.depthMax_raycast,
+			  currentState.depthMin_raycast,
+			  &no);
+
 	return (int)no;
 }
 
@@ -111,10 +135,10 @@ void VoxelMap::raycast(PointCloud* data, int numVisibleBlocks)
 			data->nmap[0],
 			currentState.depthMin_raycast,
 			currentState.depthMax_raycast,
-			trackingFrame->getfx(),
-			trackingFrame->getfy(),
-			trackingFrame->getcx(),
-			trackingFrame->getcy());
+			trackingFrame->fx(),
+			trackingFrame->fy(),
+			trackingFrame->cx(),
+			trackingFrame->cy());
 }
 
 uint VoxelMap::updateVisibility(PointCloud* pc)
@@ -128,10 +152,10 @@ uint VoxelMap::updateVisibility(PointCloud* pc)
 			SE3toFloat3(trackingFrame->pose()),
 			trackingFrame->width(),
 			trackingFrame->height(),
-			trackingFrame->getfx(),
-			trackingFrame->getfy(),
-			trackingFrame->getcx(),
-			trackingFrame->getcy(),
+			trackingFrame->fx(),
+			trackingFrame->fy(),
+			trackingFrame->cx(),
+			trackingFrame->cy(),
 			currentState.depthMax_raycast,
 			currentState.depthMin_raycast,
 			&no);

@@ -27,10 +27,10 @@ GlViewer::GlViewer(std::string title, int w, int h, Eigen::Matrix3f K) :
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	// PATH to all OpenGL shaders.
-	std::string phongShaderPath = "src/GlWrapper/OpenGL/VertexShader.phong.glsl";
-	std::string normalShaderPath = "src/GlWrapper/OpenGL/VertexShader.normal.glsl";
-	std::string rgbShaderPath = "src/GlWrapper/OpenGL/VertexShader.color.glsl";
-	std::string fragmentShaderPath = "src/GlWrapper/OpenGL/FragmentShader.glsl";
+	std::string phongShaderPath = "src/ioWrapper/OpenGL/VertexShader.phong.glsl";
+	std::string normalShaderPath = "src/ioWrapper/OpenGL/VertexShader.normal.glsl";
+	std::string rgbShaderPath = "src/ioWrapper/OpenGL/VertexShader.color.glsl";
+	std::string fragmentShaderPath = "src/ioWrapper/OpenGL/FragmentShader.glsl";
 
 	// LOAD and compile the phong shader
 	shaderPhong.AddShaderFromFile(GlSlVertexShader, phongShaderPath);

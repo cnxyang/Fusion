@@ -233,20 +233,22 @@ struct Fusion
 			float thresh = mapState.truncateDistance();
 			float sdf = dp - pos.z;
 
-			if (sdf >= -thresh) {
-
+			if (sdf >= -thresh)
+			{
 				sdf = fmin(1.0f, sdf / thresh);
 				float4 nl = nmap.ptr(uv.y)[uv.x];
 				if(isnan(nl.x))
 					continue;
 
-				float w = nl * normalised(make_float4(pos));
-				w = 1;
+				float w = cos(make_float3(-nl) * normalised(make_float3(Rview.rowx.z, Rview.rowy.z, Rview.rowz.z)));
 				float3 val = make_float3(rgb.ptr(uv.y)[uv.x]);
 				Voxel & prev = map.voxelBlocks[entry.next + locId];
-				if(prev.weight == 0) {
-					return;
-				} else {
+				if(prev.weight == 0)
+				{
+					prev = Voxel(sdf, 1, make_uchar3(val));
+				}
+				else
+				{
 					val = val / 255.f;
 					float3 old = make_float3(prev.color) / 255.f;
 					float3 res = ((1 - w * 0.2f) * old - w * 0.2f * val) * 255.f;
@@ -318,6 +320,71 @@ void CheckBlockVisibility(MapStruct map,
 	noVisibleBlocks.download((void*) host_data);
 	if (host_data[0] == 0)
 		return;
+}
+
+void DeFuseMap(const DeviceArray2D<float> & depth,
+			   const DeviceArray2D<uchar3> & color,
+			   const DeviceArray2D<float4> & nmap,
+			   DeviceArray<uint> & noVisibleBlocks,
+			   Matrix3f Rview,
+			   Matrix3f RviewInv,
+			   float3 tview,
+			   MapStruct map,
+			   float fx,
+			   float fy,
+			   float cx,
+			   float cy,
+			   float depthMax,
+			   float depthMin,
+			   uint * host_data) {
+
+	int cols = depth.cols;
+	int rows = depth.rows;
+	noVisibleBlocks.clear();
+
+	Fusion fuse;
+	fuse.map = map;
+	fuse.Rview = Rview;
+	fuse.RviewInv = RviewInv;
+	fuse.tview = tview;
+	fuse.fx = fx;
+	fuse.fy = fy;
+	fuse.cx = cx;
+	fuse.cy = cy;
+	fuse.invfx = 1.0 / fx;
+	fuse.invfy = 1.0 / fy;
+	fuse.depth = depth;
+	fuse.rgb = color;
+	fuse.nmap = nmap;
+	fuse.height = rows;
+	fuse.width = cols;
+	fuse.noVisibleBlocks = noVisibleBlocks;
+	fuse.maxDepth = currentState.depthMax_raycast;
+	fuse.minDepth = currentState.depthMin_raycast;
+
+	dim3 thread(16, 8);
+	dim3 block(divUp(cols, thread.x), divUp(rows, thread.y));
+
+	thread = dim3(1024);
+	block = dim3(divUp((int) currentState.maxNumHashEntries, thread.x));
+
+	CheckVisibleBlockKernel<<<block, thread>>>(fuse);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
+
+	host_data[0] = 0;
+	noVisibleBlocks.download((void*) host_data);
+	if (host_data[0] == 0)
+		return;
+
+	thread = dim3(8, 8);
+	block = dim3(host_data[0]);
+
+	DefuseColorKernal<<<block, thread>>>(fuse);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
 }
 
 void FuseMapColor(const DeviceArray2D<float> & depth,

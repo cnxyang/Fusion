@@ -21,19 +21,19 @@ public:
 	/** Returns the frame's image height. */
 	inline int height(int level = 0) const;
 	/** Returns the frame's total number of pixels */
-	inline int totalPixel(int level = 0) const;
+	inline int pixel(int level = 0) const;
 	/** Returns the frame's intrinsics matrix. */
 	inline const Eigen::Matrix3f & K(int level = 0) const;
 	/** Returns the frame's inverse intrinsics matrix. */
 	inline const Eigen::Matrix3f & KInv(int level = 0) const;
 	/** Returns K(0, 0). */
-	inline float getfx(int level = 0) const;
+	inline float fx(int level = 0) const;
 	/** Returns K(1, 1). */
-	inline float getfy(int level = 0) const;
+	inline float fy(int level = 0) const;
 	/** Returns K(0, 2). */
-	inline float getcx(int level = 0) const;
+	inline float cx(int level = 0) const;
 	/** Returns K(1, 2). */
-	inline float getcy(int level = 0) const;
+	inline float cy(int level = 0) const;
 	/** Returns KInv(0, 0). */
 	inline float fxInv(int level = 0) const;
 	/** Returns KInv(1, 1). */
@@ -92,7 +92,7 @@ inline int Frame::height(int level) const
 	return data.height[level];
 }
 
-inline int Frame::totalPixel(int level) const
+inline int Frame::pixel(int level) const
 {
 	return data.width[level] * data.height[level];
 }
@@ -107,22 +107,22 @@ inline const Eigen::Matrix3f& Frame::KInv(int level) const
 	return data.KInv[level];
 }
 
-inline float Frame::getfx(int level) const
+inline float Frame::fx(int level) const
 {
 	return data.fx[level];
 }
 
-inline float Frame::getfy(int level) const
+inline float Frame::fy(int level) const
 {
 	return data.fy[level];
 }
 
-inline float Frame::getcx(int level) const
+inline float Frame::cx(int level) const
 {
 	return data.cx[level];
 }
 
-inline float Frame::getcy(int level) const
+inline float Frame::cy(int level) const
 {
 	return data.cy[level];
 }

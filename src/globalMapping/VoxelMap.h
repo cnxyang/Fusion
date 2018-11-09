@@ -93,6 +93,7 @@ public:
 
 	void raycast(PointCloud* data, int n = -1);
 	int fuseImages(PointCloud* data);
+	int defuseImages(PointCloud* pc);
 
 private:
 

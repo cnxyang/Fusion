@@ -36,6 +36,21 @@ protected:
 	DeviceArray2D<int> sumRES;
 	const float RGBWeight = 0.0001f;
 
+	// Total Reduction results
+	Eigen::Matrix<double, 6, 6> matrixA;
+	Eigen::Matrix<double, 6, 1> vectorb;
+
+	// ICP reduction results
+	Eigen::Matrix<double, 6, 6> matrixAicp;
+	Eigen::Matrix<double, 6, 1> vectorbicp;
+
+	// RGB reduction results
+	Eigen::Matrix<double, 6, 6> matrixArgb;
+	Eigen::Matrix<double, 6, 1> vectorbrgb;
+
+	// se3
+	Eigen::Matrix<double, 6, 1> result;
+
 	// the number of iterations per layer
 	// NOTE: should set manually before tracking
 	int iterations[NUM_PYRS];

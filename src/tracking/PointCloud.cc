@@ -1,6 +1,7 @@
 #include "Frame.h"
 #include "PointCloud.h"
 #include "DeviceFuncs.h"
+#include "Settings.h"
 
 #define DEPTH_SCALE 1000.f
 #define DEPTH_CUTOFF 3.0f
@@ -86,10 +87,10 @@ void PointCloud::generateCloud(Frame* frame, bool useRGB)
 	// Generate vertices and normals;
 	for(int level = 0; level < NUM_PYRS; ++level)
 	{
-		float fx = frame->getfx(level);
-		float fy = frame->getfy(level);
-		float cx = frame->getcx(level);
-		float cy = frame->getcy(level);
+		float fx = frame->fx(level);
+		float fy = frame->fy(level);
+		float cx = frame->cx(level);
+		float cy = frame->cy(level);
 
 		// Vertices
 		ComputeVMap(depth[level], vmap[level], fx, fy, cx, cy, DEPTH_CUTOFF);
@@ -113,7 +114,7 @@ void PointCloud::setReferenceFrame(Frame* frame)
 	this->frame = frame;
 }
 
-void PointCloud::generatePyramid()
+void PointCloud::updateImagePyramid()
 {
 	for(int level = 1; level < NUM_PYRS; ++level) {
 		ResizeMap(vmap[level - 1], nmap[level - 1], vmap[level], nmap[level]);

@@ -170,8 +170,8 @@ void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
 		     DeviceArray<float> & out,
 		     float * residual,
 		     double * matrixA_host,
-		     double * vectorB_host) {
-
+		     double * vectorB_host)
+{
 	int cols = nextImage.cols;
 	int rows = nextImage.rows;
 
@@ -209,8 +209,8 @@ void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
 	residual[1] = host_data[10];
 }
 
-struct ICPReduce {
-
+struct ICPReduce
+{
 	Matrix3f Rcurr;
 	float3 tcurr;
 	PtrStep<float4> VMapCurr, VMapLast;
@@ -222,7 +222,8 @@ struct ICPReduce {
 	mutable PtrStepSz<float> out;
 
 	__device__ __inline__ bool searchPoint(int& x, int& y, float3& vcurr_g,
-			float3& vlast_g, float3& nlast_g) const {
+			float3& vlast_g, float3& nlast_g) const
+	{
 
 		float3 vcurr_c = make_float3(VMapCurr.ptr(y)[x]);
 		if (isnan(vcurr_c.x) || vcurr_c.z < 1e-3)
@@ -250,8 +251,8 @@ struct ICPReduce {
 				&& !isnan(nlast_g.x));
 	}
 
-	__device__ __inline__ void getRow(int & i, float * sum) const {
-
+	__device__ __inline__ void getRow(int & i, float * sum) const
+	{
 		int y = i / cols;
 		int x = i - y * cols;
 
@@ -260,24 +261,27 @@ struct ICPReduce {
 		found = searchPoint(x, y, vcurr, vlast, nlast);
 		float row[7] = { 0, 0, 0, 0, 0, 0, 0 };
 
-		if (found) {
+		if (found)
+		{
 			*(float3*) &row[0] = -nlast;
 			*(float3*) &row[3] = cross(nlast, vlast);
 			row[6] = -nlast * (vcurr - vlast);
 		}
 
 		int count = 0;
-		#pragma unroll
+#pragma unroll
 		for (int i = 0; i < 7; ++i)
-			#pragma unroll
+		{
+#pragma unroll
 			for (int j = i; j < 7; ++j)
 				sum[count++] = row[i] * row[j];
+		}
 
 		sum[count] = (float) found;
 	}
 
-	__device__ __inline__ void operator()() const {
-
+	__device__ __inline__ void operator()() const
+	{
 		float sum[29] = { 0, 0, 0, 0, 0,
 				   	   	  0, 0, 0, 0, 0,
 				   	   	  0, 0, 0, 0, 0,
@@ -287,9 +291,10 @@ struct ICPReduce {
 
 		int i = blockIdx.x * blockDim.x + threadIdx.x;
 		float val[29];
-		for (; i < N; i += blockDim.x * gridDim.x) {
+		for (; i < N; i += blockDim.x * gridDim.x)
+		{
 			getRow(i, val);
-			#pragma unroll
+#pragma unroll
 			for (int j = 0; j < 29; ++j)
 				sum[j] += val[j];
 		}
@@ -297,9 +302,11 @@ struct ICPReduce {
 		BlockReduce<float, 29>(sum);
 
 		if (threadIdx.x == 0)
-			#pragma unroll
+		{
+#pragma unroll
 			for (int i = 0; i < 29; ++i)
 				out.ptr(blockIdx.x)[i] = sum[i];
+		}
 	}
 };
 
@@ -307,19 +314,17 @@ __global__ void icpStepKernel(const ICPReduce icp) {
 	icp();
 }
 
-void ICPStep(DeviceArray2D<float4> & nextVMap,
-			 DeviceArray2D<float4> & lastVMap,
-			 DeviceArray2D<float4> & nextNMap,
-			 DeviceArray2D<float4> & lastNMap,
-			 Matrix3f Rcurr,
-			 float3 tcurr,
-			 CameraIntrinsics K,
-			 DeviceArray2D<float> & sum,
-			 DeviceArray<float> & out,
-			 float * residual,
+void ICPStep(DeviceArray2D<float4>& nextVMap,
+			 DeviceArray2D<float4>& nextNMap,
+			 DeviceArray2D<float4>& lastVMap,
+			 DeviceArray2D<float4>& lastNMap,
+			 DeviceArray2D<float>& sum,
+			 DeviceArray<float>& out,
+			 Matrix3f R, float3 t,
+			 float* K, float * residual,
 			 double * matrixA_host,
-			 double * vectorB_host) {
-
+			 double * vectorB_host)
+{
 	int cols = nextVMap.cols;
 	int rows = nextVMap.rows;
 
@@ -332,14 +337,14 @@ void ICPStep(DeviceArray2D<float4> & nextVMap,
 	icp.cols = cols;
 	icp.rows = rows;
 	icp.N = cols * rows;
-	icp.Rcurr = Rcurr;
-	icp.tcurr = tcurr;
+	icp.Rcurr = R;
+	icp.tcurr = t;
 	icp.angleThresh = 0.6;
 	icp.distThresh = 0.1;
-	icp.fx = K.fx;
-	icp.fy = K.fy;
-	icp.cx = K.cx;
-	icp.cy = K.cy;
+	icp.fx = K[0];
+	icp.fy = K[1];
+	icp.cx = K[2];
+	icp.cy = K[3];
 
 	icpStepKernel<<<96, 224>>>(icp);
 
@@ -395,8 +400,8 @@ struct RGBReduction {
 	mutable PtrStep<float> out;
 	mutable PtrSz<Residual> RGBResidual;
 
-	__device__ __inline__ int2 FindCorresp(int & k) const {
-
+	__device__ __inline__ int2 FindCorresp(int & k) const
+	{
 		int y = k / cols;
 		int x = k - y * cols;
 
@@ -550,7 +555,7 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 			 Matrix3f RlastInv,
 			 float3 tcurr,
 			 float3 tlast,
-			 CameraIntrinsics K,
+			 float* K,
 			 DeviceArray2D<float> & sum,
 			 DeviceArray<float> & out,
 			 DeviceArray2D<int> & sumRes,
@@ -582,10 +587,10 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 	rgb.tcurr = tcurr;
 	rgb.tlast = tlast;
 	rgb.RGBResidual = rgbResidual;
-	rgb.fx = K.fx;
-	rgb.fy = K.fy;
-	rgb.cx = K.cx;
-	rgb.cy = K.cy;
+	rgb.fx = K[0];
+	rgb.fy = K[1];
+	rgb.cx = K[2];
+	rgb.cy = K[3];
 
 	ComputeResidualKernel<<<96, 224>>>(rgb);
 

@@ -8,3 +8,11 @@ PoseStruct::PoseStruct(Frame* frame) :
 {
 	camToWorld = thisToParent = SE3();
 }
+
+void PoseStruct::applyPoseUpdate()
+{
+	if(isOptimised && isInGraph && graphVertex)
+	{
+		camToWorld = QuattoSE3(graphVertex->estimate());
+	}
+}

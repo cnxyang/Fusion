@@ -140,8 +140,7 @@ void KeyFrameGraph::updatePoseGraph()
 		std::unique_lock<std::mutex> lock(graphAccessMutex);
 		for (auto frame : keyframesAll)
 		{
-			auto pose_new = frame->poseStruct->graphVertex->estimate();
-			frame->pose() = QuattoSE3(pose_new);
+			frame->poseStruct->applyPoseUpdate();
 		}
 	}
 }

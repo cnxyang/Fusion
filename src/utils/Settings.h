@@ -11,15 +11,16 @@
 	std::string timeString = std::ctime(&time); \
 	if(timeString.size() != 0)\
 		timeString.erase(timeString.find('\n', 0), 1); \
-	std::cout << timeString << " : " << text << std::endl; \
+	std::cout << timeString << " : " << (text) << std::endl; \
 } while (0)
 
-#define CONSOLE_ERR(x) do { \
+#define CONSOLE_ERR(text) do { \
 	auto now = std::chrono::system_clock::now(); \
 	auto time = std::chrono::system_clock::to_time_t(now); \
 	std::string timeString = std::ctime(&time); \
-	timeString.erase(timeString.find('\n', 0), 1); \
-	std::cerr << timeString << " : " << x << std::endl; \
+	if(timeString.size() != 0)\
+		timeString.erase(timeString.find('\n', 0), 1); \
+	std::cerr << timeString << " : " << (text) << std::endl; \
 } while (0)
 #else
 #define CONSOLE(text)

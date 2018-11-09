@@ -15,7 +15,7 @@ struct PointCloud
 
 	void generateCloud(Frame* frame, bool useRGB = true);
 	void setReferenceFrame(Frame* frame);
-	void generatePyramid();
+	void updateImagePyramid();
 
 	bool memoryAllocated;
 

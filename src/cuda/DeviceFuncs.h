@@ -58,6 +58,12 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 		float fx, float fy, float cx, float cy,
 		float depthMax, float depthMin, uint * host_data);
 
+void DeFuseMap(const DeviceArray2D<float> & depth,
+		const DeviceArray2D<uchar3> & color, const DeviceArray2D<float4> & nmap,
+		DeviceArray<uint> & noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
+		float3 tview, MapStruct map, float fx, float fy, float cx, float cy,
+		float depthMax, float depthMin, uint * host_data);
+
 void DefuseMapColor(const DeviceArray2D<float> & depth,
 		const DeviceArray2D<uchar3> & color, const DeviceArray2D<float4> & nmap,
 		DeviceArray<uint> & noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
@@ -110,38 +116,51 @@ void ForwardWarping(const DeviceArray2D<float4> & srcVMap,
  * Estimate the SO3 transformation of two frames
  * TODO: suspect of compromised performance
  */
-void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
-		const DeviceArray2D<unsigned char> & lastImage,
-		const DeviceArray2D<short> & dIdx, const DeviceArray2D<short> & dIdy,
-		Matrix3f RcurrInv, Matrix3f Rlast, CameraIntrinsics K,
-		DeviceArray2D<float> & sum, DeviceArray<float> & out, float * residual,
-		double * matrixA_host, double * vectorB_host);
+void SO3Step(const DeviceArray2D<unsigned char>& nextImage,
+			 const DeviceArray2D<unsigned char>& lastImage,
+			 const DeviceArray2D<short>& dIdx,
+			 const DeviceArray2D<short> & dIdy,
+			 Matrix3f RcurrInv, Matrix3f Rlast,
+			 CameraIntrinsics K,
+			 DeviceArray2D<float>& sum,
+			 DeviceArray<float>& out,
+			 float * residual,
+			 double * matrixA_host,
+			 double * vectorB_host);
 
-/*
- * Estimate the SE3 transformation between two frames
- * this is purely relied on geometry information
- * hence coloured images are ignored.
- */
-void ICPStep(DeviceArray2D<float4> & nextVMap, DeviceArray2D<float4> & lastVMap,
-		DeviceArray2D<float4> & nextNMap, DeviceArray2D<float4> & lastNMap,
-		Matrix3f Rcurr, float3 tcurr, CameraIntrinsics K, DeviceArray2D<float> & sum,
-		DeviceArray<float> & out, float * residual, double * matrixA_host,
-		double * vectorB_host);
+// Estimate the SE3 transformation between two frames
+// this is purely relied on geometry information
+// hence coloured images are ignored.
+void ICPStep(DeviceArray2D<float4>& nextVMap,
+			 DeviceArray2D<float4>& nextNMap,
+			 DeviceArray2D<float4>& lastVMap,
+			 DeviceArray2D<float4>& lastNMap,
+			 DeviceArray2D<float>& sum,
+			 DeviceArray<float>& out,
+			 Matrix3f R, float3 t,
+			 float* K, float * residual,
+			 double * matrixA_host,
+			 double * vectorB_host);
 
-/*
- * Estimate SE3 transform based on direct image alignment
- * using depth image only as a cue
- */
-void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
-		const DeviceArray2D<unsigned char> & lastImage,
-		const DeviceArray2D<float4> & nextVMap,
-		const DeviceArray2D<float4> & lastVMap,
-		const DeviceArray2D<short> & dIdx, const DeviceArray2D<short> & dIdy,
-		Matrix3f Rcurr, Matrix3f RcurrInv, Matrix3f Rlast, Matrix3f RlastInv,
-		float3 tcurr, float3 tlast, CameraIntrinsics K, DeviceArray2D<float> & sum,
-		DeviceArray<float> & out, DeviceArray2D<int> & sumRes,
-		DeviceArray<int> & outRes, float * residual, double * matrixA_host,
-		double * vectorB_host);
+// Estimate SE3 transform based on
+// direct image alignment
+// using depth image only as a cue
+void RGBStep(const DeviceArray2D<unsigned char>& nextImage,
+			 const DeviceArray2D<unsigned char>& lastImage,
+			 const DeviceArray2D<float4>& nextVMap,
+			 const DeviceArray2D<float4>& lastVMap,
+			 const DeviceArray2D<short>& dIdx,
+			 const DeviceArray2D<short>& dIdy,
+			 Matrix3f Rcurr, Matrix3f RcurrInv,
+			 Matrix3f Rlast, Matrix3f RlastInv,
+			 float3 tcurr, float3 tlast, float* K,
+			 DeviceArray2D<float> & sum,
+			 DeviceArray<float> & out,
+			 DeviceArray2D<int> & sumRes,
+			 DeviceArray<int> & outRes,
+			 float * residual,
+			 double * matrixA_host,
+			 double * vectorB_host);
 
 // ======================= old piece of shit ============================
 

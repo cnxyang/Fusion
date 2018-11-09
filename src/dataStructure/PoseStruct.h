@@ -9,6 +9,8 @@ class PoseStruct
 public:
 
 	PoseStruct(Frame* frame);
+	void applyPoseUpdate();
+
 	PoseStruct* parentPose;
 	Frame* frame;
 	bool isRegisteredInGraph;
@@ -18,6 +20,7 @@ public:
 
 	SE3 thisToParent;
 	SE3 camToWorld;
+	float diff;
 };
 
 class DevicePoseStruct

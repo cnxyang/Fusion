@@ -67,6 +67,8 @@ protected:
 	void systemReInitialise();
 	void writeBinaryMapToDisk();
 	void readBinaryMapFromDisk();
+	void updateMap(int nKeyFrame);
+	void relocalise();
 
 	// Try build pose graph
 	void updateVisualisation();
@@ -103,6 +105,7 @@ protected:
 	std::thread threadMapGeneration;
 	std::thread threadConstraintSearch;
 
+	Frame* currentFrame;
 	Frame* currentKeyFrame;
 	Frame* latestTrackedFrame;
 	KeyFrameGraph* keyFrameGraph;
