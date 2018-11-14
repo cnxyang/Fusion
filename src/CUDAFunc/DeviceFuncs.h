@@ -162,6 +162,18 @@ void RGBStep(const DeviceArray2D<unsigned char>& nextImage,
 			 double * matrixA_host,
 			 double * vectorB_host);
 
+void FuseKeyFrameDepth(DeviceArray2D<float>& lastDMap,
+					   DeviceArray2D<float>& nextDMap,
+					   DeviceArray2D<float>& lastWMap,
+					   DeviceArray2D<float4>& nextNMap,
+					   DeviceArray2D<float4>& lastNMap,
+					   DeviceArray2D<float4>& nextVMap,
+					   Matrix3f R, float3 t,
+					   float3 dir,
+					   float* K,
+					   float3 dirKF,
+					   bool initKF);
+
 // ======================= old piece of shit ============================
 
 void BuildAdjacencyMatrix(cv::cuda::GpuMat & adjecencyMatrix,

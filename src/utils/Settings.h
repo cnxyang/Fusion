@@ -39,6 +39,9 @@ struct SystemState
 	bool showGeneratedMesh;
 	bool showInputImages;
 	bool localisatonOnly;
+
+	float depthCutoff;
+	float depthScale;
 };
 
 extern SystemState systemState;

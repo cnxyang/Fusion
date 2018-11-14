@@ -11,6 +11,7 @@ class Frame;
 class GlViewer;
 class Tracker;
 class VoxelMap;
+class AOTracker;
 class PointCloud;
 class ICPTracker;
 class KeyFrameGraph;
@@ -75,6 +76,7 @@ protected:
 	void findConstraintsForNewKFs(Frame* newKF);
 	void checkConstraints();
 	void tryTrackConstraint();
+	void validateKeyPoints();
 
 	// Sub-routines
 	VoxelMap* map;
@@ -96,10 +98,9 @@ protected:
 	void loopMapGeneration();
 	void loopConstraintSearch();
 	bool Optimization(int it, float minDelta);
-	bool doFinalOptimization;
 	bool newConstraintAdded;
 
-	// Multi-threading variables
+	// Multi-Threading
 	std::thread threadVisualisation;
 	std::thread threadOptimization;
 	std::thread threadMapGeneration;
@@ -111,6 +112,7 @@ protected:
 	KeyFrameGraph* keyFrameGraph;
 
 	// Used for frame-to-model tracking
+	AOTracker* aoTracker;
 	ICPTracker* tracker;
 	PointCloud* trackingReference;
 	PointCloud* trackingTarget;
@@ -127,6 +129,7 @@ protected:
 	std::mutex messageQueueMutex;
 	std::queue<Msg> messageQueue;
 
+	// used for debugging
 	cv::Mat imageReference;
 	cv::Mat imageTarget;
 	cv::Mat depthReference;
@@ -139,8 +142,8 @@ protected:
 	std::mutex keyFramesToBeMappedMutex;
 	bool havePoseUpdate;
 
-	const int distWeight = 4;
-	const int usageWeight = 1;
+	DeviceArray2D<float> lastWMap;
+	bool initKF;
 };
 
 inline bool SlamSystem::shouldQuit() const

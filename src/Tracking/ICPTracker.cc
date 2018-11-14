@@ -134,7 +134,7 @@ SE3 ICPTracker::trackSE3(PointCloud* ref, PointCloud* target, SE3 estimate, bool
 	}
 
 	Sophus::Vector3d diff = (estimate.inverse() * frameToRef).translation();
-	if(diff.norm() > 0.1f)
+	if(diff.norm() > 0.3f)
 		trackingWasGood = false;
 	else
 		trackingWasGood = true;

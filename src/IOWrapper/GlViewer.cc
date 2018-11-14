@@ -1,4 +1,5 @@
 #include "Frame.h"
+#include "AOTracker.h"
 #include "GlViewer.h"
 #include "VoxelMap.h"
 #include "Settings.h"
@@ -27,10 +28,10 @@ GlViewer::GlViewer(std::string title, int w, int h, Eigen::Matrix3f K) :
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	// PATH to all OpenGL shaders.
-	std::string phongShaderPath = "src/ioWrapper/OpenGL/VertexShader.phong.glsl";
-	std::string normalShaderPath = "src/ioWrapper/OpenGL/VertexShader.normal.glsl";
-	std::string rgbShaderPath = "src/ioWrapper/OpenGL/VertexShader.color.glsl";
-	std::string fragmentShaderPath = "src/ioWrapper/OpenGL/FragmentShader.glsl";
+	std::string phongShaderPath = "src/IOWrapper/OpenGL/VertexShader.phong.glsl";
+	std::string normalShaderPath = "src/IOWrapper/OpenGL/VertexShader.normal.glsl";
+	std::string rgbShaderPath = "src/IOWrapper/OpenGL/VertexShader.color.glsl";
+	std::string fragmentShaderPath = "src/IOWrapper/OpenGL/FragmentShader.glsl";
 
 	// LOAD and compile the phong shader
 	shaderPhong.AddShaderFromFile(GlSlVertexShader, phongShaderPath);
@@ -170,9 +171,34 @@ GlViewer::~GlViewer()
 	pangolin::DestroyWindow(windowTitle);
 }
 
-void GlViewer::drawKeyPointsToScreen() const
+void GlViewer::drawKeyPointsToScreen()
 {
+	std::vector<GLfloat> points;
+	std::unique_lock<std::mutex> lock(keyFrameGraphMutex);
+	for(auto frame : keyFrameGraph)
+	{
+		if (!frame->keyPointStruct)
+			continue;
 
+		Eigen::Matrix3d R = frame->pose().rotationMatrix();
+		Eigen::Vector3d t = frame->pose().translation();
+		for(int i = 0; i < frame->keyPointStruct->keyPoints.size(); ++i)
+		{
+			auto& kp = frame->keyPointStruct->pt3d[i];
+			if(frame->keyPointStruct->observations[i] > 2)
+			{
+				auto pt = R * kp + t;
+				points.push_back((float) pt(0));
+				points.push_back((float) pt(1));
+				points.push_back((float) pt(2));
+			}
+		}
+	}
+
+	glPointSize(3.0f);
+	glColor3f(1.0f, 0.0f, 0.0f);
+	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_POINTS, 3);
+	glPointSize(1.0f);
 }
 
 void GlViewer::setCurrentImages(PointCloud* data)

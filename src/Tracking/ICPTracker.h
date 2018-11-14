@@ -25,6 +25,7 @@ public:
 	float rgbInlierRatio;
 
 	inline void setIterations(std::vector<float> iter);
+	inline Eigen::Matrix<double, 6, 6> getInformation() const;
 
 protected:
 
@@ -60,4 +61,8 @@ inline void ICPTracker::setIterations(std::vector<float> iter)
 {
 	for (int level = 0; level < NUM_PYRS; ++level)
 		iterations[level] = iter[level];
+}
+inline Eigen::Matrix<double, 6, 6> ICPTracker::getInformation() const
+{
+	return matrixAicp.inverse();
 }

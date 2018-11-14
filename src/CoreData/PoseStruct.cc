@@ -14,5 +14,6 @@ void PoseStruct::applyPoseUpdate()
 	if(isOptimised && isInGraph && graphVertex)
 	{
 		camToWorld = QuattoSE3(graphVertex->estimate());
+		this->diff = -1;
 	}
 }

@@ -56,7 +56,7 @@ protected:
 	void drawShadedMesh(bool bNormal);
 	void drawCurrentCamera() const;
 	void drawKeyFrameGraph();
-	void drawKeyPointsToScreen() const;
+	void drawKeyPointsToScreen();
 	void drawRGBViewToCamera() const;
 	void drawSyntheticViewToCamera() const;
 	void drawDepthViewToCamera() const;

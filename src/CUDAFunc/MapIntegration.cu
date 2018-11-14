@@ -38,8 +38,7 @@ struct Fusion
 	__device__ inline bool CheckVertexVisibility(float3 pt3d)
 	{
 		pt3d = RviewInv * (pt3d - tview);
-		if (pt3d.z < 1e-3f)
-			return false;
+		if (pt3d.z < 1e-3f) return false;
 		float2 pt2d = project(pt3d);
 
 		return pt2d.x >= 0 && pt2d.y >= 0 &&
@@ -179,11 +178,12 @@ struct Fusion
 			if (sdf >= -thresh)
 			{
 				sdf = fmin(1.0f, sdf / thresh);
-				float4 nl = nmap.ptr(uv.y)[uv.x];
-				if(isnan(nl.x))
-					continue;
+//				float4 nl = nmap.ptr(uv.y)[uv.x];
+//				if(isnan(nl.x))
+//					continue;
 
-				float w = cos(make_float3(-nl) * normalised(make_float3(Rview.rowx.z, Rview.rowy.z, Rview.rowz.z)));
+//				float w = cos(make_float3(nl) * make_float3(Rview.rowx.z, Rview.rowy.z, Rview.rowz.z));
+				float w = 1;
 				float3 val = make_float3(rgb.ptr(uv.y)[uv.x]);
 				Voxel & prev = map.voxelBlocks[entry.next + locId];
 				if(prev.weight == 0)
@@ -241,20 +241,18 @@ struct Fusion
 					continue;
 
 				float w = cos(make_float3(-nl) * normalised(make_float3(Rview.rowx.z, Rview.rowy.z, Rview.rowz.z)));
+				w = 1;
 				float3 val = make_float3(rgb.ptr(uv.y)[uv.x]);
 				Voxel & prev = map.voxelBlocks[entry.next + locId];
-				if(prev.weight == 0)
-				{
-					prev = Voxel(sdf, 1, make_uchar3(val));
-				}
-				else
-				{
-					val = val / 255.f;
-					float3 old = make_float3(prev.color) / 255.f;
-					float3 res = ((1 - w * 0.2f) * old - w * 0.2f * val) * 255.f;
-					prev.sdf = (prev.sdf * prev.weight - w * sdf) / (prev.weight - w);
-					prev.weight = max(0, prev.weight - 1);
-					prev.color = make_uchar3(res);
+
+				val = val / 255.f;
+				float3 old = make_float3(prev.color) / 255.f;
+				float3 res = ((1 - w * 0.2f) * old - w * 0.2f * val) * 255.f;
+				prev.sdf = (prev.sdf * prev.weight - w * sdf) / (prev.weight - w);
+				prev.weight = max(0, prev.weight - 1);
+				prev.color = make_uchar3(res);
+				if (prev.weight <= 0) {
+					prev = Voxel();
 				}
 			}
 		}
@@ -664,4 +662,136 @@ void InsertKeyPoints(KeyMap map, DeviceArray<SURF> & keys,
 
 	SafeCall(cudaDeviceSynchronize());
 	SafeCall(cudaGetLastError());
+}
+
+struct KFusion
+{
+	int cols, rows;
+	float fx, fy, cx, cy;
+
+	PtrStep<float> lastDMap, nextDMap;
+	PtrStep<float> lastWMap;
+	PtrStep<float4> nextNMap, lastNMap;
+	PtrStep<float4> nextVMap;
+	Matrix3f R;
+	float3 dir, t;
+
+	__device__ __inline__ void operator()()
+	{
+		int x = threadIdx.x + blockDim.x * blockIdx.x;
+		int y = threadIdx.y + blockDim.y * blockIdx.y;
+		if(x >= cols || y >= rows)
+			return;
+
+		float4& v_curr = nextVMap.ptr(y)[x];
+		float4& n_curr = nextNMap.ptr(y)[x];
+		if(isnan(v_curr.x) || isnan(n_curr.x))
+			return;
+
+		float3 v_currlast = R * make_float3(v_curr) + t;
+		int u = (int)(fx * v_currlast.x / v_currlast.z + cx + 0.5f);
+		int v = (int)(fy * v_currlast.y / v_currlast.z + cy + 0.5f);
+		if(u < 0 || u >= cols || v < 0 || v >= rows)
+			return;
+
+		float& d_curr = nextDMap.ptr(y)[x];
+		float& d_last = lastDMap.ptr(v)[u];
+		float& w_last = lastWMap.ptr(v)[u];
+		float w_curr = cos(normalised(n_curr) * normalised(dir)) / (d_curr * d_curr);
+
+		if(w_last < 1e-3)
+		{
+			w_last = w_curr;
+			d_last = v_currlast.z;
+			return;
+		}
+
+		d_last = (d_last * w_last + v_currlast.z * w_curr) / (w_last + w_curr);
+		w_last += w_curr;
+	}
+};
+
+__global__ void FuseKeyFrameDepthKernel(KFusion KF)
+{
+	KF();
+}
+
+__global__ void initKFWeight(PtrStepSz<float> dmap,
+							 PtrStep<float4> nmap,
+							 PtrStep<float> wmap,
+							 float3 dir)
+{
+	int x = threadIdx.x + blockDim.x * blockIdx.x;
+	int y = threadIdx.y + blockDim.y * blockIdx.y;
+	if(x >= dmap.cols || y >= dmap.rows)
+		return;
+
+	float& depth = dmap.ptr(y)[x];
+	float4& normal = nmap.ptr(y)[x];
+	if(isnan(normal.x))
+	{
+		wmap.ptr(y)[x] = 0.f;
+	}
+	else
+	{
+		wmap.ptr(y)[x] = cos(normal * normalised(dir)) / (depth * depth);
+	}
+}
+
+void FuseKeyFrameDepth(DeviceArray2D<float>& lastDMap,
+					   DeviceArray2D<float>& nextDMap,
+					   DeviceArray2D<float>& lastWMap,
+					   DeviceArray2D<float4>& nextNMap,
+					   DeviceArray2D<float4>& lastNMap,
+					   DeviceArray2D<float4>& nextVMap,
+					   Matrix3f R, float3 t,
+					   float3 dir,
+					   float* K,
+					   float3 dirKF,
+					   bool initKF)
+{
+	int cols = lastDMap.cols;
+	int rows = lastDMap.rows;
+
+	KFusion fusion;
+	fusion.cols = cols;
+	fusion.rows = rows;
+	fusion.lastDMap = lastDMap;
+	fusion.lastNMap = lastNMap;
+	fusion.lastWMap = lastWMap;
+	fusion.nextDMap = nextDMap;
+	fusion.nextVMap = nextVMap;
+	fusion.nextNMap = nextNMap;
+	fusion.dir = dir;
+	fusion.R = R;
+	fusion.t = t;
+	fusion.fx = K[0];
+	fusion.fy = K[1];
+	fusion.cx = K[2];
+	fusion.cy = K[3];
+
+	if(initKF)
+	{
+		dim3 thread(16, 8);
+		dim3 block(divUp(cols, thread.x), divUp(rows, thread.y));
+		initKFWeight<<<block, thread>>>(lastDMap, lastNMap, lastWMap, dirKF);
+
+		cv::Mat img(rows, cols, CV_32FC1);
+//		lastDMap.download(img.data, img.step);
+//		cv::imshow("dmap", img);
+//		cv::waitKey(0);
+	}
+
+	dim3 thread(16, 8);
+	dim3 block(divUp(cols, thread.x), divUp(rows, thread.y));
+
+	FuseKeyFrameDepthKernel<<<block, thread>>>(fusion);
+
+	SafeCall(cudaDeviceSynchronize());
+	SafeCall(cudaGetLastError());
+
+//	cv::Mat img(rows, cols, CV_32FC1);
+//	lastDMap.download(img.data, img.step);
+//	cv::imshow("dmap", img);
+//	cv::waitKey(0);
 }

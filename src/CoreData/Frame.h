@@ -11,7 +11,7 @@ class Frame
 public:
 
 	static const int NUM_PYRS = 3;
-	Frame(cv::Mat & image, cv::Mat & depth, int id, Eigen::Matrix3f K, double timeStamp);
+	Frame(cv::Mat& image, cv::Mat& depth, int id, Eigen::Matrix3f K, double timeStamp);
 	void initialize(int w, int h, int id, Eigen::Matrix3f & K, double timeStamp);
 
 	/** Returns the unique frame id. */
@@ -23,9 +23,9 @@ public:
 	/** Returns the frame's total number of pixels */
 	inline int pixel(int level = 0) const;
 	/** Returns the frame's intrinsics matrix. */
-	inline const Eigen::Matrix3f & K(int level = 0) const;
+	inline const Eigen::Matrix3f& K(int level = 0) const;
 	/** Returns the frame's inverse intrinsics matrix. */
-	inline const Eigen::Matrix3f & KInv(int level = 0) const;
+	inline const Eigen::Matrix3f& KInv(int level = 0) const;
 	/** Returns K(0, 0). */
 	inline float fx(int level = 0) const;
 	/** Returns K(1, 1). */
@@ -49,7 +49,7 @@ public:
 	inline bool hasTrackingParent() const;
 	inline Frame* getTrackingParent() const;
 	PoseStruct * poseStruct;
-	KeyPointStruct* keyPoints;
+	KeyPointStruct* keyPointStruct;
 
 	struct Data
 	{
@@ -70,6 +70,7 @@ public:
 	} data;
 
 	std::unordered_set<Frame*, std::hash<Frame*>> neighbors;
+	Eigen::Matrix<double, 6, 6> information;
 };
 
 inline SE3& Frame::pose()
