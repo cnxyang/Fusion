@@ -15,6 +15,7 @@ struct PointCloud
 
 	void generateCloud(Frame* frame, bool useRGB = true);
 	void setReferenceFrame(Frame* frame);
+	void downloadFusedMap();
 	void updateImagePyramid();
 
 	bool memoryAllocated;
@@ -27,6 +28,7 @@ struct PointCloud
 	DeviceArray2D<float4> nmap[NUM_PYRS];
 	DeviceArray2D<uchar3> image_raw;
 	DeviceArray2D<float> depth_float;
+	DeviceArray2D<int> weight;
 	DeviceArray2D<unsigned short> depth_ushort;
 
 	Frame * frame;

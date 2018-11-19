@@ -52,6 +52,7 @@ void CheckBlockVisibility(MapStruct map, DeviceArray<uint> & noVisibleBlocks,
 void FuseMapColor(const DeviceArray2D<float> & depth,
 		const DeviceArray2D<uchar3> & color,
 		const DeviceArray2D<float4> & nmap,
+		const DeviceArray2D<int>& weight,
 		DeviceArray<uint> & noVisibleBlocks,
 		Matrix3f Rview, Matrix3f RviewInv,
 		float3 tview, MapStruct map,
@@ -60,9 +61,10 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 
 void DeFuseMap(const DeviceArray2D<float> & depth,
 		const DeviceArray2D<uchar3> & color, const DeviceArray2D<float4> & nmap,
-		DeviceArray<uint> & noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
-		float3 tview, MapStruct map, float fx, float fy, float cx, float cy,
-		float depthMax, float depthMin, uint * host_data);
+		const DeviceArray2D<int>& weight, DeviceArray<uint> & noVisibleBlocks,
+		Matrix3f Rview, Matrix3f RviewInv, float3 tview, MapStruct map,
+		float fx, float fy, float cx, float cy, float depthMax, float depthMin,
+		uint * host_data);
 
 void DefuseMapColor(const DeviceArray2D<float> & depth,
 		const DeviceArray2D<uchar3> & color, const DeviceArray2D<float4> & nmap,
@@ -164,15 +166,11 @@ void RGBStep(const DeviceArray2D<unsigned char>& nextImage,
 
 void FuseKeyFrameDepth(DeviceArray2D<float>& lastDMap,
 					   DeviceArray2D<float>& nextDMap,
-					   DeviceArray2D<float>& lastWMap,
+					   DeviceArray2D<int>& lastWMap,
 					   DeviceArray2D<float4>& nextNMap,
-					   DeviceArray2D<float4>& lastNMap,
 					   DeviceArray2D<float4>& nextVMap,
 					   Matrix3f R, float3 t,
-					   float3 dir,
-					   float* K,
-					   float3 dirKF,
-					   bool initKF);
+					   float* K);
 
 // ======================= old piece of shit ============================
 

@@ -19,7 +19,7 @@ VoxelMap::VoxelMap() :
 
 	currentState.maxNumBuckets = 1000000;
 	currentState.maxNumHashEntries = 1500000;
-	currentState.maxNumVoxelBlocks = 700000;
+	currentState.maxNumVoxelBlocks = 500000;
 	currentState.maxNumRenderingBlocks = 260000;
 	currentState.maxNumMeshTriangles = 20000000;
 
@@ -84,6 +84,7 @@ int VoxelMap::fuseImages(PointCloud* pc)
 	FuseMapColor(pc->depth_float,
 				 pc->image_raw,
 				 pc->nmap[0],
+				 pc->weight,
 				 data.numVisibleEntries,
 				 SE3toMatrix3f(pc->frame->pose()),
 				 SE3toMatrix3f(pc->frame->pose().inverse()),
@@ -107,6 +108,7 @@ int VoxelMap::defuseImages(PointCloud* pc)
 	DeFuseMap(pc->depth_float,
 			  pc->image_raw,
 			  pc->nmap[0],
+			  pc->weight,
 			  data.numVisibleEntries,
 			  SE3toMatrix3f(pc->frame->pose()),
 			  SE3toMatrix3f(pc->frame->pose().inverse()),

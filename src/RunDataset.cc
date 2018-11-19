@@ -60,7 +60,7 @@ int main(int argc, char** argv)
 //	}
 
 	Eigen::Matrix3f K;
-	K << 583, 0.f, 320.f,
+	K << 583.f, 0.f, 320.f,
 		 0.f, 583.f, 240.f,
 		 0.f, 0.f, 1.f;
 	SlamSystem slam(640, 480, K);

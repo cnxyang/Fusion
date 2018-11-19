@@ -80,13 +80,13 @@ struct __align__(8) RenderingBlock
 	float2 zRange;
 };
 
-struct __align__(8) Voxel
+struct Voxel
 {
 	float sdf;
-	unsigned char weight;
+	short weight;
 	uchar3 color;
 
-	__device__  Voxel();
+	__device__ Voxel();
 	__device__ Voxel(float sdf, short weight, uchar3 rgb);
 	__device__ void release();
 	__device__ void getValue(float& sdf, uchar3& rgb) const;

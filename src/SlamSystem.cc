@@ -7,7 +7,6 @@
 #include "PointCloud.h"
 #include "AOTracker.h"
 #include "ICPTracker.h"
-#include "EigenUtils.h"
 #include "KeyFrameGraph.h"
 
 #include <chrono>
@@ -29,7 +28,7 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 	aoTracker = new AOTracker(w, h, K);
 
 	constraintTracker = new ICPTracker(w, h, K);
-	constraintTracker->setIterations({ 10, 5, 3 });
+	constraintTracker->setIterations({ 3, 3, 3 });
 
 	viewer = new GlViewer("SlamSystem", w, h, K);
 	viewer->setSlamSystem(this);
@@ -49,7 +48,6 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 
 	systemState.depthCutoff = 3.0f;
 	systemState.depthScale = 1000.f;
-	lastWMap.create(640, 480);
 	CONSOLE("SLAM System Successfully Initiated.");
 }
 
@@ -75,120 +73,20 @@ SlamSystem::~SlamSystem()
 	CONSOLE("DONE Cleaning Up.");
 }
 
-// MAIN tracking thread
-// This tracking method uses frame-to-map tracking
-// and key frames are computed after new frames
-// have been registered.
-//void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeStamp)
-//{
-//	// Process MESSAGES BEFORE tracking
-//	// includes system reboot requests
-//	// and other system directives.
-//	processMessages();
-////	updateMap(10);
-//
-//	// Create NEW frame
-//	currentFrame = new Frame(img, depth, id, K, timeStamp);
-//
-//	// Generate point cloud for the new frame
-//	trackingTarget->generateCloud(currentFrame);
-//
-//	if(!trackingReference->frame)
-//	{
-//		// for efficiency reasons swap tracking data
-//		// only used when doing frame-to-frame tracking
-//		std::swap(trackingReference, trackingTarget);
-//		// Integrate current frame into the map
-//		int blockCount = map->fuseImages(trackingReference);
-//		// Do a ray cast to ensure we have a copy of the map
-//		map->raycast(trackingReference, blockCount);
-//		trackingReference->updateImagePyramid();
-//
-//		// Update key frame references
-//		currentKeyFrame = currentFrame;
-//		latestTrackedFrame = currentFrame;
-//		// New key frames to be added to the map
-//		newKeyFrames.push_back(currentKeyFrame);
-//
-//		return;
-//	}
-//
-//	// Track current frame w.r.t. *LATEST TRACKED FRAME*
-//	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget, SE3(), false);
-//	// Update current frame pose
-//	currentFrame->pose() = latestTrackedFrame->pose() * poseUpdate.inverse();
-//	currentFrame->poseStruct->parentPose = latestTrackedFrame->poseStruct;
-//
-//	if(tracker->trackingWasGood)
-//	{
-//		// Set last tracked frame to current frame
-//		latestTrackedFrame = currentFrame;
-//
-//		// Do a ray cast to ensure we have a copy of the map
-//		int blockCount = map->fuseImages(trackingTarget);
-//
-//		// Update visualisation
-//		updateVisualisation();
-//
-//		currentFrame->poseStruct->parentPose = latestTrackedFrame->poseStruct;
-//
-//		// Check if we insert a new key frame
-//		SE3 se3Update = currentKeyFrame->pose().inverse() * currentFrame->pose();
-//		Sophus::Vector3d dist = se3Update.translation();
-//		Sophus::Matrix3d angle = se3Update.rotationMatrix();
-//		Sophus::Vector3d sina = angle.eulerAngles(0, 1, 2).array().sin();
-//		if (dist.norm() > 0.05f || sina.norm() > 0.05f)
-//		{
-//			// Create new key frame
-//			currentKeyFrame = currentFrame;
-//			// New key frames to be added to the map
-//			newKeyFrames.push_back(currentKeyFrame);
-//
-//			++systemState.numTrackedKeyFrames;
-//		}
-//
-//		std::swap(trackingReference, trackingTarget);
-//
-//		// full ray cast to get a copy of the map
-//		map->raycast(trackingReference);
-//		trackingReference->updateImagePyramid();
-//	}
-//
-//	++systemState.numTrackedFrames;
-//
-//	if(systemState.numTrackedFrames % 200 == 0)
-//		map->resetMapStruct();
-//}
-
 void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeStamp)
 {
-	// process messages before tracking
-	// this include system reboot requests
-	// and other system directives.
 	processMessages();
-	updateMap(1);
-	// create new frame and generate point cloud
+	this->updatePoseGraph(1);
 	currentFrame = new Frame(img, depth, id, K, timeStamp);
 
-	trackingTarget->generateCloud(currentFrame,false);
+	trackingTarget->generateCloud(currentFrame);
 
-	// first frame of the dataset
-	// no reference frame to track to
 	if(!trackingReference->frame)
 	{
-		// for efficiency reasons swap tracking data
-		// only used when doing frame-to-frame tracking
 		std::swap(trackingReference, trackingTarget);
-
-		// do a raycast to ensure we have a copy of the map
-//		int numVisibleBlocks = map->fuseImages(trackingReference);
-//		map->raycast(trackingReference, numVisibleBlocks);
-//		trackingReference->updateImagePyramid();
 		latestTrackedFrame = currentFrame;
 		currentKeyFrame = currentFrame;
 		keyFrameGraph->addKeyFrame(currentKeyFrame);
-		lastWMap.clear();
-		initKF = true;
 		return;
 	}
 
@@ -197,169 +95,62 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 
 	// Track current frame
 	// Return frame to current *Key Frame* transform
-	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget, initialEstimate, false);
+	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget, initialEstimate);
 	currentFrame->information = tracker->getInformation();
-//	if(!tracker->trackingWasGood) {
-//		return;
-//	}
 
 	// Update current frame pose
 	currentFrame->pose() = currentKeyFrame->pose() * poseUpdate.inverse();
 
-	Eigen::Vector3d currDir = currentFrame->pose().rotationMatrix().rightCols<1>();
-	Eigen::Vector3d refDir = currentKeyFrame->pose().rotationMatrix().rightCols<1>();
 	float K[4] = { currentFrame->fx(), currentFrame->fy(), currentFrame->cx(), currentFrame->cy() };
+
 	FuseKeyFrameDepth(trackingReference->depth_float,
 				      trackingTarget->depth_float,
-					  lastWMap, trackingTarget->nmap[0],
-					  trackingReference->nmap[0], trackingTarget->vmap[0],
-					  SE3toMatrix3f(poseUpdate.inverse()), SE3toFloat3(poseUpdate.inverse()),
-					  make_float3(currDir(0), currDir(1), currDir(2)), K,
-					  make_float3(refDir(0), refDir(1), refDir(2)), initKF);
-	initKF = false;
-	ComputeVMap(trackingReference->depth[0], trackingReference->vmap[0], currentFrame->fx(),currentFrame->fy(),currentFrame->cx(),currentFrame->cy(), 3.0f);
-	ComputeNMap(trackingReference->vmap[0], trackingReference->nmap[0]);
-	trackingReference->updateImagePyramid();
-//	displayDebugImages(10);
+				      trackingReference->weight,
+				      trackingTarget->nmap[0],
+					  trackingTarget->vmap[0],
+					  SE3toMatrix3f(poseUpdate.inverse()),
+					  SE3toFloat3(poseUpdate.inverse()),
+					  K);
+
 	// Set last tracked frame to current frame
 	currentFrame->poseStruct->parentPose = currentKeyFrame->poseStruct;
 	latestTrackedFrame = currentFrame;
 
-	// Do a raycast to ensure we have a copy of the map
-//	int numVisibleBlocks = map->fuseImages(trackingTarget);
-	// Update visualisation
 	updateVisualisation();
 
 	// Check if we insert a new key frame
 	if(tracker->trackingWasGood)
 	{
-		Sophus::Vector3d dist = poseUpdate.translation();
-		Sophus::Matrix3d angle = poseUpdate.rotationMatrix();
-		Sophus::Vector3d sina = angle.eulerAngles(0, 1, 2).array().sin();
-		if(dist.norm() > 0.05f || sina.norm() > 0.05f)
+		if(needNewKeyFrame(poseUpdate))
 		{
-			int numVisibleBlocks = map->fuseImages(trackingReference);
-			Frame* f = trackingReference->frame;
-			cv::Mat temp(480, 640, CV_32FC1);
-			trackingReference->depth_float.download(temp.data, temp.step);
-			f->data.depth.release();
-			temp.convertTo(f->data.depth, CV_16UC1, 1000);
+			map->fuseImages(trackingReference);
+			trackingReference->downloadFusedMap();
+
 			std::swap(trackingReference, trackingTarget);
 			// Create new key frame
 			currentKeyFrame = currentFrame;
 
 			// New key frames to be added to the map
 			newKeyFrames.push_back(currentKeyFrame);
-			initKF = true;
 			++systemState.numTrackedKeyFrames;
 			trackingReference->frame = currentKeyFrame;
-//			map->raycast(trackingReference);
-//			trackingReference->updateImagePyramid();
-
 		}
-//		else
-//			validateKeyPoints();
-		// full ray cast to get a copy of the map
-//		map->raycast(trackingReference);
-//		trackingReference->updateImagePyramid();
 	}
+
 	++systemState.numTrackedFrames;
 }
 
-//void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeStamp)
-//{
-//	processMessages();
-//
-//	updateMap(0);
-//
-//	Frame* currentFrame = new Frame(img, depth, id, K, timeStamp);
-//	aoTracker->extractKeyPoints(currentFrame);
-//	trackingTarget->generateCloud(currentFrame, false);
-//
-//	if (!trackingReference->frame) {
-//		// for efficiency reasons swap tracking data
-//		// only used when doing frame-to-frame tracking
-//		std::swap(trackingReference, trackingTarget);
-//
-//		currentKeyFrame = currentFrame;
-//		latestTrackedFrame = currentFrame;
-//		keyFrameGraph->addKeyFrame(currentKeyFrame);
-//		lastWMap.clear();
-//		initKF = true;
-//		return;
-//	}
-//
-//	// Initial pose estimate
-//	SE3 initialEstimate = latestTrackedFrame->pose().inverse() * currentKeyFrame->pose();
-//	// Track current frame
-//	// Return frame to current *Key Frame* transform
-//	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget, initialEstimate, false);
-//	// Update current frame pose
-//	currentFrame->pose() = currentKeyFrame->pose() * poseUpdate.inverse();
-//
-//	Eigen::Vector3d currDir = currentFrame->pose().rotationMatrix().rightCols<1>();
-//	Eigen::Vector3d refDir = currentKeyFrame->pose().rotationMatrix().rightCols<1>();
-//	float K[4] = { currentFrame->fx(), currentFrame->fy(), currentFrame->cx(), currentFrame->cy() };
-//	FuseKeyFrameDepth(trackingReference->depth_float,
-//				      trackingTarget->depth_float, lastWMap, trackingTarget->nmap[0],
-//				      trackingReference->nmap[0], trackingTarget->vmap[0],
-//				      SE3toMatrix3f(poseUpdate.inverse()),
-//				      SE3toFloat3(poseUpdate.inverse()),
-//				      make_float3(currDir(0), currDir(1), currDir(2)),
-//				      K,
-//				      make_float3(refDir(0), refDir(1), refDir(2)),
-//				      initKF);
-//	initKF = false;
-//	ComputeVMap(trackingReference->depth[0],
-//				trackingReference->vmap[0],
-//				currentFrame->fx(),
-//				currentFrame->fy(),
-//				currentFrame->cx(),
-//				currentFrame->cy(),
-//				3.0f);
-//	ComputeNMap(trackingReference->vmap[0],
-//				trackingReference->nmap[0]);
-//	trackingReference->updateImagePyramid();
-//	// Set last tracked frame to current frame
-//	currentFrame->poseStruct->parentPose = currentKeyFrame->poseStruct;
-//	latestTrackedFrame = currentFrame;
-//
-//	// Update visualisation
-//	updateVisualisation();
-//
-//	// Check if we insert a new key frame
-//	if (tracker->trackingWasGood) {
-//		Sophus::Vector3d dist = poseUpdate.translation();
-//		Sophus::Matrix3d angle = poseUpdate.rotationMatrix();
-//		Sophus::Vector3d sina = angle.eulerAngles(0, 1, 2).array().sin();
-//		if (dist.norm() > 0.05f || sina.norm() > 0.05f) {
-//			int numVisibleBlocks = map->fuseImages(trackingReference);
-//			Frame* f = trackingReference->frame;
-//			cv::Mat temp(480, 640, CV_32FC1);
-//			trackingReference->depth_float.download(temp.data, temp.step);
-//			f->data.depth.release();
-//			temp.convertTo(f->data.depth, CV_16UC1, 1000);
-//			std::swap(trackingReference, trackingTarget);
-//			// Create new key frame
-//			currentKeyFrame = currentFrame;
-//
-//			// New key frames to be added to the map
-//			newKeyFrames.push_back(currentKeyFrame);
-//			initKF = true;
-//			++systemState.numTrackedKeyFrames;
-//			trackingReference->frame = currentKeyFrame;
-//			//			map->raycast(trackingReference);
-//			//			trackingReference->updateImagePyramid();
-//
-//		}
-//
-//		validateKeyPoints();
-//		// full ray cast to get a copy of the map
-//		//		map->raycast(trackingReference);
-//		//		trackingReference->updateImagePyramid();
-//	}
-//	++systemState.numTrackedFrames;
-//}
+bool SlamSystem::needNewKeyFrame(SE3& poseUpdate)
+{
+	const float distTH = 0.05f;
+	const float angleTH = 0.05f;
+
+	Sophus::Vector3d dist = poseUpdate.translation();
+	Sophus::Matrix3d angle = poseUpdate.rotationMatrix();
+	Sophus::Vector3d sin = angle.eulerAngles(0, 1, 2).array().sin();
+
+	return dist.norm() > distTH || sin.norm() > angleTH;
+}
 
 void SlamSystem::validateKeyPoints()
 {
@@ -538,7 +329,7 @@ bool SlamSystem::Optimization(int it, float minDelta)
 	return false;
 }
 
-void SlamSystem::updateMap(int nKeyFrame)
+void SlamSystem::updatePoseGraph(int nKeyFrame)
 {
 	std::vector<Frame*> keyframesAll = keyFrameGraph->getKeyFramesAll();
 	for (auto frame : keyframesAll)
@@ -557,8 +348,8 @@ void SlamSystem::updateMap(int nKeyFrame)
 			PointCloud* pc = new PointCloud();
 			pc->generateCloud(keyframesAll[i]);
 			map->defuseImages(pc);
-			keyframesAll[i]->poseStruct->isOptimised = true;
-			keyframesAll[i]->poseStruct->applyPoseUpdate();
+			pc->frame->poseStruct->isOptimised = true;
+			pc->frame->poseStruct->applyPoseUpdate();
 			map->fuseImages(pc);
 			delete pc;
 		}
@@ -595,10 +386,13 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 {
 	std::unordered_set<Frame*, std::hash<Frame*>> candidates;
 	std::unordered_set<Frame*, std::hash<Frame*>> closeCandidates;
+
 	candidates = keyFrameGraph->findTrackableCandidates(newKF);
+
 	std::map<Frame*, SE3> SE3CandidateToFrame;
 	std::map<Frame*, SE3> SE3CandidateToFrameTracked;
-	std::map<Frame*, Eigen::Matrix<double, 6, 6>> information;
+	std::map<Frame*, Eigen::Matrix<double, 6, 6>> information0;
+	std::map<Frame*, Eigen::Matrix<double, 6, 6>> information1;
 	std::vector<KFConstraintStruct*> constraints;
 
 	// Erase ones that are already neighbours
@@ -621,6 +415,29 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 		firstFrame->generateCloud(newKF, false);
 	}
 
+	while ((int) candidates.size() > 10)
+	{
+		Frame* worst = 0;
+		int worstNeighbours = 0;
+		for(Frame* f : candidates)
+		{
+			int neighoursInCandidates = 0;
+			for(Frame* n : f->neighbors)
+			{
+				if(candidates.find(n) != candidates.end())
+					neighoursInCandidates++;
+			}
+
+			if(neighoursInCandidates > worstNeighbours || worst == 0)
+			{
+				worst = f;
+				worstNeighbours = neighoursInCandidates;
+			}
+		}
+
+		candidates.erase(worst);
+	}
+
 	for (Frame* candidate : candidates)
 	{
 		if (candidate->id() == newKF->id())
@@ -637,24 +454,24 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 		if(!constraintTracker->trackingWasGood)
 			continue;
 
-
+		information0[candidate] = constraintTracker->getInformation();
 		SE3 f2c_init = SE3CandidateToFrame[candidate].inverse();
 		SE3 f2c = constraintTracker->trackSE3(secondFrame, firstFrame, f2c_init, false);
 		if(!constraintTracker->trackingWasGood)
 					continue;
 
-		if((f2c * c2f).log().norm() >= 0.05)
+		information1[candidate] = constraintTracker->getInformation();
+		if((f2c * c2f).log().norm() >= 0.01)
 			continue;
 
 		SE3CandidateToFrameTracked[candidate] = c2f;
-		information[candidate] = constraintTracker->getInformation();
 		closeCandidates.insert(candidate);
 	}
 
 	for (Frame* candidate : closeCandidates)
 	{
-		if(candidate->neighbors.size() > 6 && candidate != newKF->getTrackingParent())
-			continue;
+//		if(candidate->neighbors.size() > 6 && candidate != newKF->getTrackingParent())
+//			continue;
 		KFConstraintStruct* e1 = 0, * e2 = 0;
 		SE3 dSE3 = SE3CandidateToFrameTracked[candidate];
 		SE3 c2f = newKF->pose() * dSE3 * newKF->pose().inverse();
@@ -663,13 +480,16 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 		e1->first = candidate;
 		e1->second = newKF;
 		e1->firstToSecond = SE3toQuat(c2f);
-		e1->information = information[candidate];
+		e1->information.setIdentity();
 
+//		e1->information = information0[candidate];
 		e2 = new KFConstraintStruct();
 		e2->first = newKF;
 		e2->second = candidate;
 		e2->firstToSecond = SE3toQuat(c2f.inverse());
-		e2->information = information[candidate];
+		e2->information.setIdentity();
+
+//		e2->information = information0[candidate];
 
 		if(e1 != 0 && e2 != 0)
 		{
@@ -690,7 +510,8 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 		KFConstraintStruct* e = new KFConstraintStruct();
 		e->first = newKF->getTrackingParent();
 		e->second = newKF;
-		e->information = newKF->information;
+		e->information.setIdentity();
+//		e->information = newKF->information;
 		e->firstToSecond = SE3toQuat(newKF->pose() * newKF->getTrackingParent()->pose().inverse());
 		keyFrameGraph->insertConstraint(e);
 	}

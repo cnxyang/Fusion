@@ -6,6 +6,7 @@
 #include <Eigen/Core>
 #include <opencv.hpp>
 #include "DeviceArray.h"
+#include "SophusUtil.h"
 
 class Frame;
 class GlViewer;
@@ -68,7 +69,7 @@ protected:
 	void systemReInitialise();
 	void writeBinaryMapToDisk();
 	void readBinaryMapFromDisk();
-	void updateMap(int nKeyFrame);
+	void updatePoseGraph(int nKeyFrame);
 	void relocalise();
 
 	// Try build pose graph
@@ -77,6 +78,7 @@ protected:
 	void checkConstraints();
 	void tryTrackConstraint();
 	void validateKeyPoints();
+	bool needNewKeyFrame(SE3& poseUpdate);
 
 	// Sub-routines
 	VoxelMap* map;
@@ -141,9 +143,6 @@ protected:
 	std::deque<Frame*> keyFramesToBeMapped;
 	std::mutex keyFramesToBeMappedMutex;
 	bool havePoseUpdate;
-
-	DeviceArray2D<float> lastWMap;
-	bool initKF;
 };
 
 inline bool SlamSystem::shouldQuit() const

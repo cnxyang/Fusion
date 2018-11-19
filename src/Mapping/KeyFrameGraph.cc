@@ -86,7 +86,7 @@ std::vector<TrackableKFStruct> KeyFrameGraph::findOverlappingFrames(Frame* frame
 std::unordered_set<Frame*, std::hash<Frame*>> KeyFrameGraph::findTrackableCandidates(Frame* keyFrame)
 {
 	std::unordered_set<Frame*, std::hash<Frame*>> results;
-	std::vector<TrackableKFStruct> potentialReferenceFrames = findOverlappingFrames(keyFrame, 0.6f, 0.3f);
+	std::vector<TrackableKFStruct> potentialReferenceFrames = findOverlappingFrames(keyFrame, 0.5f, 0.5f);
 	for(unsigned int i = 0; i < potentialReferenceFrames.size(); ++i)
 		results.insert(potentialReferenceFrames[i].frame);
 	return results;

@@ -42,18 +42,16 @@ void PointCloud::generateCloud(Frame* frame, bool useRGB)
 			nmap[level].create(width, height);
 			depth[level].create(width, height);
 
-			if(useRGB)
-			{
-				image[level].create(width, height);
-				dIdx[level].create(width, height);
-				dIdy[level].create(width, height);
-			}
+			image[level].create(width, height);
+			dIdx[level].create(width, height);
+			dIdy[level].create(width, height);
 
 			if(level == 0)
 			{
 				image_raw.create(width, height);
 				depth_float.create(width, height);
 				depth_ushort.create(width, height);
+				weight.create(width, height);
 			}
 		}
 
@@ -65,6 +63,12 @@ void PointCloud::generateCloud(Frame* frame, bool useRGB)
 
 	// Upload raw colour onto GPU memory
 	image_raw.upload(frame->data.image.data, frame->data.image.step);
+
+	// Upload weight (if exists)
+	if(!frame->data.weight.empty())
+		weight.upload(frame->data.weight.data, frame->data.weight.step);
+	else
+		weight.clear();
 
 	// Do a bilateral filtering before goes into tracking
 	FilterDepth(depth_ushort, depth_float, depth[0], DEPTH_SCALE, DEPTH_CUTOFF);
@@ -107,6 +111,17 @@ void PointCloud::generateCloud(Frame* frame, bool useRGB)
 
 	// Update reference frame
 	this->frame = frame;
+}
+
+void PointCloud::downloadFusedMap()
+{
+	cv::Mat img(frame->height(), frame->width(), CV_32FC1);
+	depth_float.download(img.data, img.step);
+	frame->data.depth.release();
+	img.convertTo(frame->data.depth, CV_16UC1, 1000);
+	img.release();
+	frame->data.weight.create(frame->height(), frame->width(), CV_32SC1);
+	weight.download(frame->data.weight.data, frame->data.weight.step);
 }
 
 void PointCloud::setReferenceFrame(Frame* frame)

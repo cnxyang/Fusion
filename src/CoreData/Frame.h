@@ -66,6 +66,7 @@ public:
 
 		cv::Mat image;
 		cv::Mat depth;
+		cv::Mat weight;
 
 	} data;
 
