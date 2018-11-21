@@ -208,9 +208,9 @@ struct Fusion {
 				float3 val = make_float3(rgb.ptr(uv.y)[uv.x]);
 				int& w_curr = weight.ptr(uv.y)[uv.x];
 				Voxel& prev = map.voxelBlocks[entry.next + map.posLocalToIdx(localPos)];
-				val = val / 255.f;
-				float3 old = make_float3(prev.color) / 255.f;
-				float3 res = (prev.weight * old - w_curr * val) * 255.f;
+//				val = val / 255.f;
+				float3 old = make_float3(prev.color);
+				float3 res = (prev.weight * old - w_curr * val);
 				prev.sdf = (prev.sdf * prev.weight - sdf * w_curr);
 				prev.weight = prev.weight - w_curr;
 				prev.color = make_uchar3(res);

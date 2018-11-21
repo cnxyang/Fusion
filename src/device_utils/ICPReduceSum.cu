@@ -624,3 +624,44 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 	residual[0] = host_data[27];
 	residual[1] = host_data[28];
 }
+
+struct Association
+{
+	int2 corrd_image;
+	int2 corrd_reference;
+	float2 residual;
+};
+
+struct Estimator
+{
+	int width, height;
+	float fx, fy, cx, cy;
+	int N;
+
+	PtrStep<float4> vcurr;
+	PtrStep<float4> vlast;
+	PtrStep<float4> ncurr;
+	PtrStep<float4> nlast;
+
+	__device__ void operator()() const
+	{
+
+	}
+};
+
+__global__ void motion_estimate_kernel(const Estimator est)
+{
+	est();
+}
+
+void motion_estimate(DeviceArray2D<float4>& vcurr)
+{
+	int width = vcurr.cols;
+	int height = vcurr.rows;
+
+	Estimator est;
+
+	est.width = width;
+	est.height = height;
+	est.N = width * height;
+}

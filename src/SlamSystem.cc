@@ -124,6 +124,7 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 		if(needNewKeyFrame(poseUpdate))
 		{
 			map->fuseImages(trackingReference);
+//			map->CreateModel();
 			trackingReference->downloadFusedMap();
 
 			std::swap(trackingReference, trackingTarget);
@@ -134,6 +135,7 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 			newKeyFrames.push_back(currentKeyFrame);
 			++systemState.numTrackedKeyFrames;
 			trackingReference->frame = currentKeyFrame;
+
 		}
 	}
 
