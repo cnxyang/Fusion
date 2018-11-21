@@ -135,7 +135,6 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 			newKeyFrames.push_back(currentKeyFrame);
 			++systemState.numTrackedKeyFrames;
 			trackingReference->frame = currentKeyFrame;
-
 		}
 	}
 
