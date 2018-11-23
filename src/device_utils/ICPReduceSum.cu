@@ -625,11 +625,11 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 	residual[1] = host_data[28];
 }
 
-struct Association
+struct Corresp
 {
-	int2 corrd_image;
-	int2 corrd_reference;
-	float2 residual;
+	int2 xy;
+	int2 uv;
+	bool valid;
 };
 
 struct Estimator
@@ -638,14 +638,58 @@ struct Estimator
 	float fx, fy, cx, cy;
 	int N;
 
-	PtrStep<float4> vcurr;
-	PtrStep<float4> vlast;
-	PtrStep<float4> ncurr;
-	PtrStep<float4> nlast;
+	PtrStep<float4> lastVMap;
+	PtrStep<float4> nextVMap;
+	PtrStep<float4> lastNMap;
+	PtrStep<float4> nextNMap;
+	PtrStep<uchar> nextImage;
+	PtrStep<uchar> lastImage;
+	PtrStep<short> dIdx;
+	PtrStep<short> dIdy;
+	Matrix3f R; float3 t;
 
-	__device__ void operator()() const
+	float angleTH, distTH;
+
+	__device__ inline bool findCorresp(int& x, int& y, int& u, int& v) const
 	{
+		float3 vcurr = make_float3(nextVMap.ptr(y)[x]);
+		float3 vcurrlast = R * vcurr + t;
+		u = __float2int_rd(fx * vcurrlast.x / vcurrlast.z + cx + 0.5);
+		v = __float2int_rd(fy * vcurrlast.y / vcurrlast.z + cy + 0.5);
+		if (u < 0 || u >= height || v < 0 || v >= width)
+			return false;
 
+		float3 vlast = make_float3(lastVMap.ptr(v)[u]);
+		float3 nlast = make_float3(lastNMap.ptr(v)[u]);
+		float3 ncurr = make_float3(nextNMap.ptr(v)[u]);
+		float3 ncurrlast = R * ncurr;
+
+		if (isnan(nlast.x) || isnan(ncurr.x))
+			return false;
+
+		float dist = norm(vlast - vcurrlast);
+		float sine = norm(cross(ncurrlast, nlast));
+		bool found_corresp = sine < angleTH && dist <= distTH;
+
+		if (found_corresp) {
+			unsigned char valcurr = nextImage.ptr(y)[x];
+			unsigned char vallast = lastImage.ptr(v)[u];
+		}
+	}
+
+	__device__ inline void operator()() const
+	{
+		int x = threadIdx.x + blockIdx.x * blockDim.x;
+		int y = threadIdx.y + blockIdx.y * blockDim.y;
+		if(x >= height || y >= width)
+			return;
+
+		int u = 0, v = 0;
+		bool found_corresp = findCorresp(x, y, u, v);
+		if(found_corresp)
+		{
+
+		}
 	}
 };
 
@@ -654,10 +698,17 @@ __global__ void motion_estimate_kernel(const Estimator est)
 	est();
 }
 
-void motion_estimate(DeviceArray2D<float4>& vcurr)
+void motion_estimate(DeviceArray2D<float4>& lastVMap,
+					 DeviceArray2D<float4>& nextVMap,
+					 DeviceArray2D<float4>& lastNMap,
+					 DeviceArray2D<float4>& nextNMap,
+					 DeviceArray2D<uchar>& lastImage,
+					 DeviceArray2D<uchar>& nextImage,
+					 DeviceArray2D<short>& dIdx,
+					 DeviceArray2D<short>& dIdy)
 {
-	int width = vcurr.cols;
-	int height = vcurr.rows;
+	int width = lastVMap.cols;
+	int height = lastVMap.rows;
 
 	Estimator est;
 

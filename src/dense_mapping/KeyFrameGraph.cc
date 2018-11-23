@@ -63,20 +63,20 @@ std::vector<TrackableKFStruct> KeyFrameGraph::findOverlappingFrames(Frame* frame
 	{
 		Eigen::Vector3d otherPos = keyframesAll[i]->pose().translation();
 		Eigen::Vector3d dist = pos - otherPos;
-		float dNorm2 = dist.dot(dist);
+		float dNorm2 = dist.norm();
 		if(dNorm2 > distTH)
 			continue;
 
-		Eigen::Vector3d otherViewingDir = keyframesAll[i]->pose().rotationMatrix().rightCols<1>();
-		float dirDotProd = otherViewingDir.dot(viewingDir);
-		if(dirDotProd < cosAngleTH)
-			continue;
+//		Eigen::Vector3d otherViewingDir = keyframesAll[i]->pose().rotationMatrix().rightCols<1>();
+//		float dirDotProd = otherViewingDir.dot(viewingDir);
+//		if(dirDotProd < cosAngleTH)
+//			continue;
 
 		potentialReferenceFrames.push_back(TrackableKFStruct());
 		potentialReferenceFrames.back().frame = keyframesAll[i];
 		potentialReferenceFrames.back().ref2Frame = keyframesAll[i]->pose().inverse() * frame->pose();
 		potentialReferenceFrames.back().dist = dNorm2;
-		potentialReferenceFrames.back().angle = dirDotProd;
+//		potentialReferenceFrames.back().angle = dirDotProd;
 	}
 
 	keyframesAllMutex.unlock();
@@ -86,7 +86,7 @@ std::vector<TrackableKFStruct> KeyFrameGraph::findOverlappingFrames(Frame* frame
 std::unordered_set<Frame*, std::hash<Frame*>> KeyFrameGraph::findTrackableCandidates(Frame* keyFrame)
 {
 	std::unordered_set<Frame*, std::hash<Frame*>> results;
-	std::vector<TrackableKFStruct> potentialReferenceFrames = findOverlappingFrames(keyFrame, 0.2f, 0.4f);
+	std::vector<TrackableKFStruct> potentialReferenceFrames = findOverlappingFrames(keyFrame, 0.3f, 0.4f);
 	for(unsigned int i = 0; i < potentialReferenceFrames.size(); ++i)
 		results.insert(potentialReferenceFrames[i].frame);
 	return results;

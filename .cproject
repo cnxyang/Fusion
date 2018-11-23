@@ -85,7 +85,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="Main.cc|src|live.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="Main.cc|live.cpp|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry excluding="examples/slam_live_wrapper.cc|Main.cc|LiveSlamWrapper.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
@@ -182,9 +182,6 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
-					<fileInfo id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.490052200.821931839" name="slam_tum.cc" rcbsApplicability="disable" resourcePath="src/examples/slam_tum.cc" toolsToInvoke="nvcc.compiler.base.1624376860.871861342">
-						<tool id="nvcc.compiler.base.1624376860.871861342" name="NVCC Compiler" superClass="nvcc.compiler.base.1624376860"/>
-					</fileInfo>
 					<sourceEntries>
 						<entry excluding="MainTum.cc|tum.cpp|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry excluding="examples/slam_tum.cc|MainTum.cc|RunDataset.cc|DataSetSlam.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
@@ -284,7 +281,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="Main.cc|src|live.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="Main.cc|live.cpp|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry excluding="Main.cc|LiveSlamWrapper.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>

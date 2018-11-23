@@ -143,6 +143,9 @@ protected:
 	std::deque<Frame*> keyFramesToBeMapped;
 	std::mutex keyFramesToBeMappedMutex;
 	bool havePoseUpdate;
+
+	// Key Frame Selection
+	float entropyReference;
 };
 
 inline bool SlamSystem::shouldQuit() const

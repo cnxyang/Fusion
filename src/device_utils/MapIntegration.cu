@@ -665,8 +665,8 @@ struct KFusion
 			return;
 
 		float3 v_currlast = R * make_float3(v_curr) + t;
-		int u = (int)(fx * v_currlast.x / v_currlast.z + cx);
-		int v = (int)(fy * v_currlast.y / v_currlast.z + cy);
+		int u = (int)(fx * v_currlast.x / v_currlast.z + cx + 0.5f);
+		int v = (int)(fy * v_currlast.y / v_currlast.z + cy + 0.5f);
 		if(u < 0 || u >= cols || v < 0 || v >= rows)
 			return;
 
@@ -678,6 +678,9 @@ struct KFusion
 		{
 			w_last = 1;
 		}
+
+		if (abs(d_last - d_curr) > 0.1)
+			return;
 
 		if(!isnan(d_last))
 		{

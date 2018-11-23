@@ -98,29 +98,29 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget, initialEstimate);
 	currentFrame->information = tracker->getInformation();
 
-	// Update current frame pose
-	currentFrame->pose() = currentKeyFrame->pose() * poseUpdate.inverse();
-
-	float K[4] = { currentFrame->fx(), currentFrame->fy(), currentFrame->cx(), currentFrame->cy() };
-
-	FuseKeyFrameDepth(trackingReference->depth_float,
-				      trackingTarget->depth_float,
-				      trackingReference->weight,
-				      trackingTarget->nmap[0],
-					  trackingTarget->vmap[0],
-					  SE3toMatrix3f(poseUpdate.inverse()),
-					  SE3toFloat3(poseUpdate.inverse()),
-					  K);
-
-	// Set last tracked frame to current frame
-	currentFrame->poseStruct->parentPose = currentKeyFrame->poseStruct;
-	latestTrackedFrame = currentFrame;
-
-	updateVisualisation();
-
 	// Check if we insert a new key frame
 	if(tracker->trackingWasGood)
 	{
+		// Update current frame pose
+		currentFrame->pose() = currentKeyFrame->pose() * poseUpdate.inverse();
+
+		// Set last tracked frame to current frame
+		currentFrame->poseStruct->parentPose = currentKeyFrame->poseStruct;
+		latestTrackedFrame = currentFrame;
+
+		float K[4] = { currentFrame->fx(), currentFrame->fy(), currentFrame->cx(), currentFrame->cy() };
+
+		FuseKeyFrameDepth(trackingReference->depth_float,
+					      trackingTarget->depth_float,
+					      trackingReference->weight,
+					      trackingTarget->nmap[0],
+						  trackingTarget->vmap[0],
+						  SE3toMatrix3f(poseUpdate.inverse()),
+						  SE3toFloat3(poseUpdate.inverse()),
+						  K);
+
+		updateVisualisation();
+
 		if(needNewKeyFrame(poseUpdate))
 		{
 			map->fuseImages(trackingReference);
@@ -139,6 +139,17 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 	}
 
 	++systemState.numTrackedFrames;
+
+//	if(systemState.numTrackedKeyFrames % 100 == 0)
+//	{
+//		map->resetMapStruct();
+//		auto keyframesAll = keyFrameGraph->getKeyFramesAll();
+//		for(auto f : keyframesAll)
+//		{
+//			trackingTarget->generateCloud(f);
+//			map->fuseImages(trackingTarget);
+//		}
+//	}
 }
 
 bool SlamSystem::needNewKeyFrame(SE3& poseUpdate)
