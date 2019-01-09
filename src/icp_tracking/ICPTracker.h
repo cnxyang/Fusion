@@ -64,5 +64,5 @@ inline void ICPTracker::setIterations(std::vector<float> iter)
 }
 inline Eigen::Matrix<double, 6, 6> ICPTracker::getInformation() const
 {
-	return matrixAicp.inverse();
+	return matrixA.inverse();
 }

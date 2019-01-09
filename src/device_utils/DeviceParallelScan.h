@@ -1,5 +1,5 @@
-#ifndef DEVICE_PARALLEL_SCAN__
-#define DEVICE_PARALLEL_SCAN__
+#ifndef __DEVICE_PARALLEL_SCAN__
+#define __DEVICE_PARALLEL_SCAN__
 
 template<int threadBlock>
 __device__ inline int ComputeOffset(uint element, uint *sum) {

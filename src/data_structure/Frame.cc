@@ -6,8 +6,8 @@ Frame::Frame(cv::Mat & image, cv::Mat & depth, int id, Eigen::Matrix3f K, double
 {
 	initialize(image.cols, image.rows, id, K, timeStamp);
 
-	data.image = image;
-	data.depth = depth;
+	image.copyTo(data.image);
+	depth.copyTo(data.depth);
 }
 
 void Frame::initialize(int width, int height, int id, Eigen::Matrix3f & K, double timeStamp)

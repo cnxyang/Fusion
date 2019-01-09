@@ -22,11 +22,11 @@ class KeyFrameGraph;
 // the visualisation thread.
 struct Msg
 {
-	Msg(int msg) : data(msg) {}
+	Msg(int msg = 0) : data(msg) {}
 
 	enum
 	{
-		EMPTY_MSG,
+		EMPTY_MSG = 0,
 		SYSTEM_RESET,
 		EXPORT_MESH_TO_FILE,
 		WRITE_BINARY_MAP_TO_DISK,
@@ -146,6 +146,8 @@ protected:
 
 	// Key Frame Selection
 	float entropyReference;
+	float entropyRatio;
+	bool isFirstFrame;
 };
 
 inline bool SlamSystem::shouldQuit() const

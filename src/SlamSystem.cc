@@ -17,7 +17,7 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 	width(w), height(h), K(K), keepRunning(true), latestTrackedFrame(0),
 	newConstraintAdded(false), trackingTarget(0), trackingReference(0),
 	currentKeyFrame(0), systemRunning(true), havePoseUpdate(false),
-	currentFrame(0)
+	currentFrame(0), isFirstFrame(true), entropyReference(0)
 {
 	map = new VoxelMap();
 	map->allocateDeviceMap();
@@ -48,6 +48,7 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 
 	systemState.depthCutoff = 3.0f;
 	systemState.depthScale = 1000.f;
+	entropyRatio = 1000.f;
 	CONSOLE("SLAM System Successfully Initiated.");
 }
 
@@ -78,7 +79,7 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 	processMessages();
 	this->updatePoseGraph(1);
 	currentFrame = new Frame(img, depth, id, K, timeStamp);
-
+	std::cout << depth.at<unsigned short>(252.8661143421305, 327.1837811580408) / 1000.f<< std::endl;
 	trackingTarget->generateCloud(currentFrame);
 
 	if(!trackingReference->frame)
@@ -97,7 +98,16 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 	// Return frame to current *Key Frame* transform
 	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget, initialEstimate);
 	currentFrame->information = tracker->getInformation();
-
+	if(isFirstFrame)
+	{
+		entropyReference = std::log(tracker->getInformation().norm());
+		isFirstFrame = false;
+		entropyRatio = 1000.f;
+	}
+	else
+	{
+		entropyRatio = std::log(tracker->getInformation().norm()) / entropyReference;
+	}
 	// Check if we insert a new key frame
 	if(tracker->trackingWasGood)
 	{
@@ -107,17 +117,6 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 		// Set last tracked frame to current frame
 		currentFrame->poseStruct->parentPose = currentKeyFrame->poseStruct;
 		latestTrackedFrame = currentFrame;
-
-		float K[4] = { currentFrame->fx(), currentFrame->fy(), currentFrame->cx(), currentFrame->cy() };
-
-		FuseKeyFrameDepth(trackingReference->depth_float,
-					      trackingTarget->depth_float,
-					      trackingReference->weight,
-					      trackingTarget->nmap[0],
-						  trackingTarget->vmap[0],
-						  SE3toMatrix3f(poseUpdate.inverse()),
-						  SE3toFloat3(poseUpdate.inverse()),
-						  K);
 
 		updateVisualisation();
 
@@ -135,27 +134,34 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 			newKeyFrames.push_back(currentKeyFrame);
 			++systemState.numTrackedKeyFrames;
 			trackingReference->frame = currentKeyFrame;
+			isFirstFrame = true;
 		}
+		else
+		{
+			float K[4] = { currentFrame->fx(), currentFrame->fy(), currentFrame->cx(), currentFrame->cy() };
+
+			FuseKeyFrameDepth(trackingReference->depth_float,
+						      trackingTarget->depth_float,
+						      trackingReference->weight,
+						      trackingTarget->nmap[0],
+							  trackingTarget->vmap[0],
+							  SE3toMatrix3f(poseUpdate.inverse()),
+							  SE3toFloat3(poseUpdate.inverse()),
+							  K);
+		}
+	}
+	else
+	{
+		delete currentFrame;
 	}
 
 	++systemState.numTrackedFrames;
-
-//	if(systemState.numTrackedKeyFrames % 100 == 0)
-//	{
-//		map->resetMapStruct();
-//		auto keyframesAll = keyFrameGraph->getKeyFramesAll();
-//		for(auto f : keyframesAll)
-//		{
-//			trackingTarget->generateCloud(f);
-//			map->fuseImages(trackingTarget);
-//		}
-//	}
 }
 
 bool SlamSystem::needNewKeyFrame(SE3& poseUpdate)
 {
-	const float distTH = 0.05f;
-	const float angleTH = 0.05f;
+	const float distTH = 0.1f;
+	const float angleTH = 0.1f;
 
 	Sophus::Vector3d dist = poseUpdate.translation();
 	Sophus::Matrix3d angle = poseUpdate.rotationMatrix();
@@ -355,7 +361,7 @@ void SlamSystem::updatePoseGraph(int nKeyFrame)
 	for (int i = 0; i < std::min(nKeyFrame, (int) keyframesAll.size()); ++i)
 	{
 		// TODO: map reconstruction
-		if (keyframesAll[i]->poseStruct->diff >= 0)
+		if (keyframesAll[i]->poseStruct->diff >= 1e-3)
 		{
 			PointCloud* pc = new PointCloud();
 			pc->generateCloud(keyframesAll[i]);
@@ -450,6 +456,7 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 		candidates.erase(worst);
 	}
 
+	std::vector<Frame*> failedCandidates;
 	for (Frame* candidate : candidates)
 	{
 		if (candidate->id() == newKF->id())
@@ -464,13 +471,42 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 		SE3 c2f_init = SE3CandidateToFrame[candidate];
 		SE3 c2f = constraintTracker->trackSE3(firstFrame, secondFrame, c2f_init, false);
 		if(!constraintTracker->trackingWasGood)
+		{
+			failedCandidates.push_back(candidate);
 			continue;
+		}
 
 		information0[candidate] = constraintTracker->getInformation();
 		SE3 f2c_init = SE3CandidateToFrame[candidate].inverse();
 		SE3 f2c = constraintTracker->trackSE3(secondFrame, firstFrame, f2c_init, false);
 		if(!constraintTracker->trackingWasGood)
-					continue;
+		{
+			failedCandidates.push_back(candidate);
+			continue;
+		}
+
+		information1[candidate] = constraintTracker->getInformation();
+		if((f2c * c2f).log().norm() >= 0.01)
+		{
+			failedCandidates.push_back(candidate);
+			continue;
+		}
+
+		SE3CandidateToFrameTracked[candidate] = c2f;
+		closeCandidates.insert(candidate);
+	}
+
+	for (Frame* candidate : failedCandidates)
+	{
+		secondFrame->generateCloud(candidate, false);
+
+		SE3 c2f = constraintTracker->trackSE3(firstFrame, secondFrame, SE3(), false);
+		if(!constraintTracker->trackingWasGood)
+			continue;
+
+		SE3 f2c = constraintTracker->trackSE3(secondFrame, firstFrame, SE3(), false);
+		if(!constraintTracker->trackingWasGood)
+			continue;
 
 		information1[candidate] = constraintTracker->getInformation();
 		if((f2c * c2f).log().norm() >= 0.01)
@@ -482,8 +518,6 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 
 	for (Frame* candidate : closeCandidates)
 	{
-//		if(candidate->neighbors.size() > 6 && candidate != newKF->getTrackingParent())
-//			continue;
 		KFConstraintStruct* e1 = 0, * e2 = 0;
 		SE3 dSE3 = SE3CandidateToFrameTracked[candidate];
 		SE3 c2f = newKF->pose() * dSE3 * newKF->pose().inverse();
@@ -560,8 +594,8 @@ void SlamSystem::updateVisualisation()
 	}
 }
 
-void SlamSystem::exportMeshAsFile() {
-
+void SlamSystem::exportMeshAsFile()
+{
 	map->CreateModel();
 
 	float3 * host_vertex = (float3*) malloc(sizeof(float3) * map->noTrianglesHost * 3);

@@ -625,94 +625,81 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 	residual[1] = host_data[28];
 }
 
-struct Corresp
-{
-	int2 xy;
-	int2 uv;
-	bool valid;
-};
-
-struct Estimator
-{
-	int width, height;
-	float fx, fy, cx, cy;
-	int N;
-
-	PtrStep<float4> lastVMap;
-	PtrStep<float4> nextVMap;
-	PtrStep<float4> lastNMap;
-	PtrStep<float4> nextNMap;
-	PtrStep<uchar> nextImage;
-	PtrStep<uchar> lastImage;
-	PtrStep<short> dIdx;
-	PtrStep<short> dIdy;
-	Matrix3f R; float3 t;
-
-	float angleTH, distTH;
-
-	__device__ inline bool findCorresp(int& x, int& y, int& u, int& v) const
-	{
-		float3 vcurr = make_float3(nextVMap.ptr(y)[x]);
-		float3 vcurrlast = R * vcurr + t;
-		u = __float2int_rd(fx * vcurrlast.x / vcurrlast.z + cx + 0.5);
-		v = __float2int_rd(fy * vcurrlast.y / vcurrlast.z + cy + 0.5);
-		if (u < 0 || u >= height || v < 0 || v >= width)
-			return false;
-
-		float3 vlast = make_float3(lastVMap.ptr(v)[u]);
-		float3 nlast = make_float3(lastNMap.ptr(v)[u]);
-		float3 ncurr = make_float3(nextNMap.ptr(v)[u]);
-		float3 ncurrlast = R * ncurr;
-
-		if (isnan(nlast.x) || isnan(ncurr.x))
-			return false;
-
-		float dist = norm(vlast - vcurrlast);
-		float sine = norm(cross(ncurrlast, nlast));
-		bool found_corresp = sine < angleTH && dist <= distTH;
-
-		if (found_corresp) {
-			unsigned char valcurr = nextImage.ptr(y)[x];
-			unsigned char vallast = lastImage.ptr(v)[u];
-		}
-	}
-
-	__device__ inline void operator()() const
-	{
-		int x = threadIdx.x + blockIdx.x * blockDim.x;
-		int y = threadIdx.y + blockIdx.y * blockDim.y;
-		if(x >= height || y >= width)
-			return;
-
-		int u = 0, v = 0;
-		bool found_corresp = findCorresp(x, y, u, v);
-		if(found_corresp)
-		{
-
-		}
-	}
-};
-
-__global__ void motion_estimate_kernel(const Estimator est)
-{
-	est();
-}
-
-void motion_estimate(DeviceArray2D<float4>& lastVMap,
-					 DeviceArray2D<float4>& nextVMap,
-					 DeviceArray2D<float4>& lastNMap,
-					 DeviceArray2D<float4>& nextNMap,
-					 DeviceArray2D<uchar>& lastImage,
-					 DeviceArray2D<uchar>& nextImage,
-					 DeviceArray2D<short>& dIdx,
-					 DeviceArray2D<short>& dIdy)
-{
-	int width = lastVMap.cols;
-	int height = lastVMap.rows;
-
-	Estimator est;
-
-	est.width = width;
-	est.height = height;
-	est.N = width * height;
-}
+//struct Corresp
+//{
+//	int2 xy;
+//	int2 uv;
+//};
+//
+//struct SE3Reduction
+//{
+//	PtrStep<float4> last_vmap, next_vmap;
+//	PtrStep<float4> last_nmap, next_nmap;
+//	PtrStep<uchar> last_image, next_image;
+//	PtrStep<short> derivative_image_x, derivative_image_y;
+//
+//	float fx, fy, invfx, invfy, cx, cy;
+//	int image_width, image_height;
+//	Matrix3f R;
+//	float3 t;
+//
+//	__device__ inline bool search_corresp(int k, int& u, int& v)
+//	{
+//		int y = k / image_width;
+//		int x = k - k * y;
+//
+//		float3 vcurr = next_vmap.ptr(y)[x];
+//		float3 vcurr_last = R * vcurr + t;
+//
+//		u = __float2int_rd(fx * vcurr_last.x / vcurr_last.z + cx);
+//		v = __float2int_rd(fy * vcurr_last.y / vcurr_last.z + cy);
+//		if(u < 0 || v < 0 || u >= image_width || v >= image_height)
+//			return false;
+//	}
+//
+//	__device__ inline void compute_residual_sum()
+//	{
+//
+//	}
+//
+//	__device__ inline void compute_jacobian_row()
+//	{
+//
+//	}
+//
+//	__device__ inline void compute_ls_objective()
+//	{
+//
+//	}
+//};
+//
+//__global__ void computeResidualKernel(SE3Reduction se3)
+//{
+//	se3.compute_residual_sum();
+//}
+//
+//__global__ void computeLSObjectiveKernel(SE3Reduction se3)
+//{
+//	se3.compute_ls_objective();
+//}
+//
+//void computeSE3(const DeviceArray2D<float4> &lastNMap,
+//				const DeviceArray2D<float4> &nextNMap,
+//				const DeviceArray2D<float4> &lastVMap,
+//				const DeviceArray2D<float4> &nextVMap,
+//				const DeviceArray2D<uchar> &lastImage,
+//				const DeviceArray2D<uchar> &nextImage,
+//				const DeviceArray2D<short> &derivativeImageX,
+//				const DeviceArray2D<short> &derivativeImageY,
+//				DeviceArray2D<float> &sum,
+//				DeviceArray<float> &out,
+//				DeviceArray2D<int> &sumRes,
+//				DeviceArray<int> &outRes,
+//				Matrix3f Rcurr,
+//				float3 tcurr,
+//				float *residual,
+//				float *matrixA_host,
+//				float *vectorB_host)
+//{
+//
+//}
