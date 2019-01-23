@@ -11,6 +11,9 @@ ICPTracker::ICPTracker(int w, int h, Eigen::Matrix3f K) :
 	outSE3.create(29);
 	sumRES.create(2, 96);
 	outRES.create(2);
+	sum.create(3, 96);
+	out.create(3);
+	corresp_image.create(640, 480);
 
 	for(int level = 0; level < NUM_PYRS; ++level)
 	{
@@ -20,10 +23,7 @@ ICPTracker::ICPTracker(int w, int h, Eigen::Matrix3f K) :
 
 ICPTracker::~ICPTracker()
 {
-	sumSE3.release();
-	outSE3.release();
-	sumRES.release();
-	outRES.release();
+
 }
 
 // return frame to reference pose transformation
@@ -44,12 +44,16 @@ SE3 ICPTracker::trackSE3(PointCloud* ref, PointCloud* target, SE3 estimate, bool
 	SE3 frameToRef = estimate;
 	SE3 framePose = refPose * frameToRef.inverse();
 
+	trackingWasGood = true;
+
 	for (int level = NUM_PYRS - 1; level >= 0; --level)
 	{
 		DeviceArray2D<float4>& VMapNext = target->vmap[level];
 		DeviceArray2D<float4>& NMapNext = target->nmap[level];
 		DeviceArray2D<float4>& VMapLast = ref->vmap[level];
 		DeviceArray2D<float4>& NMapLast = ref->nmap[level];
+
+		float last_residual_error = std::numeric_limits<float>::max();
 
 		float K[4] =
 		{
@@ -61,7 +65,6 @@ SE3 ICPTracker::trackSE3(PointCloud* ref, PointCloud* target, SE3 estimate, bool
 
 		for (int iter = 0; iter < iterations[level]; ++iter)
 		{
-			// Do ICP reduce sum
 			ICPStep(VMapNext, NMapNext,
 					VMapLast, NMapLast,
 					sumSE3,	outSE3,
@@ -126,7 +129,23 @@ SE3 ICPTracker::trackSE3(PointCloud* ref, PointCloud* target, SE3 estimate, bool
 				vectorb = vectorbicp;
 			}
 
+//			compute_residual_sum(VMapNext, VMapLast, NMapNext, NMapLast,
+//					target->image[level], ref->image[level],
+//					SE3toMatrix3f(framePose), SE3toFloat3(framePose), K,
+//					sum, out, sumSE3, outSE3, target->dIdx[level],
+//					target->dIdy[level], SE3toMatrix3f(framePose.inverse()),
+//					residual, matrixA.data(), vectorb.data(), corresp_image);
+//
 			result = matrixA.ldlt().solve(vectorb);
+			if(std::isnan(result(0)))
+			{
+				trackingWasGood = false;
+				return estimate;
+			}
+
+//			float residual_error = sqrt(residual[0]) / residual[1];
+
+//			last_residual_error = residual_error;
 			auto frameToRefUpdate = SE3::exp(result);
 			frameToRef = frameToRefUpdate * frameToRef;
 			framePose = refPose * frameToRef.inverse();

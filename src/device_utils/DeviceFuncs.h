@@ -164,6 +164,26 @@ void RGBStep(const DeviceArray2D<unsigned char>& nextImage,
 			 double * matrixA_host,
 			 double * vectorB_host);
 
+struct CorrespItem
+{
+	bool valid;
+	int u, v;
+	float icp_residual;
+	float rgb_residual;
+};
+
+void compute_residual_sum(DeviceArray2D<float4>& vmap_curr,
+		DeviceArray2D<float4>& vmap_last, DeviceArray2D<float4>& nmap_curr,
+		DeviceArray2D<float4>& nmap_last,
+		DeviceArray2D<unsigned char>& image_curr,
+		DeviceArray2D<unsigned char>& image_last, Matrix3f rcurr, float3 tcurr,
+		float* K, DeviceArray2D<float>& sum, DeviceArray<float>& out,
+		DeviceArray2D<float> & sumSE3,
+		DeviceArray<float> & outSE3, DeviceArray2D<short>& dIdx,
+		DeviceArray2D<short>& dIdy, Matrix3f rcurrInv, float * residual,
+		double * matrixA_host, double * vectorB_host,
+		DeviceArray2D<CorrespItem>& corresp_image);
+
 void FuseKeyFrameDepth(DeviceArray2D<float>& lastDMap,
 					   DeviceArray2D<float>& nextDMap,
 					   DeviceArray2D<int>& lastWMap,

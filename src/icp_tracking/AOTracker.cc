@@ -146,7 +146,7 @@ SE3 AOTracker::trackFrame(Frame* frame, Frame* ref, int iterations)
 	return BestPose;
 }
 
-void AOTracker::extractKeyPoints(Frame* frame)
+void AOTracker::extractKeyPoints(Frame * frame)
 {
 	frame->keyPointStruct = new KeyPointStruct();
 

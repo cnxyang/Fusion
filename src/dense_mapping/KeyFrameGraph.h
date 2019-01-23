@@ -5,9 +5,9 @@
 #include <mutex>
 #include <unordered_set>
 
-struct KFConstraintStruct
+struct ConstraintStruct
 {
-	KFConstraintStruct() :
+	ConstraintStruct() :
 		first(0), second(0), edge(0),
 		idxInAllEdges(0)
 	{
@@ -34,53 +34,38 @@ class KeyFrameGraph
 {
 public:
 
-	KeyFrameGraph(int w, int h, Eigen::Matrix3f K);
-	KeyFrameGraph(const KeyFrameGraph&) = delete;
-	KeyFrameGraph& operator=(const KeyFrameGraph&) = delete;
+	KeyFrameGraph(int width, int height, Eigen::Matrix3f K);
 	~KeyFrameGraph();
 
-	void addKeyFrame(Frame* frame);
-	void addFrame(Frame* frame);
-	void insertConstraint(KFConstraintStruct* constraint);
-	int optimize(int iterations);
+	void optimizeGraph(int iterations);
+	void addKeyFrame(Frame * keyFrame);
+	void addFramePose(PoseStruct * pose);
+	void insertConstraint(ConstraintStruct * constraint);
 	bool addElementsFromBuffer();
 	void updatePoseGraph();
 
-	std::unordered_set<Frame*, std::hash<Frame*>> findTrackableCandidates(Frame* keyFrame);
-	std::vector<SE3> keyframePoseAll() const;
-	inline std::vector<Frame *> getKeyFramesAll() const;
-	inline void reinitialiseGraph();
+	std::unordered_set<Frame*, std::hash<Frame*>> findTrackableCandidates(Frame * keyFrame);
+	std::vector<Sophus::SE3d> keyframePoseAll() const;
+	std::vector<Frame *> getKeyFramesAll() const;
+	void clearGraph();
 
 private:
-
-	std::vector<TrackableKFStruct> findOverlappingFrames(Frame* frame, float distTH, float angleTH);
-
-	g2o::SparseOptimizer graph;
-	std::vector<Frame*> keyframesAll;
-	std::mutex keyframesAllMutex;
-
-	std::vector<Frame*> newKeyframesBuffer;
-	std::mutex newKeyFrameMutex;
-
-	std::vector<KFConstraintStruct*> edgesAll;
-	std::vector<g2o::EdgeSE3Expmap*> newEdgeBuffer;
-	std::mutex edgesListsMutex;
-
-	std::mutex graphAccessMutex;
 
 	bool hasUnupdatedPose;
 	int nextEdgeId;
 	float fowX, fowY;
+
+	std::vector<TrackableKFStruct> findOverlappingFrames(Frame* frame, float distTH, float angleTH);
+	g2o::SparseOptimizer graph;
+
+	std::vector<Frame *> keyframesAll;
+	std::vector<PoseStruct *> framePoseAll;
+	std::vector<Frame *> newKeyframesBuffer;
+	std::vector<ConstraintStruct *> edgesAll;
+	std::vector<g2o::EdgeSE3Expmap *> newEdgeBuffer;
+
+	std::mutex edgesListsMutex;
+	std::mutex newKeyFrameMutex;
+	std::mutex graphAccessMutex;
+	std::mutex keyframesAllMutex;
 };
-
-inline std::vector<Frame*> KeyFrameGraph::getKeyFramesAll() const
-{
-	return keyframesAll;
-}
-
-inline void KeyFrameGraph::reinitialiseGraph()
-{
-	keyframesAll.clear();
-	graph.clear();
-	graph.clearParameters();
-}

@@ -25,7 +25,7 @@
 							<tool id="nvcc.compiler.base.1047712494" name="NVCC Compiler" superClass="nvcc.compiler.base">
 								<option id="nvcc.compiler.deviceDebug.1657224818" name="Generate device debug information (-G)" superClass="nvcc.compiler.deviceDebug" value="false" valueType="boolean"/>
 								<option id="nvcc.compiler.option.level.1352502860" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level" value="false" valueType="boolean"/>
-								<option defaultValue="nvcc.compiler.optimization.level.most" id="nvcc.compiler.optimization.level.1398936608" name="Optimization Level" superClass="nvcc.compiler.optimization.level" valueType="enumerated"/>
+								<option defaultValue="nvcc.compiler.optimization.level.most" id="nvcc.compiler.optimization.level.1398936608" name="Optimization Level" superClass="nvcc.compiler.optimization.level" value="nvcc.compiler.optimization.level.most" valueType="enumerated"/>
 								<option id="nvcc.compiler.pic.1442362291" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.cpp11option.504353712" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.ptxasoptions.908181125" name="ptaxas options (-Xptxas)" superClass="nvcc.compiler.ptxasoptions" valueType="stringList">
@@ -318,6 +318,7 @@
 			<resource resourceType="PROJECT" workspacePath="/fusion"/>
 		</configuration>
 		<configuration configurationName="tum_release"/>
+		<configuration configurationName="release_live"/>
 		<configuration configurationName="debug_dataset"/>
 		<configuration configurationName="DebugTum"/>
 		<configuration configurationName="live_debug"/>

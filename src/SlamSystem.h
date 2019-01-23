@@ -148,6 +148,13 @@ protected:
 	float entropyReference;
 	float entropyRatio;
 	bool isFirstFrame;
+
+	// refactoring
+
+public:
+	void wait_visualization() const;
+	void load_groundtruth(std::vector<Sophus::SE3d> gt);
+	Sophus::SE3d first_frame_pose;
 };
 
 inline bool SlamSystem::shouldQuit() const

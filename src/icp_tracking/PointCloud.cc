@@ -3,7 +3,7 @@
 #include "DeviceFuncs.h"
 #include "Settings.h"
 
-#define DEPTH_SCALE 1000.f
+#define DEPTH_SCALE 5000.f
 #define DEPTH_CUTOFF 3.0f
 
 PointCloud::PointCloud():
@@ -118,7 +118,7 @@ void PointCloud::downloadFusedMap()
 	cv::Mat img(frame->height(), frame->width(), CV_32FC1);
 	depth_float.download(img.data, img.step);
 	frame->data.depth.release();
-	img.convertTo(frame->data.depth, CV_16UC1, 1000);
+	img.convertTo(frame->data.depth, CV_16UC1, 5000);
 	img.release();
 	frame->data.weight.create(frame->height(), frame->width(), CV_32SC1);
 	weight.download(frame->data.weight.data, frame->data.weight.step);

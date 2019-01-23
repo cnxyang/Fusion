@@ -1,3 +1,7 @@
+#include <chrono>
+#include <fstream>
+#include <unordered_set>
+#include <Eigen/Dense>
 #include "Frame.h"
 #include "DeviceFuncs.h"
 #include "GlViewer.h"
@@ -8,10 +12,6 @@
 #include "AOTracker.h"
 #include "ICPTracker.h"
 #include "KeyFrameGraph.h"
-
-#include <chrono>
-#include <fstream>
-#include <unordered_set>
 
 SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 	width(w), height(h), K(K), keepRunning(true), latestTrackedFrame(0),
@@ -61,6 +61,7 @@ SlamSystem::~SlamSystem()
 	threadConstraintSearch.join();
 	threadMapGeneration.join();
 	threadOptimization.join();
+	threadVisualisation.join();
 
 	CONSOLE("DONE Waiting for Other Threads.");
 
@@ -74,16 +75,16 @@ SlamSystem::~SlamSystem()
 	CONSOLE("DONE Cleaning Up.");
 }
 
-void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeStamp)
+void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeStamp)
 {
 	processMessages();
 	this->updatePoseGraph(1);
 	currentFrame = new Frame(img, depth, id, K, timeStamp);
-	std::cout << depth.at<unsigned short>(252.8661143421305, 327.1837811580408) / 1000.f<< std::endl;
 	trackingTarget->generateCloud(currentFrame);
 
 	if(!trackingReference->frame)
 	{
+		currentFrame->pose() = first_frame_pose;
 		std::swap(trackingReference, trackingTarget);
 		latestTrackedFrame = currentFrame;
 		currentKeyFrame = currentFrame;
@@ -97,17 +98,7 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 	// Track current frame
 	// Return frame to current *Key Frame* transform
 	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget, initialEstimate);
-	currentFrame->information = tracker->getInformation();
-	if(isFirstFrame)
-	{
-		entropyReference = std::log(tracker->getInformation().norm());
-		isFirstFrame = false;
-		entropyRatio = 1000.f;
-	}
-	else
-	{
-		entropyRatio = std::log(tracker->getInformation().norm()) / entropyReference;
-	}
+
 	// Check if we insert a new key frame
 	if(tracker->trackingWasGood)
 	{
@@ -122,9 +113,9 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 
 		if(needNewKeyFrame(poseUpdate))
 		{
-			map->fuseImages(trackingReference);
+//			map->fuseImages(trackingReference);
 //			map->CreateModel();
-			trackingReference->downloadFusedMap();
+//			trackingReference->downloadFusedMap();
 
 			std::swap(trackingReference, trackingTarget);
 			// Create new key frame
@@ -140,14 +131,14 @@ void SlamSystem::trackFrame(cv::Mat& img, cv::Mat& depth, int id, double timeSta
 		{
 			float K[4] = { currentFrame->fx(), currentFrame->fy(), currentFrame->cx(), currentFrame->cy() };
 
-			FuseKeyFrameDepth(trackingReference->depth_float,
-						      trackingTarget->depth_float,
-						      trackingReference->weight,
-						      trackingTarget->nmap[0],
-							  trackingTarget->vmap[0],
-							  SE3toMatrix3f(poseUpdate.inverse()),
-							  SE3toFloat3(poseUpdate.inverse()),
-							  K);
+//			FuseKeyFrameDepth(trackingReference->depth_float,
+//						      trackingTarget->depth_float,
+//						      trackingReference->weight,
+//						      trackingTarget->nmap[0],
+//							  trackingTarget->vmap[0],
+//							  SE3toMatrix3f(poseUpdate.inverse()),
+//							  SE3toFloat3(poseUpdate.inverse()),
+//							  K);
 		}
 	}
 	else
@@ -342,7 +333,7 @@ void SlamSystem::loopOptimization()
 bool SlamSystem::Optimization(int it, float minDelta)
 {
 	keyFrameGraph->addElementsFromBuffer();
-	int its = keyFrameGraph->optimize(it);
+	keyFrameGraph->optimizeGraph(it);
 	havePoseUpdate = true;
 	return false;
 }
@@ -350,12 +341,15 @@ bool SlamSystem::Optimization(int it, float minDelta)
 void SlamSystem::updatePoseGraph(int nKeyFrame)
 {
 	std::vector<Frame*> keyframesAll = keyFrameGraph->getKeyFramesAll();
+
+	// Compute Differences for all frames
 	for (auto frame : keyframesAll)
 	{
 		SE3 diff = frame->pose().inverse() * QuattoSE3(frame->poseStruct->graphVertex->estimate());
 		frame->poseStruct->diff = diff.log().norm();
 	}
 
+	// Sort all key frames by differences in descending order.
 	std::sort(keyframesAll.begin(), keyframesAll.end(), [](Frame* a, Frame* b) {return a->poseStruct->diff > b->poseStruct->diff;});
 
 	for (int i = 0; i < std::min(nKeyFrame, (int) keyframesAll.size()); ++i)
@@ -411,7 +405,7 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 	std::map<Frame*, SE3> SE3CandidateToFrameTracked;
 	std::map<Frame*, Eigen::Matrix<double, 6, 6>> information0;
 	std::map<Frame*, Eigen::Matrix<double, 6, 6>> information1;
-	std::vector<KFConstraintStruct*> constraints;
+	std::vector<ConstraintStruct*> constraints;
 
 	// Erase ones that are already neighbours
 	for (std::unordered_set<Frame*>::iterator c = candidates.begin(); c != candidates.end();)
@@ -430,46 +424,46 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 
 	if(candidates.size() > 0)
 	{
-		firstFrame->generateCloud(newKF, false);
+		firstFrame->generateCloud(newKF);
 	}
 
-	while ((int) candidates.size() > 10)
-	{
-		Frame* worst = 0;
-		int worstNeighbours = 0;
-		for(Frame* f : candidates)
-		{
-			int neighoursInCandidates = 0;
-			for(Frame* n : f->neighbors)
-			{
-				if(candidates.find(n) != candidates.end())
-					neighoursInCandidates++;
-			}
-
-			if(neighoursInCandidates > worstNeighbours || worst == 0)
-			{
-				worst = f;
-				worstNeighbours = neighoursInCandidates;
-			}
-		}
-
-		candidates.erase(worst);
-	}
+//	while ((int) candidates.size() > 10)
+//	{
+//		Frame* worst = 0;
+//		int worstNeighbours = 0;
+//		for(Frame* f : candidates)
+//		{
+//			int neighoursInCandidates = 0;
+//			for(Frame* n : f->neighbors)
+//			{
+//				if(candidates.find(n) != candidates.end())
+//					neighoursInCandidates++;
+//			}
+//
+//			if(neighoursInCandidates > worstNeighbours || worst == 0)
+//			{
+//				worst = f;
+//				worstNeighbours = neighoursInCandidates;
+//			}
+//		}
+//
+//		candidates.erase(worst);
+//	}
 
 	std::vector<Frame*> failedCandidates;
 	for (Frame* candidate : candidates)
 	{
 		if (candidate->id() == newKF->id())
 			continue;
-		if (newKF->hasTrackingParent() && newKF->getTrackingParent() == candidate)
+		if (newKF->hasParent() && newKF->getParent() == candidate)
 			continue;
-		if (candidate->hasTrackingParent() && candidate->getTrackingParent() == newKF)
+		if (candidate->hasParent() && candidate->getParent() == newKF)
 			continue;
 
-		secondFrame->generateCloud(candidate, false);
+		secondFrame->generateCloud(candidate);
 
 		SE3 c2f_init = SE3CandidateToFrame[candidate];
-		SE3 c2f = constraintTracker->trackSE3(firstFrame, secondFrame, c2f_init, false);
+		SE3 c2f = constraintTracker->trackSE3(firstFrame, secondFrame, c2f_init);
 		if(!constraintTracker->trackingWasGood)
 		{
 			failedCandidates.push_back(candidate);
@@ -478,7 +472,7 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 
 		information0[candidate] = constraintTracker->getInformation();
 		SE3 f2c_init = SE3CandidateToFrame[candidate].inverse();
-		SE3 f2c = constraintTracker->trackSE3(secondFrame, firstFrame, f2c_init, false);
+		SE3 f2c = constraintTracker->trackSE3(secondFrame, firstFrame, f2c_init);
 		if(!constraintTracker->trackingWasGood)
 		{
 			failedCandidates.push_back(candidate);
@@ -496,40 +490,40 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 		closeCandidates.insert(candidate);
 	}
 
-	for (Frame* candidate : failedCandidates)
-	{
-		secondFrame->generateCloud(candidate, false);
-
-		SE3 c2f = constraintTracker->trackSE3(firstFrame, secondFrame, SE3(), false);
-		if(!constraintTracker->trackingWasGood)
-			continue;
-
-		SE3 f2c = constraintTracker->trackSE3(secondFrame, firstFrame, SE3(), false);
-		if(!constraintTracker->trackingWasGood)
-			continue;
-
-		information1[candidate] = constraintTracker->getInformation();
-		if((f2c * c2f).log().norm() >= 0.01)
-			continue;
-
-		SE3CandidateToFrameTracked[candidate] = c2f;
-		closeCandidates.insert(candidate);
-	}
+//	for (Frame* candidate : failedCandidates)
+//	{
+//		secondFrame->generateCloud(candidate, false);
+//
+//		SE3 c2f = constraintTracker->trackSE3(firstFrame, secondFrame, SE3(), false);
+//		if(!constraintTracker->trackingWasGood)
+//			continue;
+//
+//		SE3 f2c = constraintTracker->trackSE3(secondFrame, firstFrame, SE3(), false);
+//		if(!constraintTracker->trackingWasGood)
+//			continue;
+//
+//		information1[candidate] = constraintTracker->getInformation();
+//		if((f2c * c2f).log().norm() >= 0.01)
+//			continue;
+//
+//		SE3CandidateToFrameTracked[candidate] = c2f;
+//		closeCandidates.insert(candidate);
+//	}
 
 	for (Frame* candidate : closeCandidates)
 	{
-		KFConstraintStruct* e1 = 0, * e2 = 0;
+		ConstraintStruct* e1 = 0, * e2 = 0;
 		SE3 dSE3 = SE3CandidateToFrameTracked[candidate];
 		SE3 c2f = newKF->pose() * dSE3 * newKF->pose().inverse();
 
-		e1 = new KFConstraintStruct();
+		e1 = new ConstraintStruct();
 		e1->first = candidate;
 		e1->second = newKF;
 		e1->firstToSecond = SE3toQuat(c2f);
 		e1->information.setIdentity();
 
 //		e1->information = information0[candidate];
-		e2 = new KFConstraintStruct();
+		e2 = new ConstraintStruct();
 		e2->first = newKF;
 		e2->second = candidate;
 		e2->firstToSecond = SE3toQuat(c2f.inverse());
@@ -547,18 +541,18 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 
 
 	keyFrameGraph->addKeyFrame(newKF);
-	for (KFConstraintStruct* e : constraints)
+	for (ConstraintStruct* e : constraints)
 		keyFrameGraph->insertConstraint(e);
 
-	if (newKF->hasTrackingParent())
+	if (newKF->hasParent())
 	{
 		// Insert a new constraint into the map
-		KFConstraintStruct* e = new KFConstraintStruct();
-		e->first = newKF->getTrackingParent();
+		ConstraintStruct* e = new ConstraintStruct();
+		e->first = newKF->getParent();
 		e->second = newKF;
 		e->information.setIdentity();
 //		e->information = newKF->information;
-		e->firstToSecond = SE3toQuat(newKF->pose() * newKF->getTrackingParent()->pose().inverse());
+		e->firstToSecond = SE3toQuat(newKF->pose() * newKF->getParent()->pose().inverse());
 		keyFrameGraph->insertConstraint(e);
 	}
 
@@ -728,10 +722,10 @@ void SlamSystem::rebootSystem()
 {
 	map->resetMapStruct();
 	trackingReference->frame = NULL;
-	keyFrameGraph->reinitialiseGraph();
+	keyFrameGraph->clearGraph();
 }
 
-void SlamSystem::displayDebugImages(int ms)
+void SlamSystem::displayDebugImages(int delayInMs)
 {
 	if(imageReference.empty())
 	{
@@ -757,5 +751,19 @@ void SlamSystem::displayDebugImages(int ms)
 	cv::imshow("depthTarget", depthTarget);
 	cv::imshow("nmapTarget", nmapTarget);
 
-	cv::waitKey(ms);
+	cv::waitKey(delayInMs);
+}
+
+void SlamSystem::wait_visualization() const
+{
+
+}
+
+void SlamSystem::load_groundtruth(std::vector<Sophus::SE3d> gt)
+{
+	viewer->groundtruth = gt;
+	if(gt.size() > 0)
+		first_frame_pose = gt[0];
+	else
+		first_frame_pose = Sophus::SE3d();
 }

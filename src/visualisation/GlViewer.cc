@@ -402,6 +402,19 @@ void GlViewer::drawKeyFrameGraph()
 
 	glColor3f(0.0f, 0.0f, 1.0f);
 	glDrawVertices(node.size() / 3, (GLfloat*) &node[0], GL_LINE_STRIP, 3);
+
+	std::vector<GLfloat> gt;
+	for(int i = 0; i < groundtruth.size(); ++i)
+	{
+		Sophus::SE3d& curr = groundtruth[i];
+		auto t = curr.translation();
+		gt.push_back(t(0));
+		gt.push_back(t(1));
+		gt.push_back(t(2));
+	}
+
+	glColor3f(1.0f, 1.0f, 0.3f);
+	glDrawVertices(gt.size() / 3, (GLfloat*) &gt[0], GL_LINES, 3);
 }
 
 std::vector<GLfloat> GlViewer::getTransformedCam(SE3 pose, float scale) const

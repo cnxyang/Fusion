@@ -35,7 +35,7 @@ void KeyFrameGraph::addKeyFrame(Frame* frame)
 	keyframesAll.push_back(frame);
 	g2o::VertexSE3Expmap* vertex = new g2o::VertexSE3Expmap();
 	vertex->setId(frame->id());
-	if(!frame->hasTrackingParent())
+	if(!frame->hasParent())
 		vertex->setFixed(true);
 
 	vertex->setEstimate(SE3toQuat(frame->pose()));
@@ -86,13 +86,13 @@ std::vector<TrackableKFStruct> KeyFrameGraph::findOverlappingFrames(Frame* frame
 std::unordered_set<Frame*, std::hash<Frame*>> KeyFrameGraph::findTrackableCandidates(Frame* keyFrame)
 {
 	std::unordered_set<Frame*, std::hash<Frame*>> results;
-	std::vector<TrackableKFStruct> potentialReferenceFrames = findOverlappingFrames(keyFrame, 0.5f, 0.4f);
+	std::vector<TrackableKFStruct> potentialReferenceFrames = findOverlappingFrames(keyFrame, 0.8f, 0.4f);
 	for(unsigned int i = 0; i < potentialReferenceFrames.size(); ++i)
 		results.insert(potentialReferenceFrames[i].frame);
 	return results;
 }
 
-void KeyFrameGraph::insertConstraint(KFConstraintStruct* constraint)
+void KeyFrameGraph::insertConstraint(ConstraintStruct* constraint)
 {
 	g2o::EdgeSE3Expmap* edge = new g2o::EdgeSE3Expmap();
 	edge->setId(nextEdgeId++);
@@ -145,14 +145,26 @@ void KeyFrameGraph::updatePoseGraph()
 	}
 }
 
-int KeyFrameGraph::optimize(int iterations)
+void KeyFrameGraph::optimizeGraph(int iterations)
 {
 	if (graph.edges().size() == 0)
-		return 0;
+		return;
 
 	graph.setVerbose(true);
 	graph.initializeOptimization();
 
 	hasUnupdatedPose = true;
-	return graph.optimize(iterations, false);
+	graph.optimize(iterations, false);
+}
+
+std::vector<Frame*> KeyFrameGraph::getKeyFramesAll() const
+{
+	return keyframesAll;
+}
+
+void KeyFrameGraph::clearGraph()
+{
+	keyframesAll.clear();
+	graph.clear();
+	graph.clearParameters();
 }

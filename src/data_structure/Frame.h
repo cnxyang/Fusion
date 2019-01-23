@@ -23,9 +23,9 @@ public:
 	/** Returns the frame's total number of pixels */
 	inline int pixel(int level = 0) const;
 	/** Returns the frame's intrinsics matrix. */
-	inline const Eigen::Matrix3f& K(int level = 0) const;
+	inline const Eigen::Matrix3f & K(int level = 0) const;
 	/** Returns the frame's inverse intrinsics matrix. */
-	inline const Eigen::Matrix3f& KInv(int level = 0) const;
+	inline const Eigen::Matrix3f & KInv(int level = 0) const;
 	/** Returns K(0, 0). */
 	inline float fx(int level = 0) const;
 	/** Returns K(1, 1). */
@@ -44,10 +44,12 @@ public:
 	inline float cyInv(int level = 0) const;
 	/** Returns the frame's recording timestamp. */
 	inline double timeStamp() const;
+	/** Returns the frame's pose. */
+	inline SE3 & pose();
+	/** Returns the frame's parent. */
+	inline Frame * getParent() const;
+	inline bool hasParent() const;
 
-	inline SE3& pose();
-	inline bool hasTrackingParent() const;
-	inline Frame* getTrackingParent() const;
 	PoseStruct * poseStruct;
 	KeyPointStruct* keyPointStruct;
 
@@ -70,8 +72,7 @@ public:
 
 	} data;
 
-	std::unordered_set<Frame*, std::hash<Frame*>> neighbors;
-	Eigen::Matrix<double, 6, 6> information;
+	std::unordered_set<Frame *, std::hash<Frame *>> neighbors;
 };
 
 inline SE3& Frame::pose()
@@ -154,12 +155,12 @@ inline double Frame::timeStamp() const
 	return data.timeStamp;
 }
 
-inline bool Frame::hasTrackingParent() const
+inline bool Frame::hasParent() const
 {
 	return (poseStruct->parentPose != 0);
 }
 
-inline Frame* Frame::getTrackingParent() const
+inline Frame* Frame::getParent() const
 {
 	return poseStruct->parentPose->frame;
 }

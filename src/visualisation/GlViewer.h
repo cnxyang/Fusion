@@ -34,6 +34,8 @@ public:
 	inline void setVoxelMap(VoxelMap* map);
 	inline void setSlamSystem(SlamSystem* system);
 
+	std::vector<Sophus::SE3d> groundtruth;
+
 
 	// OpenGL array mapped to CUDA
 	pangolin::CudaScopedMappedPtr* meshVerticesCUDAMapped;

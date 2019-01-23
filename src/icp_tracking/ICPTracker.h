@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DeviceArray.h"
+#include "DeviceFuncs.h"
 #include "SophusUtil.h"
 #include <Eigen/Core>
 
@@ -35,6 +36,10 @@ protected:
 	DeviceArray2D<float> sumSE3;
 	DeviceArray<int> outRES;
 	DeviceArray2D<int> sumRES;
+	DeviceArray<float> out;
+	DeviceArray2D<float> sum;
+	DeviceArray2D<CorrespItem> corresp_image;
+
 	const float RGBWeight = 0.0001f;
 
 	// Total Reduction results
