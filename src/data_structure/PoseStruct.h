@@ -21,11 +21,9 @@ public:
 	SE3 thisToParent;
 	SE3 camToWorld;
 	float diff;
-};
 
-class DevicePoseStruct
-{
-	Matrix3f Rotation;
-	Matrix3f InvRotation;
-	float3 translation;
+public:
+	Sophus::SE3d get_absolute_pose() const;
+	Sophus::SE3d pose_from_parent;
+	bool is_keyframe;
 };

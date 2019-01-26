@@ -1,5 +1,4 @@
 #include "Frame.h"
-#include "AOTracker.h"
 #include "GlViewer.h"
 #include "VoxelMap.h"
 #include "Settings.h"
@@ -173,32 +172,7 @@ GlViewer::~GlViewer()
 
 void GlViewer::drawKeyPointsToScreen()
 {
-	std::vector<GLfloat> points;
-	std::unique_lock<std::mutex> lock(keyFrameGraphMutex);
-	for(auto frame : keyFrameGraph)
-	{
-		if (!frame->keyPointStruct)
-			continue;
 
-		Eigen::Matrix3d R = frame->pose().rotationMatrix();
-		Eigen::Vector3d t = frame->pose().translation();
-		for(int i = 0; i < frame->keyPointStruct->keyPoints.size(); ++i)
-		{
-			auto& kp = frame->keyPointStruct->pt3d[i];
-			if(frame->keyPointStruct->observations[i] > 2)
-			{
-				auto pt = R * kp + t;
-				points.push_back((float) pt(0));
-				points.push_back((float) pt(1));
-				points.push_back((float) pt(2));
-			}
-		}
-	}
-
-	glPointSize(3.0f);
-	glColor3f(1.0f, 0.0f, 0.0f);
-	glDrawVertices(points.size() / 3, (GLfloat*) &points[0], GL_POINTS, 3);
-	glPointSize(1.0f);
 }
 
 void GlViewer::setCurrentImages(PointCloud* data)
@@ -373,35 +347,48 @@ void GlViewer::drawCurrentCamera() const
 
 void GlViewer::drawKeyFrameGraph()
 {
-	std::unique_lock<std::mutex> lock(keyFrameGraphMutex);
-	std::vector<GLfloat> node;
-	std::vector<GLfloat> edge;
-	for (Frame* frame : keyFrameGraph)
+//	std::unique_lock<std::mutex> lock(keyFrameGraphMutex);
+//	std::vector<GLfloat> node;
+//	std::vector<GLfloat> edge;
+//	for (Frame* frame : keyFrameGraph)
+//	{
+//		std::vector<GLfloat> cam = getTransformedCam(frame->pose(), 0.5);
+//		node.push_back(frame->pose().translation()(0));
+//		node.push_back(frame->pose().translation()(1));
+//		node.push_back(frame->pose().translation()(2));
+//
+//		glColor3fv(AliceBlue);
+//		glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_LINE_STRIP, 3);
+//
+//		for(Frame* neigbour : frame->neighbors)
+//		{
+//			edge.push_back(frame->pose().translation()(0));
+//			edge.push_back(frame->pose().translation()(1));
+//			edge.push_back(frame->pose().translation()(2));
+//			edge.push_back(neigbour->pose().translation()(0));
+//			edge.push_back(neigbour->pose().translation()(1));
+//			edge.push_back(neigbour->pose().translation()(2));
+//		}
+//
+//		glColor3f(0.0f, 1.0f, 0.0f);
+//		glDrawVertices(edge.size() / 3, (GLfloat*) &edge[0], GL_LINES, 3);
+//	}
+//
+//	glColor3f(0.0f, 0.0f, 1.0f);
+//	glDrawVertices(node.size() / 3, (GLfloat*) &node[0], GL_LINE_STRIP, 3);
+
+	std::vector<GLfloat> traject;
+	for(int i = 0; i < slam->full_trajectory.size(); ++i)
 	{
-		std::vector<GLfloat> cam = getTransformedCam(frame->pose(), 0.5);
-		node.push_back(frame->pose().translation()(0));
-		node.push_back(frame->pose().translation()(1));
-		node.push_back(frame->pose().translation()(2));
-
-		glColor3fv(AliceBlue);
-		glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_LINE_STRIP, 3);
-
-		for(Frame* neigbour : frame->neighbors)
-		{
-			edge.push_back(frame->pose().translation()(0));
-			edge.push_back(frame->pose().translation()(1));
-			edge.push_back(frame->pose().translation()(2));
-			edge.push_back(neigbour->pose().translation()(0));
-			edge.push_back(neigbour->pose().translation()(1));
-			edge.push_back(neigbour->pose().translation()(2));
-		}
-
-		glColor3f(0.0f, 1.0f, 0.0f);
-		glDrawVertices(edge.size() / 3, (GLfloat*) &edge[0], GL_LINES, 3);
+		Sophus::SE3d& curr = slam->full_trajectory[i];
+		auto t = curr.translation();
+		traject.push_back(t(0));
+		traject.push_back(t(1));
+		traject.push_back(t(2));
 	}
 
-	glColor3f(0.0f, 0.0f, 1.0f);
-	glDrawVertices(node.size() / 3, (GLfloat*) &node[0], GL_LINE_STRIP, 3);
+	glColor3f(1.0f, 0.0f, 0.0f);
+	glDrawVertices(traject.size() / 3, (GLfloat*) &traject[0], GL_LINE_STRIP, 3);
 
 	std::vector<GLfloat> gt;
 	for(int i = 0; i < groundtruth.size(); ++i)
@@ -413,8 +400,8 @@ void GlViewer::drawKeyFrameGraph()
 		gt.push_back(t(2));
 	}
 
-	glColor3f(1.0f, 1.0f, 0.3f);
-	glDrawVertices(gt.size() / 3, (GLfloat*) &gt[0], GL_LINES, 3);
+	glColor3f(0.0f, 1.0f, 0.0f);
+	glDrawVertices(gt.size() / 3, (GLfloat*) &gt[0], GL_LINE_STRIP, 3);
 }
 
 std::vector<GLfloat> GlViewer::getTransformedCam(SE3 pose, float scale) const

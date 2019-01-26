@@ -114,7 +114,6 @@ protected:
 	KeyFrameGraph* keyFrameGraph;
 
 	// Used for frame-to-model tracking
-	AOTracker* aoTracker;
 	ICPTracker* tracker;
 	PointCloud* trackingReference;
 	PointCloud* trackingTarget;
@@ -152,9 +151,22 @@ protected:
 	// refactoring
 
 public:
-	void wait_visualization() const;
+
+	struct TexturedPoint
+	{
+		TexturedPoint(Eigen::Vector3f& pos, cv::Vec3b& color) : position(pos), color(color) {}
+		Eigen::Vector3f position;
+		cv::Vec3b color;
+	};
+
+	void build_full_trajectory();
+	void build_point_cloud();
+	void save_point_cloud(std::string path);
 	void load_groundtruth(std::vector<Sophus::SE3d> gt);
+
 	Sophus::SE3d first_frame_pose;
+	std::vector<Sophus::SE3d> full_trajectory;
+	std::vector<TexturedPoint> point_cloud;
 };
 
 inline bool SlamSystem::shouldQuit() const

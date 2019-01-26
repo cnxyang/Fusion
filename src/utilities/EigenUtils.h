@@ -2,6 +2,9 @@
 #include <Eigen/Core>
 #include "VectorMath.h"
 
+typedef float NumType;
+typedef Eigen::Matrix<NumType, 6, 6> Matrix6x6;
+
 inline Matrix3f EigenToMatrix3f(Eigen::Matrix3d input)
 {
 	Matrix3f mat3f;

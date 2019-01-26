@@ -44,6 +44,11 @@ void KeyFrameGraph::addKeyFrame(Frame* frame)
 	newKeyframesBuffer.push_back(frame);
 }
 
+void KeyFrameGraph::insert_frame_pose(Frame* frame)
+{
+	frames.push_back(frame->poseStruct);
+}
+
 std::vector<SE3> KeyFrameGraph::keyframePoseAll() const
 {
 	std::vector<SE3> poses;
@@ -168,3 +173,5 @@ void KeyFrameGraph::clearGraph()
 	graph.clear();
 	graph.clearParameters();
 }
+
+

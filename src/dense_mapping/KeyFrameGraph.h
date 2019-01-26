@@ -1,9 +1,12 @@
-#pragma once
-#include <g2o/core/sparse_optimizer.h>
-#include <g2o/types/sba/types_six_dof_expmap.h>
+#ifndef __KEY_FRAME_GRAPH__
+#define __KEY_FRAME_GRAPH__
+
 #include "Frame.h"
+#include "EigenUtils.h"
 #include <mutex>
 #include <unordered_set>
+#include <g2o/core/sparse_optimizer.h>
+#include <g2o/types/sba/types_six_dof_expmap.h>
 
 struct ConstraintStruct
 {
@@ -39,7 +42,6 @@ public:
 
 	void optimizeGraph(int iterations);
 	void addKeyFrame(Frame * keyFrame);
-	void addFramePose(PoseStruct * pose);
 	void insertConstraint(ConstraintStruct * constraint);
 	bool addElementsFromBuffer();
 	void updatePoseGraph();
@@ -68,4 +70,11 @@ private:
 	std::mutex newKeyFrameMutex;
 	std::mutex graphAccessMutex;
 	std::mutex keyframesAllMutex;
+
+public:
+
+	void insert_frame_pose(Frame* frame);
+	std::list<PoseStruct*> frames;
 };
+
+#endif

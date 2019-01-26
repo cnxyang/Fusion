@@ -52,6 +52,7 @@ public:
 
 	PoseStruct * poseStruct;
 	KeyPointStruct* keyPointStruct;
+	bool is_keyframe;
 
 	struct Data
 	{

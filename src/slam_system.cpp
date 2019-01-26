@@ -9,7 +9,6 @@
 #include "Settings.h"
 #include "SlamSystem.h"
 #include "PointCloud.h"
-#include "AOTracker.h"
 #include "ICPTracker.h"
 #include "KeyFrameGraph.h"
 
@@ -24,8 +23,6 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 
 	tracker = new ICPTracker(w, h, K);
 	tracker->setIterations({ 10, 5, 3 });
-
-	aoTracker = new AOTracker(w, h, K);
 
 	constraintTracker = new ICPTracker(w, h, K);
 	constraintTracker->setIterations({ 3, 3, 3 });
@@ -85,10 +82,14 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 	if(!trackingReference->frame)
 	{
 		currentFrame->pose() = first_frame_pose;
+//		full_trajectory.push_back(currentFrame->pose());
 		std::swap(trackingReference, trackingTarget);
 		latestTrackedFrame = currentFrame;
 		currentKeyFrame = currentFrame;
 		keyFrameGraph->addKeyFrame(currentKeyFrame);
+
+		currentFrame->poseStruct->is_keyframe = true;
+		keyFrameGraph->insert_frame_pose(currentFrame);
 		return;
 	}
 
@@ -104,7 +105,9 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 	{
 		// Update current frame pose
 		currentFrame->pose() = currentKeyFrame->pose() * poseUpdate.inverse();
-
+		currentFrame->poseStruct->pose_from_parent = poseUpdate.inverse();
+//		keyFrameGraph->insert_frame_pose(currentFrame);
+		full_trajectory.push_back(currentFrame->pose());
 		// Set last tracked frame to current frame
 		currentFrame->poseStruct->parentPose = currentKeyFrame->poseStruct;
 		latestTrackedFrame = currentFrame;
@@ -120,7 +123,7 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 			std::swap(trackingReference, trackingTarget);
 			// Create new key frame
 			currentKeyFrame = currentFrame;
-
+			currentFrame->poseStruct->is_keyframe = true;
 			// New key frames to be added to the map
 			newKeyFrames.push_back(currentKeyFrame);
 			++systemState.numTrackedKeyFrames;
@@ -129,6 +132,7 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 		}
 		else
 		{
+
 			float K[4] = { currentFrame->fx(), currentFrame->fy(), currentFrame->cx(), currentFrame->cy() };
 
 //			FuseKeyFrameDepth(trackingReference->depth_float,
@@ -146,6 +150,8 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 		delete currentFrame;
 	}
 
+	keyFrameGraph->insert_frame_pose(currentFrame);
+
 	++systemState.numTrackedFrames;
 }
 
@@ -159,53 +165,6 @@ bool SlamSystem::needNewKeyFrame(SE3& poseUpdate)
 	Sophus::Vector3d sin = angle.eulerAngles(0, 1, 2).array().sin();
 
 	return dist.norm() > distTH || sin.norm() > angleTH;
-}
-
-void SlamSystem::validateKeyPoints()
-{
-	if(!currentKeyFrame->keyPointStruct)
-		aoTracker->extractKeyPoints(currentKeyFrame);
-
-	if(currentKeyFrame->keyPointStruct->observations.size() != currentKeyFrame->keyPointStruct->keyPoints.size())
-	{
-		currentKeyFrame->keyPointStruct->observations.resize(currentKeyFrame->keyPointStruct->keyPoints.size());
-		std::fill(currentKeyFrame->keyPointStruct->observations.begin(), currentKeyFrame->keyPointStruct->observations.end(), 0);
-	}
-	aoTracker->extractKeyPoints(currentFrame);
-
-	std::vector<cv::DMatch> matches, matches0, matches1;
-	aoTracker->matcher->match(currentFrame->keyPointStruct->descriptors, currentKeyFrame->keyPointStruct->descriptors, matches0);
-	aoTracker->matcher->match(currentKeyFrame->keyPointStruct->descriptors,	currentFrame->keyPointStruct->descriptors, matches1);
-
-	SE3 dPose = currentFrame->pose().inverse() * currentKeyFrame->pose();
-	Eigen::Matrix3d Rot = dPose.rotationMatrix();
-	Eigen::Vector3d trans = dPose.translation();
-	for (auto& m0 : matches0)
-	{
-		auto& m1 = matches1[m0.trainIdx];
-		if(m1.trainIdx == m0.queryIdx && m1.queryIdx == m0.trainIdx) // ?
-		{
-			Eigen::Vector3d framePoint = currentFrame->keyPointStruct->pt3d[m0.queryIdx];
-			Eigen::Vector3d mapPoint = currentKeyFrame->keyPointStruct->pt3d[m0.trainIdx];
-			float dist = (framePoint - (Rot * mapPoint + trans)).norm();
-			if(dist <= 0.05f)
-				matches.push_back(m0);
-		}
-	}
-
-	for (auto& m : matches)
-	{
-		currentKeyFrame->keyPointStruct->observations[m.trainIdx]++;
-	}
-
-//	cv::Mat img;
-//	cv::drawMatches(currentFrame->data.image, currentFrame->keyPointStruct->keyPoints,
-//					currentKeyFrame->data.image, currentKeyFrame->keyPointStruct->keyPoints, matches, img);
-//	cv::imshow("img", img);
-//	cv::waitKey(0);
-
-	if(currentFrame != currentKeyFrame)
-		currentFrame->keyPointStruct->minimizeMemoryFootprint();
 }
 
 void SlamSystem::processMessages()
@@ -725,38 +684,45 @@ void SlamSystem::rebootSystem()
 	keyFrameGraph->clearGraph();
 }
 
-void SlamSystem::displayDebugImages(int delayInMs)
+//void SlamSystem::displayDebugImages(int delayInMs)
+//{
+//	if(imageReference.empty())
+//	{
+//		imageReference.create(480, 640, CV_8UC1);
+//		depthReference.create(480, 640, CV_32FC1);
+//		imageTarget.create(480, 640, CV_8UC1);
+//		depthTarget.create(480, 640, CV_32FC1);
+//		nmapReference.create(480, 640, CV_32FC4);
+//		nmapTarget.create(480, 640, CV_32FC4);
+//	}
+//
+//	trackingReference->image[0].download(imageReference.data, imageReference.step);
+//	trackingReference->depth[0].download(depthReference.data, depthReference.step);
+//	trackingReference->vmap[0].download(nmapReference.data, nmapReference.step);
+//	trackingTarget->image[0].download(imageTarget.data, imageTarget.step);
+//	trackingTarget->depth[0].download(depthTarget.data, depthTarget.step);
+//	trackingTarget->vmap[0].download(nmapTarget.data, nmapTarget.step);
+//
+//	cv::imshow("imageReference", imageReference);
+//	cv::imshow("depthReference", depthReference);
+//	cv::imshow("nmapReference", nmapReference);
+//	cv::imshow("imageTarget", imageTarget);
+//	cv::imshow("depthTarget", depthTarget);
+//	cv::imshow("nmapTarget", nmapTarget);
+//
+//	cv::waitKey(delayInMs);
+//}
+
+void SlamSystem::build_full_trajectory()
 {
-	if(imageReference.empty())
+	if(full_trajectory.size() > 0)
+		full_trajectory.clear();
+
+	std::list<PoseStruct*>& history = keyFrameGraph->frames;
+	for(auto iter = history.begin(), lend = history.end(); iter != lend; ++iter)
 	{
-		imageReference.create(480, 640, CV_8UC1);
-		depthReference.create(480, 640, CV_32FC1);
-		imageTarget.create(480, 640, CV_8UC1);
-		depthTarget.create(480, 640, CV_32FC1);
-		nmapReference.create(480, 640, CV_32FC4);
-		nmapTarget.create(480, 640, CV_32FC4);
+		full_trajectory.push_back((*iter)->get_absolute_pose());
 	}
-
-	trackingReference->image[0].download(imageReference.data, imageReference.step);
-	trackingReference->depth[0].download(depthReference.data, depthReference.step);
-	trackingReference->vmap[0].download(nmapReference.data, nmapReference.step);
-	trackingTarget->image[0].download(imageTarget.data, imageTarget.step);
-	trackingTarget->depth[0].download(depthTarget.data, depthTarget.step);
-	trackingTarget->vmap[0].download(nmapTarget.data, nmapTarget.step);
-
-	cv::imshow("imageReference", imageReference);
-	cv::imshow("depthReference", depthReference);
-	cv::imshow("nmapReference", nmapReference);
-	cv::imshow("imageTarget", imageTarget);
-	cv::imshow("depthTarget", depthTarget);
-	cv::imshow("nmapTarget", nmapTarget);
-
-	cv::waitKey(delayInMs);
-}
-
-void SlamSystem::wait_visualization() const
-{
-
 }
 
 void SlamSystem::load_groundtruth(std::vector<Sophus::SE3d> gt)

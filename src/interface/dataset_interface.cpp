@@ -29,6 +29,8 @@ void TUMDatasetInterface::load_association_file(std::string file_name)
 	}
 
 	file.close();
+
+	printf("Total of %lu Images Loaded.\n", depth_list.size());
 }
 
 void TUMDatasetInterface::load_ground_truth(std::string file_name)
@@ -50,6 +52,8 @@ void TUMDatasetInterface::load_ground_truth(std::string file_name)
 	}
 
 	file.close();
+
+	printf("Total of %lu Ground truth data Loaded.\n", gt_list.size());
 }
 
 bool TUMDatasetInterface::read_next_images(cv::Mat& image, cv::Mat& depth)
@@ -80,4 +84,35 @@ double TUMDatasetInterface::get_current_timestamp() const
 unsigned int TUMDatasetInterface::get_current_id() const
 {
 	return id - 1;
+}
+
+void TUMDatasetInterface::save_full_trajectory(std::vector<Sophus::SE3d> full_trajectory, std::string file_name) const
+{
+	std::ofstream file;
+	std::string file_path = base_dir + file_name;
+	file.open(file_path, std::ios_base::out);
+
+	for(int i = 0; i < full_trajectory.size(); ++i)
+	{
+		if(i >= time_stamp.size())
+			break;
+
+		double ts = time_stamp[i];
+		Sophus::SE3d& curr = full_trajectory[i];
+		Eigen::Vector3d t = curr.translation();
+		Eigen::Quaterniond q(curr.rotationMatrix());
+
+		file << std::fixed
+			 << std::setprecision(4)
+		     << ts << " "
+			 << t(0) << " "
+			 << t(1) << " "
+			 << t(2) << " "
+			 << q.x() << " "
+			 << q.y() << " "
+			 << q.z() << " "
+			 << q.w() << std::endl;
+	}
+
+	file.close();
 }

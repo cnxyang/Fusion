@@ -9,7 +9,9 @@
 class TUMDatasetInterface
 {
 public:
+
 	TUMDatasetInterface(std::string dir);
+
 	~TUMDatasetInterface();
 
 	/** ESSENTIAL: Load data from the association file */
@@ -21,14 +23,17 @@ public:
 	/** ESSENTIAL: Read the next pair of images. return false if there is none */
 	bool read_next_images(cv::Mat& image, cv::Mat& depth);
 
-	/** MUTATOR: return the list of all ground truth poses */
+	/** MUTATOR: Return the list of all ground truth poses */
 	std::vector<Sophus::SE3d> get_groundtruth() const;
 
-	/** MUTATOR: return the time stamp of the current frame */
+	/** MUTATOR: Return the time stamp of the current frame */
 	double get_current_timestamp() const;
 
-	/** MUTATOR: return the id of the current frame */
+	/** MUTATOR: Return the id of the current frame */
 	unsigned int get_current_id() const;
+
+	/** ADVANCED: Save the full camera trajectory to the file system */
+	void save_full_trajectory(std::vector<Sophus::SE3d> full_trajectory, std::string file_name) const;
 
 private:
 

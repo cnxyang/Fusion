@@ -84,9 +84,17 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<folderInfo id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.413789610" name="/" resourcePath="slam_core">
+						<toolChain id="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release.1709563060" name="CUDA Toolkit 9.2" superClass="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release" unusedChildren="">
+							<tool id="nvcc.compiler.base.1108040007" name="NVCC Compiler" superClass="nvcc.compiler.base.1047712494"/>
+							<tool id="nvcc.linker.base.598480511" name="NVCC Linker" superClass="nvcc.linker.base.1307129381"/>
+							<tool id="nvcc.archiver.base.2130737709" name="NVCC Archiver" superClass="nvcc.archiver.base.1098630470"/>
+							<tool id="com.nvidia.host.assembler.1674111173" name="Host Assembler" superClass="com.nvidia.host.assembler.1962423995"/>
+						</toolChain>
+					</folderInfo>
 					<sourceEntries>
-						<entry excluding="Main.cc|live.cpp|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
-						<entry excluding="examples/slam_live_wrapper.cc|Main.cc|LiveSlamWrapper.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="include|Main.cc|src|live.cpp|slam_core" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="Main.cc|examples/slam_live_wrapper.cc|LiveSlamWrapper.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -183,8 +191,11 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="MainTum.cc|tum.cpp|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
-						<entry excluding="examples/slam_tum.cc|MainTum.cc|RunDataset.cc|DataSetSlam.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="MainTum.cc|include|tum.cpp|src|slam_core" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="include|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="slam_core"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="slam_core/include"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="slam_core/src"/>
+						<entry excluding="MainTum.cc|RunDataset.cc|examples/slam_tum.cc|DataSetSlam.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -281,7 +292,10 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="Main.cc|live.cpp|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="include|Main.cc|src|live.cpp|slam_core" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="include|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="slam_core"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="slam_core/include"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="slam_core/src"/>
 						<entry excluding="Main.cc|LiveSlamWrapper.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>

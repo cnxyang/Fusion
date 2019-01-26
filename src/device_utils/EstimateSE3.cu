@@ -847,7 +847,7 @@ public:
 			}
 
 			w = row_icp[6] * row_icp[6] * sigma_icp_ + 2 * row_icp[6] * row_rgb[6] * cov_icp_rgb_ + row_rgb[6] * row_rgb[6] * sigma_rgb_;
-			w = w < 1e-3 ? 0 : 6.0 / ( 5.0 + w );
+			w = w < 1e-3 ? 0 : 5.0 / ( 7.0 + w );
 		}
 
 		int count = 0;
@@ -857,7 +857,7 @@ public:
 #pragma unroll
 			for (int j = i; j < 7; ++j)
 			{
-				value[count++] = row_icp[i] * row_icp[j];
+				value[count++] = tmp0[i] * row_icp[j] + tmp1[i] * row_rgb[j];
 			}
 		}
 
@@ -984,7 +984,7 @@ void compute_residual_sum(DeviceArray2D<float4>& vmap_curr,
 	Eigen::Matrix2f cov_mat, cov_mat_inv;
 	cov_mat << host_data[0], host_data[2], host_data[2], host_data[1];
 	cov_mat_inv = cov_mat.inverse().eval();
-	std::cout << cov_mat_inv << std::endl;
+
 	ComputeJacobian cj;
 	cj.N = vmap_curr.cols * vmap_curr.rows;
 	cj.width_ = vmap_curr.cols;

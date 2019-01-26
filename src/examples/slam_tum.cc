@@ -30,6 +30,11 @@ int main(int argc, char** argv)
 		int id = interface.get_current_id();
 		double ts = interface.get_current_timestamp();
 		cvtColor(image, image, cv::COLOR_BGR2RGB);
-		sys.trackFrame(image, depth, id, 0);
+
+		sys.trackFrame(image, depth, id, ts);
 	}
+
+	cv::waitKey(1000);
+	sys.build_full_trajectory();
+	interface.save_full_trajectory(sys.full_trajectory, "result.txt");
 }
