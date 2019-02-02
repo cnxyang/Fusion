@@ -71,11 +71,12 @@ SlamSystem::~SlamSystem()
 
 	CONSOLE("DONE Cleaning Up.");
 }
-
+float base_entropy = 0;
+bool first_frame = true;
 void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeStamp)
 {
 	processMessages();
-	this->updatePoseGraph(1);
+//	this->updatePoseGraph(1);
 	currentFrame = new Frame(img, depth, id, K, timeStamp);
 	trackingTarget->generateCloud(currentFrame);
 
@@ -103,8 +104,17 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 	// Check if we insert a new key frame
 	if(tracker->trackingWasGood)
 	{
+		if(first_frame)
+		{
+			base_entropy = tracker->entropy;
+			first_frame = false;
+		}
+
+
 		// Update current frame pose
 		currentFrame->pose() = currentKeyFrame->pose() * poseUpdate.inverse();
+		motion_model = currentFrame->pose().inverse() * latestTrackedFrame->pose();
+
 		currentFrame->poseStruct->pose_from_parent = poseUpdate.inverse();
 //		keyFrameGraph->insert_frame_pose(currentFrame);
 		full_trajectory.push_back(currentFrame->pose());
@@ -113,9 +123,10 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 		latestTrackedFrame = currentFrame;
 
 		updateVisualisation();
-
-		if(needNewKeyFrame(poseUpdate))
+		std::cout << tracker->entropy / base_entropy << std::endl;
+		if(tracker->entropy / base_entropy < 0.3)
 		{
+//			first_frame = true;
 //			map->fuseImages(trackingReference);
 //			map->CreateModel();
 //			trackingReference->downloadFusedMap();

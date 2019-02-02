@@ -24,11 +24,10 @@ public:
 	float lastRgbError;
 	float icpInlierRatio;
 	float rgbInlierRatio;
+	float entropy;
 
 	inline void setIterations(std::vector<float> iter);
 	inline Eigen::Matrix<double, 6, 6> getInformation() const;
-
-protected:
 
 	// temporary variables
 	// used for ICP reduction
@@ -41,6 +40,7 @@ protected:
 	DeviceArray2D<CorrespItem> corresp_image;
 
 	const float RGBWeight = 0.0001f;
+	float point_ratio;
 
 	// Total Reduction results
 	Eigen::Matrix<double, 6, 6> matrixA;

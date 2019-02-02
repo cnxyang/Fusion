@@ -27,7 +27,7 @@ int main(int argc, char** argv)
 
 	while(interface.read_next_images(image, depth))
 	{
-		int id = interface.get_current_id();
+		unsigned int id = interface.get_current_id();
 		double ts = interface.get_current_timestamp();
 		cvtColor(image, image, cv::COLOR_BGR2RGB);
 

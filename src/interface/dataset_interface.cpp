@@ -41,6 +41,12 @@ void TUMDatasetInterface::load_ground_truth(std::string file_name)
 	std::ifstream file;
 	file.open(base_dir + file_name);
 
+	for(int i = 0; i < 3; ++i)
+	{
+		std::string line;
+		std::getline(file, line);
+	}
+
 	while(file >> ts >> tx >> ty >> tz >> qx >> qy >> qz >> qw)
 	{
 		Eigen::Quaterniond q(qw, qx, qy, qz);

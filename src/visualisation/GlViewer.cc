@@ -347,48 +347,48 @@ void GlViewer::drawCurrentCamera() const
 
 void GlViewer::drawKeyFrameGraph()
 {
-//	std::unique_lock<std::mutex> lock(keyFrameGraphMutex);
-//	std::vector<GLfloat> node;
-//	std::vector<GLfloat> edge;
-//	for (Frame* frame : keyFrameGraph)
-//	{
-//		std::vector<GLfloat> cam = getTransformedCam(frame->pose(), 0.5);
-//		node.push_back(frame->pose().translation()(0));
-//		node.push_back(frame->pose().translation()(1));
-//		node.push_back(frame->pose().translation()(2));
-//
-//		glColor3fv(AliceBlue);
-//		glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_LINE_STRIP, 3);
-//
-//		for(Frame* neigbour : frame->neighbors)
-//		{
-//			edge.push_back(frame->pose().translation()(0));
-//			edge.push_back(frame->pose().translation()(1));
-//			edge.push_back(frame->pose().translation()(2));
-//			edge.push_back(neigbour->pose().translation()(0));
-//			edge.push_back(neigbour->pose().translation()(1));
-//			edge.push_back(neigbour->pose().translation()(2));
-//		}
-//
-//		glColor3f(0.0f, 1.0f, 0.0f);
-//		glDrawVertices(edge.size() / 3, (GLfloat*) &edge[0], GL_LINES, 3);
-//	}
-//
-//	glColor3f(0.0f, 0.0f, 1.0f);
-//	glDrawVertices(node.size() / 3, (GLfloat*) &node[0], GL_LINE_STRIP, 3);
-
-	std::vector<GLfloat> traject;
-	for(int i = 0; i < slam->full_trajectory.size(); ++i)
+	std::unique_lock<std::mutex> lock(keyFrameGraphMutex);
+	std::vector<GLfloat> node;
+	std::vector<GLfloat> edge;
+	for (Frame* frame : keyFrameGraph)
 	{
-		Sophus::SE3d& curr = slam->full_trajectory[i];
-		auto t = curr.translation();
-		traject.push_back(t(0));
-		traject.push_back(t(1));
-		traject.push_back(t(2));
+		std::vector<GLfloat> cam = getTransformedCam(frame->pose(), 0.5);
+		node.push_back(frame->pose().translation()(0));
+		node.push_back(frame->pose().translation()(1));
+		node.push_back(frame->pose().translation()(2));
+
+		glColor3fv(AliceBlue);
+		glDrawVertices(cam.size() / 3, (GLfloat*) &cam[0], GL_LINE_STRIP, 3);
+
+		for(Frame* neigbour : frame->neighbors)
+		{
+			edge.push_back(frame->pose().translation()(0));
+			edge.push_back(frame->pose().translation()(1));
+			edge.push_back(frame->pose().translation()(2));
+			edge.push_back(neigbour->pose().translation()(0));
+			edge.push_back(neigbour->pose().translation()(1));
+			edge.push_back(neigbour->pose().translation()(2));
+		}
+
+		glColor3f(0.0f, 1.0f, 0.0f);
+		glDrawVertices(edge.size() / 3, (GLfloat*) &edge[0], GL_LINES, 3);
 	}
 
-	glColor3f(1.0f, 0.0f, 0.0f);
-	glDrawVertices(traject.size() / 3, (GLfloat*) &traject[0], GL_LINE_STRIP, 3);
+	glColor3f(0.0f, 0.0f, 1.0f);
+	glDrawVertices(node.size() / 3, (GLfloat*) &node[0], GL_LINE_STRIP, 3);
+
+//	std::vector<GLfloat> traject;
+//	for(int i = 0; i < slam->full_trajectory.size(); ++i)
+//	{
+//		Sophus::SE3d& curr = slam->full_trajectory[i];
+//		auto t = curr.translation();
+//		traject.push_back(t(0));
+//		traject.push_back(t(1));
+//		traject.push_back(t(2));
+//	}
+//
+//	glColor3f(1.0f, 0.0f, 0.0f);
+//	glDrawVertices(traject.size() / 3, (GLfloat*) &traject[0], GL_LINE_STRIP, 3);
 
 	std::vector<GLfloat> gt;
 	for(int i = 0; i < groundtruth.size(); ++i)

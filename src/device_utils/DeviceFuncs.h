@@ -171,6 +171,21 @@ struct CorrespItem
 	float icp_residual;
 	float rgb_residual;
 };
+struct ResidualVector
+{
+	bool valid;
+	float icp, rgb;
+};
+
+struct Corresp
+{
+	bool valid;
+	int u, v;
+};
+
+#include <Eigen/Core>
+
+void initialize_weight(DeviceArray<float>& weight);
 
 void compute_residual_sum(DeviceArray2D<float4>& vmap_curr,
 		DeviceArray2D<float4>& vmap_last, DeviceArray2D<float4>& nmap_curr,
@@ -191,6 +206,29 @@ void FuseKeyFrameDepth(DeviceArray2D<float>& lastDMap,
 					   DeviceArray2D<float4>& nextVMap,
 					   Matrix3f R, float3 t,
 					   float* K);
+
+void compute_least_square(DeviceArray<Corresp>& corresp,
+		DeviceArray<ResidualVector>& residual_vec, DeviceArray<float>& weight,
+		DeviceArray2D<float4>& vmap_last, DeviceArray2D<float4>& nmap_last,
+		DeviceArray2D<short>& dIdx, DeviceArray2D<short>& dIdy,
+		DeviceArray2D<float>& sum, DeviceArray<float>& out, Matrix3f r_inv,
+		float3 t, float3 scale, float* intrinsics, double* matrixA_host,
+		double* vectorB_host, float* residual);
+
+void compute_weight(DeviceArray<ResidualVector>& residual,
+		DeviceArray<float>& weight, float3 scale);
+
+Eigen::Matrix<float, 2, 2> compute_scale(DeviceArray<ResidualVector>& residual,
+		DeviceArray<float>& weight, DeviceArray2D<float>& sum,
+		DeviceArray<float>& out, int N, float& point_ratio);
+
+void compute_residual(DeviceArray2D<float4>& vmap_curr,
+		DeviceArray2D<float4>& vmap_last, DeviceArray2D<float4>& nmap_curr,
+		DeviceArray2D<float4>& nmap_last,
+		DeviceArray2D<unsigned char>& image_curr,
+		DeviceArray2D<unsigned char>& image_last, DeviceArray<float>& weight,
+		DeviceArray<ResidualVector>& residual, DeviceArray<Corresp>& corresp, Matrix3f r,
+		float3 t, float* intrinsics);
 
 // ======================= old piece of shit ============================
 

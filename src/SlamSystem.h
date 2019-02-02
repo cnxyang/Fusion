@@ -165,6 +165,7 @@ public:
 	void load_groundtruth(std::vector<Sophus::SE3d> gt);
 
 	Sophus::SE3d first_frame_pose;
+	Sophus::SE3d motion_model;
 	std::vector<Sophus::SE3d> full_trajectory;
 	std::vector<TexturedPoint> point_cloud;
 };
