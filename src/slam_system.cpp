@@ -18,14 +18,14 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 	currentKeyFrame(0), systemRunning(true), havePoseUpdate(false),
 	currentFrame(0), isFirstFrame(true), entropyReference(0)
 {
-	map = new VoxelMap();
-	map->allocateDeviceMap();
+//	map = new VoxelMap();
+//	map->allocateDeviceMap();
 
 	tracker = new ICPTracker(w, h, K);
-	tracker->setIterations({ 10, 5, 3 });
+	tracker->setIterations( { 22, 22, 22 });
 
 	constraintTracker = new ICPTracker(w, h, K);
-	constraintTracker->setIterations({ 3, 3, 3 });
+	constraintTracker->setIterations( { 100, 100, 100 });
 
 	viewer = new GlViewer("SlamSystem", w, h, K);
 	viewer->setSlamSystem(this);
@@ -38,13 +38,11 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 	firstFrame = new PointCloud();
 	secondFrame = new PointCloud();
 
-	threadConstraintSearch = std::thread(&SlamSystem::loopConstraintSearch, this);
+//	threadConstraintSearch = std::thread(&SlamSystem::loopConstraintSearch, this);
 	threadVisualisation = std::thread(&SlamSystem::loopVisualisation, this);
 	threadMapGeneration = std::thread(&SlamSystem::loopMapGeneration, this);
-	threadOptimization = std::thread(&SlamSystem::loopOptimization, this);
+//	threadOptimization = std::thread(&SlamSystem::loopOptimization, this);
 
-	systemState.depthCutoff = 3.0f;
-	systemState.depthScale = 1000.f;
 	entropyRatio = 1000.f;
 	CONSOLE("SLAM System Successfully Initiated.");
 }
@@ -76,7 +74,7 @@ bool first_frame = true;
 void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeStamp)
 {
 	processMessages();
-//	this->updatePoseGraph(1);
+	this->updatePoseGraph(15);
 	currentFrame = new Frame(img, depth, id, K, timeStamp);
 	trackingTarget->generateCloud(currentFrame);
 
@@ -88,18 +86,39 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 		latestTrackedFrame = currentFrame;
 		currentKeyFrame = currentFrame;
 		keyFrameGraph->addKeyFrame(currentKeyFrame);
-
+		full_trajectory.push_back(currentFrame->pose());
 		currentFrame->poseStruct->is_keyframe = true;
 		keyFrameGraph->insert_frame_pose(currentFrame);
+		updateVisualisation();
 		return;
 	}
+	auto pp = ground_truth_trajectory[currentKeyFrame->id()].inverse() * ground_truth_trajectory[currentFrame->id()];
 
 	// Initial pose estimate
-	SE3 initialEstimate = latestTrackedFrame->pose().inverse() * currentKeyFrame->pose();
+	SE3 initialEstimate = currentKeyFrame->pose().inverse() * latestTrackedFrame->pose();
 
 	// Track current frame
 	// Return frame to current *Key Frame* transform
 	SE3 poseUpdate = tracker->trackSE3(trackingReference, trackingTarget, initialEstimate);
+
+	std::cout << poseUpdate.log() << std::endl;
+	std::cout << "--------------" << std::endl;
+	std::cout << pp.log() << std::endl;
+	std::cout << "============+" << std::endl;
+
+	float K[4] =
+	{
+			trackingReference->frame->fx(0),
+			trackingReference->frame->fy(0),
+			trackingReference->frame->cx(0),
+			trackingReference->frame->cy(0),
+	};
+
+//	compute_residual_transformed(trackingTarget->vmap[0],
+//			trackingReference->vmap[0], trackingReference->nmap[0],
+//			trackingTarget->image[0], trackingReference->image[0], K,
+//			SE3toMatrix3f(pp), SE3toFloat3(pp));
+
 
 	// Check if we insert a new key frame
 	if(tracker->trackingWasGood)
@@ -112,9 +131,7 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 
 
 		// Update current frame pose
-		currentFrame->pose() = currentKeyFrame->pose() * poseUpdate.inverse();
-		motion_model = currentFrame->pose().inverse() * latestTrackedFrame->pose();
-
+		currentFrame->pose() = currentKeyFrame->pose() * poseUpdate;
 		currentFrame->poseStruct->pose_from_parent = poseUpdate.inverse();
 //		keyFrameGraph->insert_frame_pose(currentFrame);
 		full_trajectory.push_back(currentFrame->pose());
@@ -123,37 +140,23 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 		latestTrackedFrame = currentFrame;
 
 		updateVisualisation();
-		std::cout << tracker->entropy / base_entropy << std::endl;
-		if(tracker->entropy / base_entropy < 0.3)
+		compute_residual_transformed_gt(trackingTarget->vmap[0],
+				trackingReference->vmap[0], trackingReference->nmap[0],
+				trackingTarget->image[0], trackingReference->image[0], K,
+				SE3toMatrix3f(pp), SE3toFloat3(pp),
+				SE3toMatrix3f(poseUpdate),
+				SE3toFloat3(poseUpdate));
+		if(1)
 		{
-//			first_frame = true;
-//			map->fuseImages(trackingReference);
-//			map->CreateModel();
-//			trackingReference->downloadFusedMap();
-
 			std::swap(trackingReference, trackingTarget);
 			// Create new key frame
 			currentKeyFrame = currentFrame;
 			currentFrame->poseStruct->is_keyframe = true;
 			// New key frames to be added to the map
 			newKeyFrames.push_back(currentKeyFrame);
-			++systemState.numTrackedKeyFrames;
 			trackingReference->frame = currentKeyFrame;
 			isFirstFrame = true;
-		}
-		else
-		{
-
-			float K[4] = { currentFrame->fx(), currentFrame->fy(), currentFrame->cx(), currentFrame->cy() };
-
-//			FuseKeyFrameDepth(trackingReference->depth_float,
-//						      trackingTarget->depth_float,
-//						      trackingReference->weight,
-//						      trackingTarget->nmap[0],
-//							  trackingTarget->vmap[0],
-//							  SE3toMatrix3f(poseUpdate.inverse()),
-//							  SE3toFloat3(poseUpdate.inverse()),
-//							  K);
+			first_frame = true;
 		}
 	}
 	else
@@ -163,7 +166,6 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 
 	keyFrameGraph->insert_frame_pose(currentFrame);
 
-	++systemState.numTrackedFrames;
 }
 
 bool SlamSystem::needNewKeyFrame(SE3& poseUpdate)
@@ -287,7 +289,7 @@ void SlamSystem::loopOptimization()
 		{
 			newConstraintAdded = false;
 			CONSOLE("Start Optimisation.");
-			while(Optimization(5, 0.02));
+			while(Optimization(15, 0.02));
 			keyFrameGraph->updatePoseGraph();
 		}
 		else
@@ -327,13 +329,13 @@ void SlamSystem::updatePoseGraph(int nKeyFrame)
 		// TODO: map reconstruction
 		if (keyframesAll[i]->poseStruct->diff >= 1e-3)
 		{
-			PointCloud* pc = new PointCloud();
-			pc->generateCloud(keyframesAll[i]);
-			map->defuseImages(pc);
-			pc->frame->poseStruct->isOptimised = true;
-			pc->frame->poseStruct->applyPoseUpdate();
-			map->fuseImages(pc);
-			delete pc;
+//			PointCloud* pc = new PointCloud();
+//			pc->generateCloud(keyframesAll[i]);
+//			map->defuseImages(pc);
+			keyframesAll[i]->poseStruct->isOptimised = true;
+			keyframesAll[i]->poseStruct->applyPoseUpdate();
+//			map->fuseImages(pc);
+//			delete pc;
 		}
 	}
 }
@@ -397,28 +399,28 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 		firstFrame->generateCloud(newKF);
 	}
 
-//	while ((int) candidates.size() > 10)
-//	{
-//		Frame* worst = 0;
-//		int worstNeighbours = 0;
-//		for(Frame* f : candidates)
-//		{
-//			int neighoursInCandidates = 0;
-//			for(Frame* n : f->neighbors)
-//			{
-//				if(candidates.find(n) != candidates.end())
-//					neighoursInCandidates++;
-//			}
-//
-//			if(neighoursInCandidates > worstNeighbours || worst == 0)
-//			{
-//				worst = f;
-//				worstNeighbours = neighoursInCandidates;
-//			}
-//		}
-//
-//		candidates.erase(worst);
-//	}
+	while ((int) candidates.size() > 10)
+	{
+		Frame* worst = 0;
+		int worstNeighbours = 0;
+		for(Frame* f : candidates)
+		{
+			int neighoursInCandidates = 0;
+			for(Frame* n : f->neighbors)
+			{
+				if(candidates.find(n) != candidates.end())
+					neighoursInCandidates++;
+			}
+
+			if(neighoursInCandidates > worstNeighbours || worst == 0)
+			{
+				worst = f;
+				worstNeighbours = neighoursInCandidates;
+			}
+		}
+
+		candidates.erase(worst);
+	}
 
 	std::vector<Frame*> failedCandidates;
 	for (Frame* candidate : candidates)
@@ -542,13 +544,14 @@ void SlamSystem::checkConstraints()
 void SlamSystem::updateVisualisation()
 {
 	viewer->setCurrentCamPose(latestTrackedFrame->pose());
+	viewer->set_current_ground_truth(ground_truth_trajectory[latestTrackedFrame->id()]);
 	viewer->setKeyFrameGraph(keyFrameGraph->getKeyFramesAll());
 
 	if (systemState.showGeneratedMesh)
 	{
 		if (systemState.numTrackedFrames % 30 == 0)
 		{
-			map->CreateModel();
+//			map->CreateModel();
 		}
 	}
 
@@ -738,9 +741,11 @@ void SlamSystem::build_full_trajectory()
 
 void SlamSystem::load_groundtruth(std::vector<Sophus::SE3d> gt)
 {
+	ground_truth_trajectory = gt;
 	viewer->groundtruth = gt;
-	if(gt.size() > 0)
-		first_frame_pose = gt[0];
-	else
-		first_frame_pose = Sophus::SE3d();
+}
+
+void SlamSystem::set_initial_pose(Sophus::SE3d initial_pose)
+{
+	first_frame_pose = initial_pose;
 }

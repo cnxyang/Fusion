@@ -210,7 +210,7 @@ template<class T> void DeviceArray<T>::clear() {
 }
 
 template<class T> void DeviceArray<T>::release() {
-	if (ref && --*ref == 0) {
+	if (ref && ref->fetch_sub(1) == 1) {
 		delete ref;
 		if (data) {
 			SafeCall(cudaFree(data));
@@ -235,7 +235,7 @@ template<class T> void DeviceArray<T>::copyTo(DeviceArray<T> & other) const {
 template<class T> DeviceArray<T> & DeviceArray<T>::operator=(const DeviceArray<T> & other) {
 	if(this != &other) {
 		if(other.ref)
-			++*other.ref;
+			other.ref->fetch_add(1);
 
 		release();
 
@@ -330,7 +330,7 @@ template<class T> void DeviceArray2D<T>::download(void * data_, size_t step_) co
 }
 
 template<class T> void DeviceArray2D<T>::release() {
-	if (ref && --*ref == 0) {
+	if (ref && ref->fetch_sub(1) == 1) {
 		delete ref;
 		if(data)
 			SafeCall(cudaFree(data));
@@ -349,7 +349,7 @@ template<class T> void DeviceArray2D<T>::copyTo(DeviceArray2D<T> & other) const 
 template<class T> DeviceArray2D<T>& DeviceArray2D<T>::operator=(const DeviceArray2D<T>& other) {
 	if(this != &other) {
 		if(other.ref)
-			++*other.ref;
+			other.ref->fetch_add(1);
 		release();
 
 		data = other.data;

@@ -177,15 +177,15 @@ void GlViewer::drawKeyPointsToScreen()
 
 void GlViewer::setCurrentImages(PointCloud* data)
 {
-	SafeCall(cudaMemcpy2DToArray(**imageRGBCUDAMapped, 0, 0,
-		(void* )data->image[0].data, data->image[0].step,
-		sizeof(uchar) * data->image[0].cols, data->image[0].rows,
-		cudaMemcpyDeviceToDevice));
-
-	SafeCall(cudaMemcpy2DToArray(**imageDepthCUDAMapped, 0, 0,
-		(void* )data->depth[0].data, data->depth[0].step,
-		sizeof(float) * data->image[0].cols, data->image[0].rows,
-		cudaMemcpyDeviceToDevice));
+//	SafeCall(cudaMemcpy2DToArray(**imageRGBCUDAMapped, 0, 0,
+//		(void* )data->image[0].data, data->image[0].step,
+//		sizeof(uchar) * data->image[0].cols, data->image[0].rows,
+//		cudaMemcpyDeviceToDevice));
+//
+//	SafeCall(cudaMemcpy2DToArray(**imageDepthCUDAMapped, 0, 0,
+//		(void* )data->depth[0].data, data->depth[0].step,
+//		sizeof(float) * data->image[0].cols, data->image[0].rows,
+//		cudaMemcpyDeviceToDevice));
 }
 
 void GlViewer::processMessages()
@@ -377,18 +377,18 @@ void GlViewer::drawKeyFrameGraph()
 	glColor3f(0.0f, 0.0f, 1.0f);
 	glDrawVertices(node.size() / 3, (GLfloat*) &node[0], GL_LINE_STRIP, 3);
 
-//	std::vector<GLfloat> traject;
-//	for(int i = 0; i < slam->full_trajectory.size(); ++i)
-//	{
-//		Sophus::SE3d& curr = slam->full_trajectory[i];
-//		auto t = curr.translation();
-//		traject.push_back(t(0));
-//		traject.push_back(t(1));
-//		traject.push_back(t(2));
-//	}
-//
-//	glColor3f(1.0f, 0.0f, 0.0f);
-//	glDrawVertices(traject.size() / 3, (GLfloat*) &traject[0], GL_LINE_STRIP, 3);
+	std::vector<GLfloat> traject;
+	for(int i = 0; i < slam->full_trajectory.size(); ++i)
+	{
+		Sophus::SE3d& curr = slam->full_trajectory[i];
+		auto t = curr.translation();
+		traject.push_back(t(0));
+		traject.push_back(t(1));
+		traject.push_back(t(2));
+	}
+
+	glColor3f(1.0f, 0.0f, 0.0f);
+	glDrawVertices(traject.size() / 3, (GLfloat*) &traject[0], GL_LINE_STRIP, 3);
 
 	std::vector<GLfloat> gt;
 	for(int i = 0; i < groundtruth.size(); ++i)
@@ -399,6 +399,12 @@ void GlViewer::drawKeyFrameGraph()
 		gt.push_back(t(1));
 		gt.push_back(t(2));
 	}
+
+	Sophus::SE3d cgt = current_ground_truth;
+	cgt.translation() = currentCamPose.translation();
+	std::vector<GLfloat> gt_camera = getTransformedCam(cgt, 0.5);
+	glColor3fv(AliceBlue);
+	glDrawVertices(gt_camera.size() / 3, (GLfloat*) &gt_camera[0], GL_LINE_STRIP, 3);
 
 	glColor3f(0.0f, 1.0f, 0.0f);
 	glDrawVertices(gt.size() / 3, (GLfloat*) &gt[0], GL_LINE_STRIP, 3);

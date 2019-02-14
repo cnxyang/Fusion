@@ -20,10 +20,12 @@ struct PointCloud
 
 	bool memoryAllocated;
 
-	DeviceArray2D<uchar> image[NUM_PYRS];
+	DeviceArray2D<float> image[NUM_PYRS];
 	DeviceArray2D<float> depth[NUM_PYRS];
-	DeviceArray2D<short> dIdx[NUM_PYRS];
-	DeviceArray2D<short> dIdy[NUM_PYRS];
+	DeviceArray2D<float> dIdx[NUM_PYRS];
+	DeviceArray2D<float> dIdy[NUM_PYRS];
+	DeviceArray2D<float> dZdx[NUM_PYRS];
+	DeviceArray2D<float> dZdy[NUM_PYRS];
 	DeviceArray2D<float4> vmap[NUM_PYRS];
 	DeviceArray2D<float4> nmap[NUM_PYRS];
 	DeviceArray2D<uchar3> image_raw;

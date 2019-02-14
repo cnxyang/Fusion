@@ -58,7 +58,7 @@ public:
 	void queueMessage(Msg newmsg);
 
 
-protected:
+public:
 
 	// Message loop
 	void processMessages();
@@ -163,11 +163,13 @@ public:
 	void build_point_cloud();
 	void save_point_cloud(std::string path);
 	void load_groundtruth(std::vector<Sophus::SE3d> gt);
+	void set_initial_pose(Sophus::SE3d initial_pose);
 
 	Sophus::SE3d first_frame_pose;
 	Sophus::SE3d motion_model;
 	std::vector<Sophus::SE3d> full_trajectory;
 	std::vector<TexturedPoint> point_cloud;
+	std::vector<Sophus::SE3d> ground_truth_trajectory;
 };
 
 inline bool SlamSystem::shouldQuit() const

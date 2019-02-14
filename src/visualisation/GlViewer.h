@@ -30,7 +30,7 @@ public:
 	inline void disableGlContext() const;
 	inline void setCurrentCamPose(SE3 pose);
 	inline void setKeyFrameGraph(std::vector<Frame*>);
-
+	inline void set_current_ground_truth(Sophus::SE3d gt) { current_ground_truth = gt; }
 	inline void setVoxelMap(VoxelMap* map);
 	inline void setSlamSystem(SlamSystem* system);
 
@@ -51,6 +51,7 @@ public:
 	std::vector<Frame*> keyFrameGraph;
 	std::mutex keyFrameGraphMutex;
 	std::mutex mutexMeshUpdate;
+	Sophus::SE3d current_ground_truth;
 
 protected:
 
@@ -85,18 +86,18 @@ protected:
 	// camera vertices array
 	const Eigen::Vector3f camVertices[12] =
 	{
-		{ 0.04,  0.03,  0    },
-		{ 0.04, -0.03,  0    },
-		{ 0,     0,    -0.03 },
-		{-0.04,  0.03,  0    },
-		{-0.04, -0.03,  0    },
-		{ 0,     0,    -0.03 },
-		{ 0.04,  0.03,  0    },
-		{-0.04,  0.03,  0    },
-		{ 0, 	 0,    -0.03 },
-		{ 0.04, -0.03,  0    },
-		{-0.04, -0.03,  0    },
-		{ 0,     0,    -0.03 }
+		{ 0.04,  0.03,  0.03 },
+		{ 0.04, -0.03,  0.03 },
+		{ 0,     0,     0    },
+		{-0.04,  0.03,  0.03 },
+		{-0.04, -0.03,  0.03 },
+		{ 0,     0,     0    },
+		{ 0.04,  0.03,  0.03 },
+		{-0.04,  0.03,  0.03 },
+		{ 0, 	 0,     0    },
+		{ 0.04, -0.03,  0.03 },
+		{-0.04, -0.03,  0.03 },
+		{ 0,     0,     0    }
 	};
 
 	// menus and buttons

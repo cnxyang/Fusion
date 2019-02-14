@@ -38,11 +38,13 @@ SE3 ICPTracker::trackSE3(PointCloud* ref, PointCloud* target, SE3 estimate, bool
 		return estimate;
 	}
 
+
+
+
 	float residual[2] = { 0.0f, 0.0f };
 	// Store current frame poses
-	SE3 refPose = SE3();
-	SE3 frameToRef = estimate;
-	SE3 framePose = refPose * frameToRef.inverse();
+	SE3 framePose = estimate;
+	Eigen::Matrix<double, 6, 1> last_result;
 
 	trackingWasGood = true;
 
@@ -52,7 +54,7 @@ SE3 ICPTracker::trackSE3(PointCloud* ref, PointCloud* target, SE3 estimate, bool
 		DeviceArray2D<float4>& NMapNext = target->nmap[level];
 		DeviceArray2D<float4>& VMapLast = ref->vmap[level];
 		DeviceArray2D<float4>& NMapLast = ref->nmap[level];
-
+		last_result.setOnes();
 		float last_residual_error = std::numeric_limits<float>::max();
 
 		float K[4] =
@@ -68,9 +70,9 @@ SE3 ICPTracker::trackSE3(PointCloud* ref, PointCloud* target, SE3 estimate, bool
 		DeviceArray<Corresp> corresp_map(weight.size);
 		float3 scale;
 
-		for (int iter = 0; iter < iterations[level]; ++iter)
-		{
 
+		for (int iter = 0; iter < iterations[0]; ++iter)
+		{
 			if(iter == 0)
 				initialize_weight(weight);
 			else
@@ -85,41 +87,59 @@ SE3 ICPTracker::trackSE3(PointCloud* ref, PointCloud* target, SE3 estimate, bool
 			scale = make_float3(sigma(0, 0), sigma(0, 1), sigma(1, 1));
 
 			entropy = std::log(sigma.inverse().determinant());
-
+			sumSE3.clear();
+			outSE3.clear();
 			compute_least_square(corresp_map, residual_vec, weight, VMapLast,
-					NMapLast, target->dIdx[level], target->dIdy[level], sumSE3,
-					outSE3, SE3toMatrix3f(framePose.inverse()),
-					SE3toFloat3(framePose), scale, K, matrixA.data(),
-					vectorb.data(), residual);
+					VMapNext, NMapLast, ref->dIdx[level], ref->dIdy[level],
+					sumSE3, outSE3, SE3toMatrix3f(framePose),
+					SE3toMatrix3f(framePose.inverse()), SE3toFloat3(framePose),
+					scale, K, matrixA.data(), vectorb.data(), residual);
+
+
 
 //			compute_residual_sum(VMapNext, VMapLast, NMapNext, NMapLast,
 //					target->image[level], ref->image[level],
 //					SE3toMatrix3f(framePose), SE3toFloat3(framePose), K,
 //					sum, out, sumSE3, outSE3, target->dIdx[level],
-//					target->dIdy[level], SE3toMatrix3f(framePose.inverse()),
+//					target->dIdy[level] , SE3toMatrix3f(framePose.inverse()),
 //					residual, matrixA.data(), vectorb.data(), corresp_image);
 
-			result = matrixA.ldlt().solve(vectorb);
 
+			result = matrixA.ldlt().solve(vectorb);
+			float diff = (result-last_result).norm();
+			last_result = result;
 			if(std::isnan(result(0)))
 			{
-				trackingWasGood = false;
-				return estimate;
+//				trackingWasGood = false;
+//				return estimate;
+				std::cout << matrixA << std::endl;
 			}
 
 			float residual_error = sqrt(residual[0]) / residual[1];
 			last_residual_error = residual_error;
 
-			auto frameToRefUpdate = SE3::exp(result);
-			frameToRef = frameToRefUpdate * frameToRef;
-			framePose = refPose * frameToRef.inverse();
+			framePose = Sophus::SE3d::exp(result) * framePose;
+
+			if(diff < 0.001)
+				break;
 		}
 	}
 
-	Sophus::Vector3d diff = (estimate.inverse() * frameToRef).translation();
-	if(diff.norm() > 0.3f)
-		trackingWasGood = false;
-	else
+
+//	float K[4] =
+//	{
+//			ref->frame->fx(0),
+//			ref->frame->fy(0),
+//			ref->frame->cx(0),
+//			ref->frame->cy(0),
+//	};
+//	compute_residual_transformed(target->vmap[0], ref->vmap[0],
+//			ref->nmap[0], target->image[0], ref->image[0], K,
+//			SE3toMatrix3f(framePose), SE3toFloat3(framePose));
+//	Sophus::Vector3d diff = (estimate.inverse() * frameToRef).translation();
+//	if(diff.norm() > 0.3f)
+//		trackingWasGood = false;
+//	else
 		trackingWasGood = true;
-	return frameToRef;
+	return framePose;
 }

@@ -1,19 +1,12 @@
 #include "dataset_interface.h"
 
-TUMDatasetInterface::TUMDatasetInterface(std::string dir) : id(0), base_dir(dir)
+TUMDatasetWrapper::TUMDatasetWrapper(std::string dir) : id(0), base_dir(dir)
 {
 	if(base_dir.back() != '/')
-	{
 		base_dir += '/';
-	}
 }
 
-TUMDatasetInterface::~TUMDatasetInterface()
-{
-
-}
-
-void TUMDatasetInterface::load_association_file(std::string file_name)
+void TUMDatasetWrapper::load_association_file(std::string file_name)
 {
 	std::ifstream file;
 	file.open(base_dir + file_name, std::ios_base::in);
@@ -33,8 +26,30 @@ void TUMDatasetInterface::load_association_file(std::string file_name)
 	printf("Total of %lu Images Loaded.\n", depth_list.size());
 }
 
-void TUMDatasetInterface::load_ground_truth(std::string file_name)
+int TUMDatasetWrapper::find_closest_index(std::vector<double> list, double time) const
 {
+	int idx = -1;
+	double min_val = std::numeric_limits<double>::max();
+	for(int i = 0; i < list.size(); ++i)
+	{
+		double d = std::abs(list[i] - time);
+		if(d < min_val)
+		{
+			idx = i;
+			min_val = d;
+		}
+	}
+	return idx;
+}
+
+void TUMDatasetWrapper::load_ground_truth(std::string file_name)
+{
+	if(time_stamp.size() == 0)
+	{
+		printf("Please load images first!\n");
+		return;
+	}
+
 	double ts;
 	double tx, ty, tz, qx, qy, qz, qw;
 
@@ -47,6 +62,8 @@ void TUMDatasetInterface::load_ground_truth(std::string file_name)
 		std::getline(file, line);
 	}
 
+	std::vector<double> ts_gt;
+	std::vector<Sophus::SE3d> vgt;
 	while(file >> ts >> tx >> ty >> tz >> qx >> qy >> qz >> qw)
 	{
 		Eigen::Quaterniond q(qw, qx, qy, qz);
@@ -54,17 +71,27 @@ void TUMDatasetInterface::load_ground_truth(std::string file_name)
 		auto r = q.toRotationMatrix();
 		auto t = Eigen::Vector3d(tx, ty, tz);
 		Sophus::SE3d gt(r, t);
-		gt_list.push_back(gt);
+
+		ts_gt.push_back(ts);
+		vgt.push_back(gt);
+	}
+	std::cout << vgt[0].matrix() << std::endl;
+
+	for(int i = 0; i < time_stamp.size(); ++i)
+	{
+		double time = time_stamp[i];
+		int idx = find_closest_index(ts_gt, time);
+		time_stamp_gt.push_back(ts_gt[idx]);
+		ground_truth.push_back(vgt[idx]);
 	}
 
 	file.close();
-
-	printf("Total of %lu Ground truth data Loaded.\n", gt_list.size());
+	printf("Total of %lu Ground Truth Data Loaded.\n", ground_truth.size());
 }
 
-bool TUMDatasetInterface::read_next_images(cv::Mat& image, cv::Mat& depth)
+bool TUMDatasetWrapper::read_next_images(cv::Mat& image, cv::Mat& depth)
 {
-	if(id == image_list.size())
+	if(id >= image_list.size())
 		return false;
 
 	std::string fullpath_image = base_dir + image_list[id];
@@ -77,22 +104,7 @@ bool TUMDatasetInterface::read_next_images(cv::Mat& image, cv::Mat& depth)
 	return true;
 }
 
-std::vector<Sophus::SE3d> TUMDatasetInterface::get_groundtruth() const
-{
-	return gt_list;
-}
-
-double TUMDatasetInterface::get_current_timestamp() const
-{
-	return time_stamp[id - 1];
-}
-
-unsigned int TUMDatasetInterface::get_current_id() const
-{
-	return id - 1;
-}
-
-void TUMDatasetInterface::save_full_trajectory(std::vector<Sophus::SE3d> full_trajectory, std::string file_name) const
+void TUMDatasetWrapper::save_full_trajectory(std::vector<Sophus::SE3d> full_trajectory, std::string file_name) const
 {
 	std::ofstream file;
 	std::string file_path = base_dir + file_name;
@@ -121,4 +133,26 @@ void TUMDatasetInterface::save_full_trajectory(std::vector<Sophus::SE3d> full_tr
 	}
 
 	file.close();
+}
+
+std::vector<Sophus::SE3d> TUMDatasetWrapper::get_groundtruth() const
+{
+	return ground_truth;
+}
+
+double TUMDatasetWrapper::get_current_timestamp() const
+{
+	return time_stamp[id - 1];
+}
+
+unsigned int TUMDatasetWrapper::get_current_id() const
+{
+	return id - 1;
+}
+
+Sophus::SE3d TUMDatasetWrapper::get_starting_pose() const
+{
+	double time = time_stamp[0];
+	int idx = find_closest_index(time_stamp_gt, time);
+	return ground_truth[idx];
 }

@@ -7,6 +7,20 @@
 #include "Intrinsics.h"
 #include "DeviceArray.h"
 
+void compute_residual_image(const DeviceArray2D<uchar>& image_curr, const DeviceArray2D<uchar>& image_last);
+
+void compute_residual_transformed(const DeviceArray2D<float4>& vmap_curr,
+		const DeviceArray2D<float4>& vmap_last,
+		const DeviceArray2D<float4>& nmap_last,
+		const DeviceArray2D<float>& image_curr,
+		const DeviceArray2D<float>& image_last, float* K, Matrix3f r, float3 t);
+void compute_residual_transformed_gt(const DeviceArray2D<float4>& vmap_curr,
+		const DeviceArray2D<float4>& vmap_last,
+		const DeviceArray2D<float4>& nmap_last,
+		const DeviceArray2D<float>& image_curr,
+		const DeviceArray2D<float>& image_last, float* K, Matrix3f r_gt,
+		float3 t_gt, Matrix3f r, float3 t);
+
 void ResetMap(MapStruct map);
 
 void ResetKeyPoints(KeyMap map);
@@ -83,6 +97,8 @@ void ComputeVMap(const DeviceArray2D<float> & depth,
 void ComputeNMap(const DeviceArray2D<float4> & vmap,
 		DeviceArray2D<float4> & nmap);
 
+void pyrdown_image_mean(const DeviceArray2D<float>& src, DeviceArray2D<float>& dst);
+
 void PyrDownGauss(const DeviceArray2D<float> & src, DeviceArray2D<float> & dst);
 
 void PyrDownGauss(const DeviceArray2D<unsigned char> & src,
@@ -91,8 +107,7 @@ void PyrDownGauss(const DeviceArray2D<unsigned char> & src,
 void ImageToIntensity(const DeviceArray2D<uchar3> & rgb,
 		DeviceArray2D<unsigned char> & image);
 
-void ComputeDerivativeImage(DeviceArray2D<unsigned char> & image,
-		DeviceArray2D<short> & dx, DeviceArray2D<short> & dy);
+void compute_image_derivatives(const DeviceArray2D<float>& image, DeviceArray2D<float>& dx, DeviceArray2D<float>& dy);
 
 void ResizeMap(const DeviceArray2D<float4> & vsrc,
 		const DeviceArray2D<float4> & nsrc, DeviceArray2D<float4> & vdst,
@@ -134,9 +149,10 @@ void SO3Step(const DeviceArray2D<unsigned char>& nextImage,
 // this is purely relied on geometry information
 // hence coloured images are ignored.
 void ICPStep(DeviceArray2D<float4>& nextVMap,
-			 DeviceArray2D<float4>& nextNMap,
-			 DeviceArray2D<float4>& lastVMap,
-			 DeviceArray2D<float4>& lastNMap,
+			 DeviceArray2D<float>& nextDepth,
+			 DeviceArray2D<float>& lastDepth,
+			 DeviceArray2D<float>& dZdx,
+			 DeviceArray2D<float>& dZdy,
 			 DeviceArray2D<float>& sum,
 			 DeviceArray<float>& out,
 			 Matrix3f R, float3 t,
@@ -209,10 +225,11 @@ void FuseKeyFrameDepth(DeviceArray2D<float>& lastDMap,
 
 void compute_least_square(DeviceArray<Corresp>& corresp,
 		DeviceArray<ResidualVector>& residual_vec, DeviceArray<float>& weight,
-		DeviceArray2D<float4>& vmap_last, DeviceArray2D<float4>& nmap_last,
-		DeviceArray2D<short>& dIdx, DeviceArray2D<short>& dIdy,
-		DeviceArray2D<float>& sum, DeviceArray<float>& out, Matrix3f r_inv,
-		float3 t, float3 scale, float* intrinsics, double* matrixA_host,
+		DeviceArray2D<float4>& vmap_last, DeviceArray2D<float4>& vmap_curr,
+		DeviceArray2D<float4>& nmap_last, DeviceArray2D<float>& dIdx,
+		DeviceArray2D<float>& dIdy, DeviceArray2D<float>& sum,
+		DeviceArray<float>& out, Matrix3f r, Matrix3f r_inv, float3 t,
+		float3 scale, float* intrinsics, double* matrixA_host,
 		double* vectorB_host, float* residual);
 
 void compute_weight(DeviceArray<ResidualVector>& residual,
@@ -225,8 +242,8 @@ Eigen::Matrix<float, 2, 2> compute_scale(DeviceArray<ResidualVector>& residual,
 void compute_residual(DeviceArray2D<float4>& vmap_curr,
 		DeviceArray2D<float4>& vmap_last, DeviceArray2D<float4>& nmap_curr,
 		DeviceArray2D<float4>& nmap_last,
-		DeviceArray2D<unsigned char>& image_curr,
-		DeviceArray2D<unsigned char>& image_last, DeviceArray<float>& weight,
+		DeviceArray2D<float>& image_curr,
+		DeviceArray2D<float>& image_last, DeviceArray<float>& weight,
 		DeviceArray<ResidualVector>& residual, DeviceArray<Corresp>& corresp, Matrix3f r,
 		float3 t, float* intrinsics);
 

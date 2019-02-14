@@ -378,8 +378,23 @@ __host__ __device__ __forceinline__ int3 operator%(int3 a, int b)
 }
 
 __host__ __device__ __forceinline__ bool operator==(int3 a, int3 b)
-		{
+{
 	return a.x == b.x && a.y == b.y && a.z == b.z;
+}
+
+__device__ __forceinline__ bool operator==(float3 a, float3 b)
+{
+	return a.x == b.x && a.y == b.y && a.z == b.z;
+}
+
+__device__ __forceinline__ bool operator==(float4 a, float4 b)
+{
+	return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;
+}
+
+__device__ __forceinline__ bool operator==(float2 a, float2 b)
+{
+	return a.x == b.x && a.y == b.y;
 }
 
 __host__  __device__  __forceinline__ float3 cross(float3 a, float3 b)

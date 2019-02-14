@@ -21,7 +21,13 @@
 					<folderInfo id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077." name="/" resourcePath="">
 						<toolChain id="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release.1779413738" name="CUDA Toolkit 9.2" superClass="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release">
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.389657246" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
-							<builder buildPath="${workspace_loc:/fusion}/Build/Release/Tum/" id="com.nvidia.cuda.ide.builder.1409127714" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="CUDA Toolkit 9.2 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
+							<builder buildPath="${workspace_loc:/fusion}/Build/Release/Tum/" id="com.nvidia.cuda.ide.builder.1409127714" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="CUDA Toolkit 9.2 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder">
+								<outputEntries>
+									<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="outputPath" name="release_dataset"/>
+									<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="outputPath" name="release_live"/>
+									<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="outputPath" name="debug_dataset"/>
+								</outputEntries>
+							</builder>
 							<tool id="nvcc.compiler.base.1047712494" name="NVCC Compiler" superClass="nvcc.compiler.base">
 								<option id="nvcc.compiler.deviceDebug.1657224818" name="Generate device debug information (-G)" superClass="nvcc.compiler.deviceDebug" value="false" valueType="boolean"/>
 								<option id="nvcc.compiler.option.level.1352502860" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level" value="false" valueType="boolean"/>
@@ -33,16 +39,17 @@
 								</option>
 								<option id="nvcc.compiler.include.paths.104044077" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/data_structure}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/dense_mapping}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/device_utils}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/examples}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/icp_tracking}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/interface}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/utilities}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/visualisation}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/opencv2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/openni2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/eigen3"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/include/suitesparse"/>
 								</option>
 								<option id="nvcc.compiler.option.lineinfo.1215100583" name="Generate line-number information for device code (-lineinfo)" superClass="nvcc.compiler.option.lineinfo" value="false" valueType="boolean"/>
@@ -80,21 +87,27 @@
 							</tool>
 							<tool id="nvcc.archiver.base.1098630470" name="NVCC Archiver" superClass="nvcc.archiver.base"/>
 							<tool id="com.nvidia.host.assembler.1962423995" name="Host Assembler" superClass="com.nvidia.host.assembler">
+								<option id="gnu.both.asm.option.include.paths.1118864121" name="Include paths (-I)" superClass="gnu.both.asm.option.include.paths" valueType="includePath">
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/icpSlam/icpSlam/src/data_structure}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/icpSlam/icpSlam/src/dense_mapping}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/icpSlam/icpSlam/src/device_utils}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/icpSlam/icpSlam/src/examples}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/icpSlam/icpSlam/src/icp_tracking}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/icpSlam/icpSlam/src/utilities}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/icpSlam/icpSlam/src/visualisation}&quot;"/>
+									<listOptionValue builtIn="false" value="/usr/local/include/opencv2"/>
+									<listOptionValue builtIn="false" value="/usr/local/include/openni2"/>
+									<listOptionValue builtIn="false" value="/usr/local/include/eigen3"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/icpSlam/icpSlam/src}&quot;"/>
+									<listOptionValue builtIn="false" value="/usr/include/suitesparse"/>
+								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1724025641" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>
 						</toolChain>
 					</folderInfo>
-					<folderInfo id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.413789610" name="/" resourcePath="slam_core">
-						<toolChain id="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release.1709563060" name="CUDA Toolkit 9.2" superClass="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release" unusedChildren="">
-							<tool id="nvcc.compiler.base.1108040007" name="NVCC Compiler" superClass="nvcc.compiler.base.1047712494"/>
-							<tool id="nvcc.linker.base.598480511" name="NVCC Linker" superClass="nvcc.linker.base.1307129381"/>
-							<tool id="nvcc.archiver.base.2130737709" name="NVCC Archiver" superClass="nvcc.archiver.base.1098630470"/>
-							<tool id="com.nvidia.host.assembler.1674111173" name="Host Assembler" superClass="com.nvidia.host.assembler.1962423995"/>
-						</toolChain>
-					</folderInfo>
 					<sourceEntries>
 						<entry excluding="include|Main.cc|src|live.cpp|slam_core" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
-						<entry excluding="Main.cc|examples/slam_live_wrapper.cc|LiveSlamWrapper.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="examples/slam_live_wrapper.cc|LiveSlamWrapper.cc|Main.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -192,9 +205,6 @@
 					</folderInfo>
 					<sourceEntries>
 						<entry excluding="MainTum.cc|include|tum.cpp|src|slam_core" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
-						<entry excluding="include|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="slam_core"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="slam_core/include"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="slam_core/src"/>
 						<entry excluding="MainTum.cc|RunDataset.cc|examples/slam_tum.cc|DataSetSlam.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
@@ -208,8 +218,8 @@
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 		</cconfiguration>
-		<cconfiguration id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.1063314743">
-			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.1063314743" moduleId="org.eclipse.cdt.core.settings" name="debug_dataset">
+		<cconfiguration id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.1056428300">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.1056428300" moduleId="org.eclipse.cdt.core.settings" name="debug_dataset">
 				<externalSettings/>
 				<extensions>
 					<extension id="com.nvidia.cuda.ide.elf" point="org.eclipse.cdt.core.BinaryParser"/>
@@ -224,42 +234,42 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.1063314743" name="debug_dataset" parent="com.nvidia.cuda.ide.nine_zero.configuration.release">
-					<folderInfo id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.1063314743." name="/" resourcePath="">
-						<toolChain id="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release.1624241296" name="CUDA Toolkit 9.2" superClass="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release">
-							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.1958713421" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
-							<builder buildPath="${workspace_loc:/fusion}/Build/Release/Tum/" id="com.nvidia.cuda.ide.builder.1207251255" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="CUDA Toolkit 9.2 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
-							<tool id="nvcc.compiler.base.754660176" name="NVCC Compiler" superClass="nvcc.compiler.base">
-								<option id="nvcc.compiler.deviceDebug.1311329648" name="Generate device debug information (-G)" superClass="nvcc.compiler.deviceDebug" value="true" valueType="boolean"/>
-								<option id="nvcc.compiler.option.level.2047706608" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level" value="true" valueType="boolean"/>
-								<option defaultValue="nvcc.compiler.optimization.level.most" id="nvcc.compiler.optimization.level.216182359" name="Optimization Level" superClass="nvcc.compiler.optimization.level" valueType="enumerated"/>
-								<option id="nvcc.compiler.pic.425362685" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic" value="true" valueType="boolean"/>
-								<option id="nvcc.compiler.cpp11option.525890314" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
-								<option id="nvcc.compiler.ptxasoptions.333875625" name="ptaxas options (-Xptxas)" superClass="nvcc.compiler.ptxasoptions" valueType="stringList">
+				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.1056428300" name="debug_dataset" parent="com.nvidia.cuda.ide.nine_zero.configuration.release">
+					<folderInfo id="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.1056428300." name="/" resourcePath="">
+						<toolChain id="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release.1425633994" name="CUDA Toolkit 9.2" superClass="com.nvidia.cuda.ide.toolchain.nine_zero.exe.release">
+							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.1068195045" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
+							<builder buildPath="${workspace_loc:/fusion}/Build/Release/Tum/" id="com.nvidia.cuda.ide.builder.537990815" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="CUDA Toolkit 9.2 Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="com.nvidia.cuda.ide.builder"/>
+							<tool id="nvcc.compiler.base.823350362" name="NVCC Compiler" superClass="nvcc.compiler.base">
+								<option id="nvcc.compiler.deviceDebug.1108100700" name="Generate device debug information (-G)" superClass="nvcc.compiler.deviceDebug" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.option.level.1229622046" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level" value="true" valueType="boolean"/>
+								<option defaultValue="nvcc.compiler.optimization.level.most" id="nvcc.compiler.optimization.level.178877897" name="Optimization Level" superClass="nvcc.compiler.optimization.level" value="nvcc.compiler.optimization.level.most" valueType="enumerated"/>
+								<option id="nvcc.compiler.pic.35192183" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.cpp11option.689685625" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.ptxasoptions.205821840" name="ptaxas options (-Xptxas)" superClass="nvcc.compiler.ptxasoptions" valueType="stringList">
 									<listOptionValue builtIn="false" value="-dlcm=ca"/>
 								</option>
-								<option id="nvcc.compiler.include.paths.416271472" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/CoreData}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/CUDAFunc}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/IOWrapper}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/legacy}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/Mapping}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/Tracking}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/utils}&quot;"/>
+								<option id="nvcc.compiler.include.paths.1881220558" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/data_structure}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/dense_mapping}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/device_utils}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/examples}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/icp_tracking}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/utilities}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src/visualisation}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/opencv2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/openni2"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/eigen3"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/src}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/include/suitesparse"/>
 								</option>
-								<option id="nvcc.compiler.option.lineinfo.251236604" name="Generate line-number information for device code (-lineinfo)" superClass="nvcc.compiler.option.lineinfo" value="true" valueType="boolean"/>
-								<option id="nvcc.compiler.option.gprof.1966514241" name="Generate gprof information (-pg)" superClass="nvcc.compiler.option.gprof" value="true" valueType="boolean"/>
-								<inputType id="nvcc.compiler.input.cu.568817040" superClass="nvcc.compiler.input.cu"/>
-								<inputType id="nvcc.compiler.input.cpp.372517751" superClass="nvcc.compiler.input.cpp"/>
-								<inputType id="nvcc.compiler.input.c.1217417487" superClass="nvcc.compiler.input.c"/>
+								<option id="nvcc.compiler.option.lineinfo.867166527" name="Generate line-number information for device code (-lineinfo)" superClass="nvcc.compiler.option.lineinfo" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.option.gprof.563664345" name="Generate gprof information (-pg)" superClass="nvcc.compiler.option.gprof" value="true" valueType="boolean"/>
+								<inputType id="nvcc.compiler.input.cu.967930697" superClass="nvcc.compiler.input.cu"/>
+								<inputType id="nvcc.compiler.input.cpp.915959357" superClass="nvcc.compiler.input.cpp"/>
+								<inputType id="nvcc.compiler.input.c.35725216" superClass="nvcc.compiler.input.c"/>
 							</tool>
-							<tool id="nvcc.linker.base.131059847" name="NVCC Linker" superClass="nvcc.linker.base">
-								<option id="nvcc.linker.option.libs.233149129" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
+							<tool id="nvcc.linker.base.934623948" name="NVCC Linker" superClass="nvcc.linker.base">
+								<option id="nvcc.linker.option.libs.778149677" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="pthread"/>
 									<listOptionValue builtIn="false" value="cholmod"/>
 									<listOptionValue builtIn="false" value="g2o_core"/>
@@ -280,23 +290,20 @@
 									<listOptionValue builtIn="false" value="opencv_xfeatures2d"/>
 									<listOptionValue builtIn="false" value="opencv_cudafeatures2d"/>
 								</option>
-								<inputType id="nvcc.linker.input.2066149214" superClass="nvcc.linker.input">
+								<inputType id="nvcc.linker.input.2037531549" superClass="nvcc.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
 								</inputType>
 							</tool>
-							<tool id="nvcc.archiver.base.2009715868" name="NVCC Archiver" superClass="nvcc.archiver.base"/>
-							<tool id="com.nvidia.host.assembler.1872767597" name="Host Assembler" superClass="com.nvidia.host.assembler">
-								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.711865605" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+							<tool id="nvcc.archiver.base.1703031160" name="NVCC Archiver" superClass="nvcc.archiver.base"/>
+							<tool id="com.nvidia.host.assembler.1318805011" name="Host Assembler" superClass="com.nvidia.host.assembler">
+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.853499231" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
 						<entry excluding="include|Main.cc|src|live.cpp|slam_core" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
-						<entry excluding="include|src" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="slam_core"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="slam_core/include"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="slam_core/src"/>
-						<entry excluding="Main.cc|LiveSlamWrapper.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="Main.cc|examples/slam_live_wrapper.cc|LiveSlamWrapper.cc" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -312,18 +319,6 @@
 	</storageModule>
 	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
 		<project id="fusion.com.nvidia.cuda.ide.nine_zero.exe.774628148" name="Executable" projectType="com.nvidia.cuda.ide.nine_zero.exe"/>
-	</storageModule>
-	<storageModule moduleId="scannerConfiguration">
-		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.nine_zero.configuration.debug.378325842;com.nvidia.cuda.ide.nine_zero.configuration.debug.378325842.;nvcc.compiler.base.1510308607;nvcc.compiler.input.cpp.1541790803">
-			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
-		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.nine_zero.configuration.debug.378325842;com.nvidia.cuda.ide.nine_zero.configuration.debug.378325842.;nvcc.compiler.base.1510308607;nvcc.compiler.input.cu.1401994308">
-			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
-		</scannerConfigBuildInfo>
-		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.nine_zero.configuration.debug.378325842;com.nvidia.cuda.ide.nine_zero.configuration.debug.378325842.;nvcc.compiler.base.1510308607;nvcc.compiler.input.c.393595852">
-			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
-		</scannerConfigBuildInfo>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
@@ -346,4 +341,25 @@
 		</configuration>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077;com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.;nvcc.compiler.base.1047712494;nvcc.compiler.input.cu.1107614478">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.nine_zero.configuration.debug.378325842;com.nvidia.cuda.ide.nine_zero.configuration.debug.378325842.;nvcc.compiler.base.1510308607;nvcc.compiler.input.cu.1401994308">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077;com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.;nvcc.compiler.base.1047712494;nvcc.compiler.input.c.824602239">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.nine_zero.configuration.debug.378325842;com.nvidia.cuda.ide.nine_zero.configuration.debug.378325842.;nvcc.compiler.base.1510308607;nvcc.compiler.input.cpp.1541790803">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.nine_zero.configuration.debug.378325842;com.nvidia.cuda.ide.nine_zero.configuration.debug.378325842.;nvcc.compiler.base.1510308607;nvcc.compiler.input.c.393595852">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077;com.nvidia.cuda.ide.nine_zero.configuration.release.1693394077.;nvcc.compiler.base.1047712494;nvcc.compiler.input.cpp.2090973959">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="com.nvidia.cuda.ide.build.NVCCPerProjectProfile"/>
+		</scannerConfigBuildInfo>
+	</storageModule>
 </cproject>

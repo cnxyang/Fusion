@@ -4,7 +4,7 @@
 #include "Settings.h"
 
 #define DEPTH_SCALE 5000.f
-#define DEPTH_CUTOFF 3.0f
+#define DEPTH_CUTOFF 10.0f
 
 PointCloud::PointCloud():
 	memoryAllocated(false), frame(0)
@@ -45,6 +45,8 @@ void PointCloud::generateCloud(Frame* frame, bool useRGB)
 			image[level].create(width, height);
 			dIdx[level].create(width, height);
 			dIdy[level].create(width, height);
+			dZdx[level].create(width, height);
+			dZdy[level].create(width, height);
 
 			if(level == 0)
 			{
@@ -62,29 +64,35 @@ void PointCloud::generateCloud(Frame* frame, bool useRGB)
 	depth_ushort.upload(frame->data.depth.data, frame->data.depth.step);
 
 	// Upload raw colour onto GPU memory
-	image_raw.upload(frame->data.image.data, frame->data.image.step);
+//	image_raw.upload(frame->data.image.data, frame->data.image.step);
 
 	// Upload weight (if exists)
-	if(!frame->data.weight.empty())
-		weight.upload(frame->data.weight.data, frame->data.weight.step);
-	else
-		weight.clear();
+//	if(!frame->data.weight.empty())
+//		weight.upload(frame->data.weight.data, frame->data.weight.step);
+//	else
+//		weight.clear();
 
 	// Do a bilateral filtering before goes into tracking
-	FilterDepth(depth_ushort, depth_float, depth[0], DEPTH_SCALE, DEPTH_CUTOFF);
+	FilterDepth(depth_ushort, depth[0], depth_float,  DEPTH_SCALE, DEPTH_CUTOFF);
 
 	// Convert RGB images into gray-scale images
-	if(useRGB)
-	{
-		ImageToIntensity(image_raw, image[0]);
-	}
+//	if(useRGB)
+//	{
+//		ImageToIntensity(image_raw, image[0]);
+//	}
+
+
+	cv::Mat img;
+	cv::cvtColor(frame->data.image, img, cv::COLOR_RGB2GRAY);
+	img.convertTo(img, CV_32FC1);
+	image[0].upload(img.data, img.step);
 
 	// Generate image pyramids
 	for(int level = 1; level < NUM_PYRS; ++level) {
 		PyrDownGauss(depth[level - 1], depth[level]);
 		if(useRGB)
 		{
-			PyrDownGauss(image[level - 1], image[level]);
+			pyrdown_image_mean(image[level - 1], image[level]);
 		}
 	}
 
@@ -105,12 +113,17 @@ void PointCloud::generateCloud(Frame* frame, bool useRGB)
 		if(useRGB)
 		{
 			// Compute derivative images ( sobel operation )
-			ComputeDerivativeImage(image[level], dIdx[level], dIdy[level]);
+			compute_image_derivatives(image[level], dIdx[level], dIdy[level]);
 		}
 	}
 
 	// Update reference frame
 	this->frame = frame;
+
+//	cv::Mat nn(480, 640, CV_32FC4);
+//	nmap[0].download(nn.data, nn.step);
+//	cv::imshow("nn", nn);
+//	cv::waitKey(0);
 }
 
 void PointCloud::downloadFusedMap()
@@ -127,11 +140,4 @@ void PointCloud::downloadFusedMap()
 void PointCloud::setReferenceFrame(Frame* frame)
 {
 	this->frame = frame;
-}
-
-void PointCloud::updateImagePyramid()
-{
-	for(int level = 1; level < NUM_PYRS; ++level) {
-		ResizeMap(vmap[level - 1], nmap[level - 1], vmap[level], nmap[level]);
-	}
 }
