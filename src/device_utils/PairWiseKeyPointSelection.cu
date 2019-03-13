@@ -65,12 +65,12 @@ void BuildAdjacencyMatrix(cv::cuda::GpuMat & adjecencyMatrix,
 	int rows = adjecencyMatrix.rows;
 
 	dim3 thread(8, 8);
-	dim3 block(divUp(cols, thread.x), divUp(rows, thread.y));
+	dim3 block(div_up(cols, thread.x), div_up(rows, thread.y));
 
 	BuildAdjecencyMatrixKernel<<<block, thread>>>(adjecencyMatrix, frameKeys, mapKeys, dist);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
 	cv::cuda::GpuMat result;
 	cv::cuda::reduce(adjecencyMatrix, result, 0, CV_REDUCE_SUM);
@@ -115,12 +115,12 @@ void CheckVisibility(DeviceArray<float3> & pt3d, DeviceArray<float2> & pt2d,
 		float3 tlast, float fx, float fy, float cx, float cy, int cols,
 		int rows) {
 
-	dim3 thread(MaxThread);
-	dim3 block(divUp(pt3d.size, thread.x));
+	dim3 thread(MAX_THREAD);
+	dim3 block(div_up(pt3d.size, thread.x));
 
 	CheckVisibilityKernel<<<block, thread>>>(pt3d, pt2d, match, RcurrInv, tcurr,
 			Rlast, tlast, fx, fy, cx, cy, cols, rows);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }

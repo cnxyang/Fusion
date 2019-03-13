@@ -2,12 +2,14 @@
 #include "PoseStruct.h"
 
 Frame::Frame(cv::Mat & image, cv::Mat & depth, int id, Eigen::Matrix3f K, double timeStamp) :
-		poseStruct(0), keyPointStruct(0)
+		poseStruct(0), keyPointStruct(0), point_struct(new PointStruct(image))
 {
 	initialize(image.cols, image.rows, id, K, timeStamp);
 
 	image.copyTo(data.image);
 	depth.copyTo(data.depth);
+
+	point_struct->detect();
 }
 
 void Frame::initialize(int width, int height, int id, Eigen::Matrix3f & K, double timeStamp)

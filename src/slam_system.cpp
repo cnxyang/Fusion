@@ -38,10 +38,10 @@ SlamSystem::SlamSystem(int w, int h, Eigen::Matrix3f K) :
 	firstFrame = new PointCloud();
 	secondFrame = new PointCloud();
 
-	threadConstraintSearch = std::thread(&SlamSystem::loopConstraintSearch, this);
+//	threadConstraintSearch = std::thread(&SlamSystem::loopConstraintSearch, this);
 	threadVisualisation = std::thread(&SlamSystem::loopVisualisation, this);
 	threadMapGeneration = std::thread(&SlamSystem::loopMapGeneration, this);
-	threadOptimization = std::thread(&SlamSystem::loopOptimization, this);
+//	threadOptimization = std::thread(&SlamSystem::loopOptimization, this);
 
 	systemState.depthCutoff = 3.0f;
 	systemState.depthScale = 1000.f;
@@ -72,13 +72,58 @@ SlamSystem::~SlamSystem()
 	CONSOLE("DONE Cleaning Up.");
 }
 
+float compute_frame_to_keyframe_distance_score(Frame *keyframe, Frame *frame)
+{
+	const Sophus::SE3d keyframe_pose = keyframe->pose();
+	const Sophus::SE3d frame_pose = frame->pose();
+
+	Eigen::Vector3f dir_keyframe = keyframe_pose.rotationMatrix().rightCols<1>().cast<float>();
+	Eigen::Vector3f dir_frame = frame_pose.rotationMatrix().rightCols<1>().cast<float>();
+	float angle = dir_keyframe.normalized().dot(dir_frame.normalized());
+
+	Eigen::Vector3f pos_keyframe = keyframe_pose.translation().cast<float>();
+	Eigen::Vector3f pos_frame = frame_pose.translation().cast<float>();
+	float dist = (pos_keyframe - pos_frame).norm();
+
+//	std::cout << dist <<std::endl;
+
+//	std::cout << angle << std::endl;
+//	std::cout << dist << std::endl;
+//	std::cout << "----------------------------" << std::endl;
+//	float dist = dir_keyframe.dot(dir_frame);
+//	std::cout << dist << std::endl;
+
+	return (1 - angle) / 0.1 + dist / 0.1;
+}
+
+float find_nearest_keyframe_within_threshold(const std::list<Frame *> keyframe_list, Frame *frame, Frame **closest_keyframe, const float th)
+{
+	float max_score = std::numeric_limits<float>::max();
+	*closest_keyframe = nullptr;
+	for(auto iter = keyframe_list.begin(), lend = keyframe_list.end(); iter != lend; ++iter)
+	{
+		float score = compute_frame_to_keyframe_distance_score(*iter, frame);
+
+		if(score > 0 && score < max_score)
+		{
+			max_score = score;
+			*closest_keyframe = *iter;
+		}
+	}
+
+	return max_score;
+}
+
+std::queue<Frame *> sliding_window;
+
 void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeStamp)
 {
 	processMessages();
 	this->updatePoseGraph(1);
 	currentFrame = new Frame(img, depth, id, K, timeStamp);
-	trackingTarget->generateCloud(currentFrame);
+	std::cout << "sdfasd" << std::endl;
 
+	trackingTarget->generateCloud(currentFrame);
 	if(!trackingReference->frame)
 	{
 		currentFrame->pose() = first_frame_pose;
@@ -106,6 +151,8 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 		// Update current frame pose
 		currentFrame->pose() = currentKeyFrame->pose() * poseUpdate.inverse();
 		currentFrame->poseStruct->pose_from_parent = poseUpdate.inverse();
+
+
 //		keyFrameGraph->insert_frame_pose(currentFrame);
 		full_trajectory.push_back(currentFrame->pose());
 		// Set last tracked frame to current frame
@@ -114,12 +161,57 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 
 		updateVisualisation();
 
-		if(needNewKeyFrame(poseUpdate))
+		Frame *closest_keyframe = nullptr;
+		float prev_score = 0;
+		if(keyframe_list.size() > 1)
 		{
-//			map->fuseImages(trackingReference);
-//			map->CreateModel();
-//			trackingReference->downloadFusedMap();
+			prev_score = find_nearest_keyframe_within_threshold(keyframe_list, currentFrame, &closest_keyframe, 0.9);
+		}
 
+		float score = compute_frame_to_keyframe_distance_score(currentKeyFrame, currentFrame);
+		std::cout << prev_score << " : " << score << std::endl;
+		if(closest_keyframe && prev_score < score && prev_score < 0.6)
+		{
+			map->fuseImages(trackingReference);
+			trackingReference->downloadFusedMap();
+			keyframe_list.push_back(currentKeyFrame);
+
+			if(sliding_window.size() > 6)
+			{
+				Frame * frame = sliding_window.front();
+				PointCloud* pc = new PointCloud();
+				pc->generateCloud(frame);
+				map->defuseImages(pc);
+				sliding_window.pop();
+			}
+
+			sliding_window.push(currentKeyFrame);
+
+
+			currentKeyFrame = closest_keyframe;
+			trackingReference->generateCloud(currentKeyFrame);
+			keyframe_list.remove(currentKeyFrame);
+
+			map->defuseImages(trackingReference);
+			map->CreateModel();
+
+		}
+		else if(score > 0.6f)
+		{
+			map->fuseImages(trackingReference);
+			map->CreateModel();
+			trackingReference->downloadFusedMap();
+			keyframe_list.push_back(currentKeyFrame);
+			if(sliding_window.size() > 6)
+			{
+				Frame * frame = sliding_window.front();
+				PointCloud* pc = new PointCloud();
+				pc->generateCloud(frame);
+				map->defuseImages(pc);
+				sliding_window.pop();
+			}
+
+			sliding_window.push(currentKeyFrame);
 			std::swap(trackingReference, trackingTarget);
 			// Create new key frame
 			currentKeyFrame = currentFrame;
@@ -135,14 +227,14 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 
 			float K[4] = { currentFrame->fx(), currentFrame->fy(), currentFrame->cx(), currentFrame->cy() };
 
-//			FuseKeyFrameDepth(trackingReference->depth_float,
-//						      trackingTarget->depth_float,
-//						      trackingReference->weight,
-//						      trackingTarget->nmap[0],
-//							  trackingTarget->vmap[0],
-//							  SE3toMatrix3f(poseUpdate.inverse()),
-//							  SE3toFloat3(poseUpdate.inverse()),
-//							  K);
+			FuseKeyFrameDepth(trackingReference->depth_float,
+						      trackingTarget->depth_float,
+						      trackingReference->weight,
+						      trackingTarget->nmap[0],
+							  trackingTarget->vmap[0],
+							  SE3toMatrix3f(poseUpdate.inverse()),
+							  SE3toFloat3(poseUpdate.inverse()),
+							  K);
 		}
 	}
 	else
@@ -155,7 +247,7 @@ void SlamSystem::trackFrame(cv::Mat & img, cv::Mat & depth, int id, double timeS
 	++systemState.numTrackedFrames;
 }
 
-bool SlamSystem::needNewKeyFrame(SE3& poseUpdate)
+bool SlamSystem::needNewKeyFrame(SE3 poseUpdate)
 {
 	const float distTH = 0.1f;
 	const float angleTH = 0.1f;
@@ -383,31 +475,31 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 
 	if(candidates.size() > 0)
 	{
-		firstFrame->generateCloud(newKF);
+		firstFrame->generateCloud(newKF, false);
 	}
 
-//	while ((int) candidates.size() > 10)
-//	{
-//		Frame* worst = 0;
-//		int worstNeighbours = 0;
-//		for(Frame* f : candidates)
-//		{
-//			int neighoursInCandidates = 0;
-//			for(Frame* n : f->neighbors)
-//			{
-//				if(candidates.find(n) != candidates.end())
-//					neighoursInCandidates++;
-//			}
-//
-//			if(neighoursInCandidates > worstNeighbours || worst == 0)
-//			{
-//				worst = f;
-//				worstNeighbours = neighoursInCandidates;
-//			}
-//		}
-//
-//		candidates.erase(worst);
-//	}
+	while ((int) candidates.size() > 10)
+	{
+		Frame* worst = 0;
+		int worstNeighbours = 0;
+		for(Frame* f : candidates)
+		{
+			int neighoursInCandidates = 0;
+			for(Frame* n : f->neighbors)
+			{
+				if(candidates.find(n) != candidates.end())
+					neighoursInCandidates++;
+			}
+
+			if(neighoursInCandidates > worstNeighbours || worst == 0)
+			{
+				worst = f;
+				worstNeighbours = neighoursInCandidates;
+			}
+		}
+
+		candidates.erase(worst);
+	}
 
 	std::vector<Frame*> failedCandidates;
 	for (Frame* candidate : candidates)
@@ -422,7 +514,7 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 		secondFrame->generateCloud(candidate);
 
 		SE3 c2f_init = SE3CandidateToFrame[candidate];
-		SE3 c2f = constraintTracker->trackSE3(firstFrame, secondFrame, c2f_init);
+		SE3 c2f = constraintTracker->trackSE3(firstFrame, secondFrame, c2f_init, false);
 		if(!constraintTracker->trackingWasGood)
 		{
 			failedCandidates.push_back(candidate);
@@ -431,7 +523,7 @@ void SlamSystem::findConstraintsForNewKFs(Frame* newKF)
 
 		information0[candidate] = constraintTracker->getInformation();
 		SE3 f2c_init = SE3CandidateToFrame[candidate].inverse();
-		SE3 f2c = constraintTracker->trackSE3(secondFrame, firstFrame, f2c_init);
+		SE3 f2c = constraintTracker->trackSE3(secondFrame, firstFrame, f2c_init, false);
 		if(!constraintTracker->trackingWasGood)
 		{
 			failedCandidates.push_back(candidate);

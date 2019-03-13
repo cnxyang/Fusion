@@ -173,7 +173,7 @@ template<class T> DeviceArray<T>::~DeviceArray() {
 
 template<class T> void DeviceArray<T>::create(size_t size_) {
 	if (data) release();
-	SafeCall(cudaMalloc(&data, sizeof(T) * size_));
+	safe_call(cudaMalloc(&data, sizeof(T) * size_));
 	size = size_;
 	ref = new std::atomic<int>(1);
 }
@@ -188,7 +188,7 @@ template<class T> void DeviceArray<T>::upload(const std::vector<T> & vec) {
 
 template<class T> void DeviceArray<T>::upload(const void * data_, size_t size_) {
 	if (size_ > size) return;
-	SafeCall(cudaMemcpy(data, data_, sizeof(T) * size_, cudaMemcpyHostToDevice));
+	safe_call(cudaMemcpy(data, data_, sizeof(T) * size_, cudaMemcpyHostToDevice));
 }
 
 template<class T> void DeviceArray<T>::download(void * data_) const {
@@ -202,18 +202,18 @@ template<class T> void DeviceArray<T>::download(std::vector<T> & vec) const {
 }
 
 template<class T> void DeviceArray<T>::download(void * data_, size_t size_) const {
-	SafeCall(cudaMemcpy(data_, data, sizeof(T) * size_,	cudaMemcpyDeviceToHost));
+	safe_call(cudaMemcpy(data_, data, sizeof(T) * size_,	cudaMemcpyDeviceToHost));
 }
 
 template<class T> void DeviceArray<T>::clear() {
-	SafeCall(cudaMemset(data, 0, sizeof(T) * size));
+	safe_call(cudaMemset(data, 0, sizeof(T) * size));
 }
 
 template<class T> void DeviceArray<T>::release() {
 	if (ref && --*ref == 0) {
 		delete ref;
 		if (data) {
-			SafeCall(cudaFree(data));
+			safe_call(cudaFree(data));
 		}
 	}
 
@@ -229,7 +229,7 @@ template<class T> void DeviceArray<T>::copyTo(DeviceArray<T> & other) const {
 	}
 
 	other.create(size);
-	SafeCall(cudaMemcpy(other.data, data, sizeof(T) * size, cudaMemcpyDeviceToDevice));
+	safe_call(cudaMemcpy(other.data, data, sizeof(T) * size, cudaMemcpyDeviceToDevice));
 }
 
 template<class T> DeviceArray<T> & DeviceArray<T>::operator=(const DeviceArray<T> & other) {
@@ -281,7 +281,7 @@ template<class T> void DeviceArray2D<T>::create(int cols_, int rows_) {
 		if(data)
 			release();
 
-		SafeCall(cudaMallocPitch(&data, &step, sizeof(T) * cols_, rows_));
+		safe_call(cudaMallocPitch(&data, &step, sizeof(T) * cols_, rows_));
 
 		cols = cols_;
 
@@ -303,7 +303,7 @@ template<class T> void DeviceArray2D<T>::upload(const void * data_, size_t step_
 	if(!data)
 		create(cols_, rows_);
 
-	SafeCall(cudaMemcpy2D(data, step, data_, step_, sizeof(T) * cols_, rows_, cudaMemcpyHostToDevice));
+	safe_call(cudaMemcpy2D(data, step, data_, step_, sizeof(T) * cols_, rows_, cudaMemcpyHostToDevice));
 }
 
 template<class T> void DeviceArray2D<T>::swap(DeviceArray2D<T> & other) {
@@ -320,20 +320,20 @@ template<class T> void DeviceArray2D<T>::swap(DeviceArray2D<T> & other) {
 }
 
 template<class T> void DeviceArray2D<T>::clear() {
-	SafeCall(cudaMemset2D(data, step, 0, sizeof(T) * cols, rows));
+	safe_call(cudaMemset2D(data, step, 0, sizeof(T) * cols, rows));
 }
 
 template<class T> void DeviceArray2D<T>::download(void * data_, size_t step_) const {
 	if(!data)
 		return;
-	SafeCall(cudaMemcpy2D(data_, step_, data, step, sizeof(T) * cols, rows, cudaMemcpyDeviceToHost));
+	safe_call(cudaMemcpy2D(data_, step_, data, step, sizeof(T) * cols, rows, cudaMemcpyDeviceToHost));
 }
 
 template<class T> void DeviceArray2D<T>::release() {
 	if (ref && --*ref == 0) {
 		delete ref;
 		if(data)
-			SafeCall(cudaFree(data));
+			safe_call(cudaFree(data));
 	}
 	cols = rows = step = 0;
 	data = ref = 0;
@@ -343,7 +343,7 @@ template<class T> void DeviceArray2D<T>::copyTo(DeviceArray2D<T> & other) const 
 	if(!data)
 		other.release();
 	other.create(cols, rows);
-	SafeCall(cudaMemcpy2D(other.data, other.step, data, step, sizeof(T) * cols, rows, cudaMemcpyDeviceToDevice));
+	safe_call(cudaMemcpy2D(other.data, other.step, data, step, sizeof(T) * cols, rows, cudaMemcpyDeviceToDevice));
 }
 
 template<class T> DeviceArray2D<T>& DeviceArray2D<T>::operator=(const DeviceArray2D<T>& other) {

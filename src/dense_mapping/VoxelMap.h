@@ -26,9 +26,9 @@ public:
 	void ReleaseRAM();
 	bool HasNewKF();
 	void RayTrace(uint noVisibleBlocks, Matrix3f Rview, Matrix3f RviewInv,
-			float3 tview, DeviceArray2D<float4> & vmap,
-			DeviceArray2D<float4> & nmap, float depthMin, float depthMax,
-			float fx, float fy, float cx, float cy);
+					float3 tview, DeviceArray2D<float4> & vmap,
+					DeviceArray2D<float4> & nmap, float depthMin, float depthMax,
+					float fx, float fy, float cx, float cy);
 
 	std::atomic<bool> meshUpdated;
 	std::atomic<bool> mapPointsUpdated;
@@ -89,7 +89,6 @@ public:
 	void copyMapToDevice();
 	void writeMapToDisk(const char* path);
 	void readMapFromDisk(const char path);
-	void exportMesh(Mesh3D* mesh);
 
 	void raycast(PointCloud* data, int n = -1);
 	int fuseImages(PointCloud* data);
@@ -122,7 +121,7 @@ private:
 
 	} data;
 
-	MapStruct* device, * host;
+	MapStruct* device, *host;
 	int width, height;
 	Eigen::Matrix3f K;
 };

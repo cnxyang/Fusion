@@ -6,7 +6,6 @@ struct Fusion {
 	MapStruct map;
 	float invfx, invfy;
 	float fx, fy, cx, cy;
-	float minDepth, maxDepth;
 	int width, height;
 	Matrix3f Rview;
 	Matrix3f RviewInv;
@@ -42,11 +41,12 @@ struct Fusion {
 
 		return pt2d.x >= 0 && pt2d.y >= 0 &&
 			   pt2d.x < width && pt2d.y < height &&
-			   pt3d.z >= minDepth && pt3d.z <= maxDepth;
+			   pt3d.z >= param.zmin_update_ &&
+			   pt3d.z <= param.zmax_update_;
 	}
 
 	__device__ inline bool CheckBlockVisibility(const int3& pos) {
-		float scale = mapState.blockWidth();
+		float scale = param.block_size_metric();
 		float3 corner = pos * scale;
 		if (CheckVertexVisibility(corner))
 			return true;
@@ -84,17 +84,17 @@ struct Fusion {
 			return;
 
 		float z = depth.ptr(y)[x];
-		if (isnan(z) || z < minDepth || z > maxDepth)
+		if (isnan(z) || z < param.zmin_update_ || z > param.zmax_update_)
 			return;
 
-		float thresh = mapState.truncateDistance() / 2;
-		float z_near = min(maxDepth, z - thresh);
-		float z_far = min(maxDepth, z + thresh);
+		float thresh = param.truncation_dist() / 2;
+		float z_near = min(param.zmax_update_, z - thresh);
+		float z_far = min(param.zmax_update_, z + thresh);
 		if (z_near >= z_far)
 			return;
 
-		float3 pt_near = unproject(x, y, z_near) * mapState.invVoxelSize();
-		float3 pt_far = unproject(x, y, z_far) * mapState.invVoxelSize();
+		float3 pt_near = unproject(x, y, z_near) * param.inverse_voxel_size();
+		float3 pt_far = unproject(x, y, z_far) * param.inverse_voxel_size();
 		float3 dir = pt_far - pt_near;
 
 		float length = norm(dir);
@@ -116,7 +116,7 @@ struct Fusion {
 		uint val = 0;
 
 		int x = blockDim.x * blockIdx.x + threadIdx.x;
-		if (x < mapState.maxNumHashEntries) {
+		if (x < param.maxNumHashEntries) {
 			HashEntry& e = map.hashEntries[x];
 			if (e.next != EntryAvailable) {
 				if (CheckBlockVisibility(e.pos)) {
@@ -129,7 +129,7 @@ struct Fusion {
 		__syncthreads();
 		if (bScan) {
 			int offset = ComputeOffset<1024>(val, noVisibleBlocks);
-			if (offset != -1 &&	x < mapState.maxNumHashEntries)	{
+			if (offset != -1 &&	x < param.maxNumHashEntries)	{
 				map.visibleEntries[offset] = map.hashEntries[x];
 			}
 		}
@@ -137,7 +137,7 @@ struct Fusion {
 
 	__device__ inline void fuseFrameWithColour() {
 
-		if(blockIdx.x >= mapState.maxNumHashEntries || blockIdx.x >= *noVisibleBlocks)
+		if(blockIdx.x >= param.maxNumHashEntries || blockIdx.x >= *noVisibleBlocks)
 			return;
 
 		HashEntry& entry = map.visibleEntries[blockIdx.x];
@@ -154,25 +154,24 @@ struct Fusion {
 				continue;
 
 			float dist = depth.ptr(uv.y)[uv.x];
-			if (isnan(dist) || dist > maxDepth || dist < minDepth)
+			if (isnan(dist) || dist > param.zmax_update_ || dist < param.zmin_update_)
 				continue;
 
-			float truncateDist = mapState.truncateDistance();
+			float truncateDist = param.truncation_dist();
 			float sdf = dist - pos.z;
 			if (sdf >= -truncateDist) {
 				sdf = fmin(1.0f, sdf / truncateDist);
 				int& w_curr = weight.ptr(uv.y)[uv.x];
 				float3 val = make_float3(rgb.ptr(uv.y)[uv.x]);
 				Voxel& prev = map.voxelBlocks[entry.next + map.posLocalToIdx(localPos)];
-				if (prev.weight == 0)
+				if (prev.weight_ == 0)
 					prev = Voxel(sdf, w_curr, make_uchar3(val));
 				else {
-					val = val / 255.f;
-					float3 old = make_float3(prev.color) / 255.f;
-					float3 res = (0.2f * val + 0.8f * old) * 255.f;
-					prev.sdf = (prev.sdf * prev.weight + sdf * w_curr) / (prev.weight + w_curr);
-					prev.weight = prev.weight + w_curr;
-					prev.color = make_uchar3(res);
+					float3 old = make_float3(prev.rgb_);
+					float3 res = (0.2f * val + 0.8f * old);
+					prev.sdf_ = (prev.sdf_ * prev.weight_ + sdf * w_curr) / (prev.weight_ + w_curr);
+					prev.weight_ = prev.weight_ + w_curr;
+					prev.rgb_ = make_uchar3(res);
 				}
 			}
 		}
@@ -180,7 +179,7 @@ struct Fusion {
 
 	__device__ inline void defuseFrameWithColour() {
 
-		if(blockIdx.x >= mapState.maxNumHashEntries || blockIdx.x >= *noVisibleBlocks)
+		if(blockIdx.x >= param.maxNumHashEntries || blockIdx.x >= *noVisibleBlocks)
 			return;
 
 		HashEntry& entry = map.visibleEntries[blockIdx.x];
@@ -197,10 +196,10 @@ struct Fusion {
 				continue;
 
 			float dist = depth.ptr(uv.y)[uv.x];
-			if (isnan(dist) || dist > maxDepth || dist < minDepth)
+			if (isnan(dist) || dist > param.zmax_update_ || dist < param.zmin_update_)
 				continue;
 
-			float truncateDist = mapState.truncateDistance();
+			float truncateDist = param.truncation_dist();
 			float sdf = dist - pos.z;
 			if (sdf >= -truncateDist)
 			{
@@ -209,21 +208,21 @@ struct Fusion {
 				int& w_curr = weight.ptr(uv.y)[uv.x];
 				Voxel& prev = map.voxelBlocks[entry.next + map.posLocalToIdx(localPos)];
 //				val = val / 255.f;
-				float3 old = make_float3(prev.color);
-				float3 res = (prev.weight * old - w_curr * val);
-				prev.sdf = (prev.sdf * prev.weight - sdf * w_curr);
-				prev.weight = prev.weight - w_curr;
-				prev.color = make_uchar3(res);
+				float3 old = make_float3(prev.rgb_);
+				float3 res = (old - 0.2f * val) / 0.8f;
+				prev.sdf_ = (prev.sdf_ * prev.weight_ - sdf * w_curr);
+				prev.weight_ = prev.weight_ - w_curr;
+				prev.rgb_ = make_uchar3(res);
 
 				// if weight == 0
-				if (prev.weight <= 0)
+				if (prev.weight_ <= 0)
 				{
 					prev = Voxel();
 				}
 				else
 				{
-					prev.sdf /= prev.weight;
-					prev.color = prev.color / prev.weight;
+					prev.sdf_ /= prev.weight_;
+					prev.rgb_ = prev.rgb_ / prev.weight_;
 				}
 			}
 		}
@@ -257,8 +256,6 @@ void CheckBlockVisibility(MapStruct map,
 						 float fy,
 						 float cx,
 						 float cy,
-						 float depthMax,
-						 float depthMin,
 						 uint * host_data) {
 
 	noVisibleBlocks.clear();
@@ -277,11 +274,9 @@ void CheckBlockVisibility(MapStruct map,
 	fuse.height = rows;
 	fuse.width = cols;
 	fuse.noVisibleBlocks = noVisibleBlocks;
-	fuse.maxDepth = depthMax;
-	fuse.minDepth = depthMin;
 
 	dim3 thread = dim3(1024);
-	dim3 block = dim3(divUp((int) currentState.maxNumHashEntries, thread.x));
+	dim3 block = dim3(div_up((int) state.maxNumHashEntries, thread.x));
 
 	CheckVisibleBlockKernel<<<block, thread>>>(fuse);
 
@@ -304,8 +299,6 @@ void DeFuseMap(const DeviceArray2D<float> & depth,
 			   float fy,
 			   float cx,
 			   float cy,
-			   float depthMax,
-			   float depthMin,
 			   uint * host_data) {
 
 	int cols = depth.cols;
@@ -330,19 +323,17 @@ void DeFuseMap(const DeviceArray2D<float> & depth,
 	fuse.width = cols;
 	fuse.weight = weight;
 	fuse.noVisibleBlocks = noVisibleBlocks;
-	fuse.maxDepth = currentState.depthMax_raycast;
-	fuse.minDepth = currentState.depthMin_raycast;
 
 	dim3 thread(16, 8);
-	dim3 block(divUp(cols, thread.x), divUp(rows, thread.y));
+	dim3 block(div_up(cols, thread.x), div_up(rows, thread.y));
 
 	thread = dim3(1024);
-	block = dim3(divUp((int) currentState.maxNumHashEntries, thread.x));
+	block = dim3(div_up((int) state.maxNumHashEntries, thread.x));
 
 	CheckVisibleBlockKernel<<<block, thread>>>(fuse);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
 	host_data[0] = 0;
 	noVisibleBlocks.download((void*) host_data);
@@ -354,8 +345,8 @@ void DeFuseMap(const DeviceArray2D<float> & depth,
 
 	DefuseColorKernal<<<block, thread>>>(fuse);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }
 
 void FuseMapColor(const DeviceArray2D<float> & depth,
@@ -371,8 +362,6 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 				  float fy,
 				  float cx,
 				  float cy,
-				  float depthMax,
-				  float depthMin,
 				  uint * host_data) {
 
 	int cols = depth.cols;
@@ -397,24 +386,23 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 	fuse.height = rows;
 	fuse.width = cols;
 	fuse.noVisibleBlocks = noVisibleBlocks;
-	fuse.maxDepth = currentState.depthMax_raycast;
-	fuse.minDepth = currentState.depthMin_raycast;
+
 
 	dim3 thread(16, 8);
-	dim3 block(divUp(cols, thread.x), divUp(rows, thread.y));
+	dim3 block(div_up(cols, thread.x), div_up(rows, thread.y));
 
 	CreateBlocksKernel<<<block, thread>>>(fuse);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
 	thread = dim3(1024);
-	block = dim3(divUp((int) currentState.maxNumHashEntries, thread.x));
+	block = dim3(div_up((int) state.maxNumHashEntries, thread.x));
 
 	CheckVisibleBlockKernel<<<block, thread>>>(fuse);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
 	host_data[0] = 0;
 	noVisibleBlocks.download((void*) host_data);
@@ -426,8 +414,8 @@ void FuseMapColor(const DeviceArray2D<float> & depth,
 
 	FuseColorKernal<<<block, thread>>>(fuse);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }
 
 void DefuseMapColor(const DeviceArray2D<float> & depth,
@@ -458,16 +446,14 @@ void DefuseMapColor(const DeviceArray2D<float> & depth,
 	fuse.height = rows;
 	fuse.width = cols;
 	fuse.noVisibleBlocks = noVisibleBlocks;
-	fuse.maxDepth = currentState.depthMax_raycast;
-	fuse.minDepth = currentState.depthMin_raycast;
 
 	dim3 thread = dim3(1024);
-	dim3 block = dim3(divUp((int) currentState.maxNumHashEntries, thread.x));
+	dim3 block = dim3(div_up((int) state.maxNumHashEntries, thread.x));
 
 	CheckVisibleBlockKernel<<<block, thread>>>(fuse);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
 	host_data[0] = 0;
 	noVisibleBlocks.download((void*) host_data);
@@ -479,19 +465,19 @@ void DefuseMapColor(const DeviceArray2D<float> & depth,
 
 	DefuseColorKernal<<<block, thread>>>(fuse);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }
 
 __global__ void ResetHashKernel(MapStruct map)
 {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	if(x < mapState.maxNumHashEntries) {
+	if(x < param.maxNumHashEntries) {
 		map.hashEntries[x].release();
 		map.visibleEntries[x].release();
 	}
 
-	if (x < mapState.maxNumBuckets) {
+	if (x < param.maxNumBuckets) {
 		map.bucketMutex[x] = EntryAvailable;
 	}
 }
@@ -499,17 +485,17 @@ __global__ void ResetHashKernel(MapStruct map)
 __global__ void ResetSdfBlockKernel(MapStruct map)
 {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	if(x < mapState.maxNumVoxelBlocks) {
-		map.heapMem[x] = mapState.maxNumVoxelBlocks - x - 1;
+	if(x < param.maxNumVoxelBlocks) {
+		map.heapMem[x] = param.maxNumVoxelBlocks - x - 1;
 
-		int locId = x * mapState.blockSize3;
-		for(int i = 0; i < mapState.blockSize3; ++i, ++locId) {
+		int locId = x * BLOCK_SIZE3;
+		for(int i = 0; i < BLOCK_SIZE3; ++i, ++locId) {
 			map.voxelBlocks[locId].release();
 		}
 	}
 
 	if(x == 0) {
-		map.heapCounter[0] = mapState.maxNumVoxelBlocks - 1;
+		map.heapCounter[0] = param.maxNumVoxelBlocks - 1;
 		map.entryPtr[0] = 1;
 	}
 }
@@ -517,18 +503,18 @@ __global__ void ResetSdfBlockKernel(MapStruct map)
 void ResetMap(MapStruct map) {
 
 	dim3 thread(1024);
-	dim3 block(divUp((int) currentState.maxNumHashEntries, thread.x));
+	dim3 block(div_up((int) state.maxNumHashEntries, thread.x));
 
 	ResetHashKernel<<<block, thread>>>(map);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
-	block = dim3(divUp((int) currentState.maxNumVoxelBlocks, thread.x));
+	block = dim3(div_up((int) state.maxNumVoxelBlocks, thread.x));
 	ResetSdfBlockKernel<<<block, thread>>>(map);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }
 
 __global__ void ResetKeyPointsKernel(KeyMap map) {
@@ -539,12 +525,12 @@ __global__ void ResetKeyPointsKernel(KeyMap map) {
 void ResetKeyPoints(KeyMap map) {
 
 	dim3 thread(1024);
-	dim3 block(divUp((int) KeyMap::maxEntries, thread.x));
+	dim3 block(div_up((int) KeyMap::maxEntries, thread.x));
 
 	ResetKeyPointsKernel<<<block, thread>>>(map);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }
 
 struct KeyFusion {
@@ -609,12 +595,12 @@ void CollectKeyPoints(KeyMap map, DeviceArray<SURF> & keys, DeviceArray<uint> & 
 	fuse.nokeys = noKeys;
 
 	dim3 thread(1024);
-	dim3 block(divUp(map.Keys.size, thread.x));
+	dim3 block(div_up(map.Keys.size, thread.x));
 
 	CollectKeyPointsKernel<<<block, thread>>>(fuse);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }
 
 void InsertKeyPoints(KeyMap map, DeviceArray<SURF> & keys,
@@ -631,12 +617,12 @@ void InsertKeyPoints(KeyMap map, DeviceArray<SURF> & keys,
 	fuse.index = keyIndex;
 
 	dim3 thread(1024);
-	dim3 block(divUp(size, thread.x));
+	dim3 block(div_up(size, thread.x));
 
 	InsertKeyPointsKernel<<<block, thread>>>(fuse);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }
 
 struct KFusion
@@ -727,12 +713,12 @@ void FuseKeyFrameDepth(DeviceArray2D<float>& lastDepth,
 	fusion.cy = K[3];
 
 	dim3 thread(16, 8);
-	dim3 block(divUp(cols, thread.x), divUp(rows, thread.y));
+	dim3 block(div_up(cols, thread.x), div_up(rows, thread.y));
 
 	FuseKeyFrameDepthKernel<<<block, thread>>>(fusion);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
 //	cv::Mat img(480, 640, CV_32FC1);
 //	lastDepth.download(img.data, img.step);

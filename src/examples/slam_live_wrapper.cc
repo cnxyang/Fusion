@@ -15,11 +15,13 @@ int main(int argc, char** argv)
 	SlamSystem slam(640, 480, K);
 
 	int i = 0;
+	cv::Mat depth_float;
 	while (!slam.shouldQuit())
 	{
 		if (depthCamera.fetchFrame(imD, imRGB))
 		{
-			slam.trackFrame(imRGB, imD, i++, 0);
+			imD.convertTo(depth_float, CV_32FC1, 1.0f / 1000.f);
+			slam.trackFrame(imRGB, depth_float, i++, 0);
 		}
 	}
 

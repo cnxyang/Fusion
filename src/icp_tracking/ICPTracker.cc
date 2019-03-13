@@ -65,76 +65,76 @@ SE3 ICPTracker::trackSE3(PointCloud* ref, PointCloud* target, SE3 estimate, bool
 
 		for (int iter = 0; iter < iterations[level]; ++iter)
 		{
-//			ICPStep(VMapNext, NMapNext,
-//					VMapLast, NMapLast,
-//					sumSE3,	outSE3,
-//					SE3toMatrix3f(framePose),
-//					SE3toFloat3(framePose),
-//					K, residual,
-//					matrixAicp.data(),
-//					vectorbicp.data());
-//
-//			int icpCount = (int)(residual[1] < 1e-6 ? 1 : residual[1]);
-//			lastIcpError = sqrt(residual[0]) / (float)icpCount;
-//			icpInlierRatio = (float)icpCount / target->frame->pixel(level);
-//
-//			if(std::isnan(lastIcpError) || icpCount == 1)
-//			{
-//				printf("Tracking FAILED with invalid ICP Residual.\n");
-//				trackingWasGood = false;
-//				return SE3();
-//			}
-//
-//			if(useRGB)
-//			{
-//				RGBStep(target->image[level],
-//						ref->image[level],
-//						target->vmap[level],
-//						ref->vmap[level],
-//						target->dIdx[level],
-//						target->dIdy[level],
-//						SE3toMatrix3f(framePose),
-//						SE3toMatrix3f(framePose.inverse()),
-//						SE3toMatrix3f(refPose),
-//						SE3toMatrix3f(refPose.inverse()),
-//						SE3toFloat3(framePose),
-//						SE3toFloat3(refPose),
-//						K,
-//						sumSE3,
-//						outSE3,
-//						sumRES,
-//						outRES,
-//						residual,
-//						matrixArgb.data(),
-//						vectorbrgb.data());
-//
-//				lastRgbError = sqrt(residual[0]) / (residual[1] < 1e-6 ? 1 : residual[1]);
-//				rgbInlierRatio = residual[1] / target->frame->pixel(level);
-//
-//				if(std::isnan(lastIcpError))
-//				{
-//					printf("Tracking FAILED with invalid RGB residual.\n");
-//					trackingWasGood = false;
-//					return estimate;
-//				}
-//
-//				matrixA = RGBWeight * matrixArgb;
-//				matrixA += matrixAicp;
-//				vectorb = RGBWeight * vectorbrgb;
-//				vectorb += vectorbicp;
-//			}
-//			else
-//			{
-//				matrixA = matrixAicp;
-//				vectorb = vectorbicp;
-//			}
+			ICPStep(VMapNext, NMapNext,
+					VMapLast, NMapLast,
+					sumSE3,	outSE3,
+					SE3toMatrix3f(framePose),
+					SE3toFloat3(framePose),
+					K, residual,
+					matrixAicp.data(),
+					vectorbicp.data());
 
-			compute_residual_sum(VMapNext, VMapLast, NMapNext, NMapLast,
-					target->image[level], ref->image[level],
-					SE3toMatrix3f(framePose), SE3toFloat3(framePose), K,
-					sum, out, sumSE3, outSE3, target->dIdx[level],
-					target->dIdy[level], SE3toMatrix3f(framePose.inverse()),
-					residual, matrixA.data(), vectorb.data(), corresp_image);
+			int icpCount = (int)(residual[1] < 1e-6 ? 1 : residual[1]);
+			lastIcpError = sqrt(residual[0]) / (float)icpCount;
+			icpInlierRatio = (float)icpCount / target->frame->pixel(level);
+
+			if(std::isnan(lastIcpError) || icpCount == 1)
+			{
+				printf("Tracking FAILED with invalid ICP Residual.\n");
+				trackingWasGood = false;
+				return SE3();
+			}
+
+			if(useRGB)
+			{
+				RGBStep(target->image[level],
+						ref->image[level],
+						target->vmap[level],
+						ref->vmap[level],
+						target->dIdx[level],
+						target->dIdy[level],
+						SE3toMatrix3f(framePose),
+						SE3toMatrix3f(framePose.inverse()),
+						SE3toMatrix3f(refPose),
+						SE3toMatrix3f(refPose.inverse()),
+						SE3toFloat3(framePose),
+						SE3toFloat3(refPose),
+						K,
+						sumSE3,
+						outSE3,
+						sumRES,
+						outRES,
+						residual,
+						matrixArgb.data(),
+						vectorbrgb.data());
+
+				lastRgbError = sqrt(residual[0]) / (residual[1] < 1e-6 ? 1 : residual[1]);
+				rgbInlierRatio = residual[1] / target->frame->pixel(level);
+
+				if(std::isnan(lastIcpError))
+				{
+					printf("Tracking FAILED with invalid RGB residual.\n");
+					trackingWasGood = false;
+					return estimate;
+				}
+
+				matrixA = RGBWeight * matrixArgb;
+				matrixA += matrixAicp;
+				vectorb = RGBWeight * vectorbrgb;
+				vectorb += vectorbicp;
+			}
+			else
+			{
+				matrixA = matrixAicp;
+				vectorb = vectorbicp;
+			}
+
+//			compute_residual_sum(VMapNext, VMapLast, NMapNext, NMapLast,
+//					target->image[level], ref->image[level],
+//					SE3toMatrix3f(framePose), SE3toFloat3(framePose), K,
+//					sum, out, sumSE3, outSE3, target->dIdx[level],
+//					target->dIdy[level], SE3toMatrix3f(framePose.inverse()),
+//					residual, matrixA.data(), vectorb.data(), corresp_image);
 
 			result = matrixA.ldlt().solve(vectorb);
 			if(std::isnan(result(0)))

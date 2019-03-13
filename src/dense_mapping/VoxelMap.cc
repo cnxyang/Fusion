@@ -8,30 +8,28 @@ VoxelMap::VoxelMap() :
 	meshUpdated(false), hasNewKFFlag(false),
 	device(0), host(0), width(0), height(0)
 {
-	currentState.blockSize = 8;
-	currentState.blockSize3 = 512;
-	currentState.minMaxSubSample = 8;
-	currentState.renderingBlockSize = 16;
+	state.zmin_raycast_ = 0.1f;
+	state.zmax_raycast_ = 3.0f;
+	state.zmin_update_ = 0.1f;
+	state.zmax_update_ = 3.0f;
 
-	currentState.depthMin_raycast = 0.1f;
-	currentState.depthMax_raycast = 3.0f;
-	currentState.voxelSize = 0.006f;
+	state.voxel_size_ = 0.006f;
 
-	currentState.maxNumBuckets = 1000000;
-	currentState.maxNumHashEntries = 1500000;
-	currentState.maxNumVoxelBlocks = 500000;
-	currentState.maxNumRenderingBlocks = 260000;
-	currentState.maxNumMeshTriangles = 20000000;
+	state.maxNumBuckets = 1000000;
+	state.maxNumHashEntries = 1500000;
+	state.maxNumVoxelBlocks = 500000;
+	state.maxNumRenderingBlocks = 260000;
+	state.maxNumMeshTriangles = 20000000;
 
-	updateMapState();
+	update_device_map_state();
 	data.numVisibleEntries.create(1);
 
 	nBlocks.create(1);
 	noTriangles.create(1);
-	blockPoses.create(currentState.maxNumHashEntries);
-	modelVertex.create(currentState.maxNumMeshVertices());
-	modelNormal.create(currentState.maxNumMeshVertices());
-	modelColor.create(currentState.maxNumMeshVertices());
+	blockPoses.create(state.maxNumHashEntries);
+	modelVertex.create(state.num_total_mesh_vertices());
+	modelNormal.create(state.num_total_mesh_vertices());
+	modelColor.create(state.num_total_mesh_vertices());
 
 	edgeTable.create(256);
 	vertexTable.create(256);
@@ -43,7 +41,7 @@ VoxelMap::VoxelMap() :
 	zRangeMin.create(80, 60);
 	zRangeMax.create(80, 60);
 	noRenderingBlocks.create(1);
-	renderingBlockList.create(currentState.maxNumRenderingBlocks);
+	renderingBlockList.create(state.maxNumRenderingBlocks);
 
 	noKeys.create(1);
 	mutexKeys.create(KeyMap::MaxKeys);
@@ -81,7 +79,7 @@ int VoxelMap::fuseImages(PointCloud* pc)
 {
 	uint no;
 
-	FuseMapColor(pc->depth_float,
+	FuseMapColor(pc->depth[0],
 				 pc->image_raw,
 				 pc->nmap[0],
 				 pc->weight,
@@ -94,8 +92,6 @@ int VoxelMap::fuseImages(PointCloud* pc)
 				 pc->frame->fy(),
 				 pc->frame->cx(),
 				 pc->frame->cy(),
-				 currentState.depthMax_raycast,
-				 currentState.depthMin_raycast,
 				 &no);
 
 	return (int)no;
@@ -105,7 +101,7 @@ int VoxelMap::defuseImages(PointCloud* pc)
 {
 	uint no;
 
-	DeFuseMap(pc->depth_float,
+	DeFuseMap(pc->depth[0],
 			  pc->image_raw,
 			  pc->nmap[0],
 			  pc->weight,
@@ -118,8 +114,6 @@ int VoxelMap::defuseImages(PointCloud* pc)
 			  pc->frame->fy(),
 			  pc->frame->cx(),
 			  pc->frame->cy(),
-			  currentState.depthMax_raycast,
-			  currentState.depthMin_raycast,
 			  &no);
 
 	return (int)no;
@@ -158,8 +152,6 @@ uint VoxelMap::updateVisibility(PointCloud* pc)
 			trackingFrame->fy(),
 			trackingFrame->cx(),
 			trackingFrame->cy(),
-			currentState.depthMax_raycast,
-			currentState.depthMin_raycast,
 			&no);
 	return no;
 }
@@ -170,7 +162,7 @@ uint VoxelMap::updateVisibility(PointCloud* pc)
 VoxelMap::VoxelMap(int w, int h) :
 	width(w), height(h)
 {
-	if (stateInitialised)
+	if (state_initialised)
 	{
 		allocateDeviceMap();
 	}
@@ -186,8 +178,8 @@ VoxelMap::VoxelMap(int w, int h) :
 	data.numRenderingBlocks.create(1);
 	data.zRangeTopdownView.create(80, 60);
 	data.zRangeSyntheticView.create(80, 60);
-	data.renderingBlocks.create(currentState.maxNumRenderingBlocks);
-	data.blockPositions.create(currentState.maxNumHashEntries);
+	data.renderingBlocks.create(state.maxNumRenderingBlocks);
+	data.blockPositions.create(state.maxNumHashEntries);
 	data.constEdgeTable.create(256);
 	data.constVertexTable.create(256);
 	data.constTriangleTtable.create(16, 256);
@@ -227,11 +219,11 @@ void VoxelMap::copyMapToHost()
 	{
 		cudaMemcpyFromSymbol(host->entryPtr, device->entryPtr, sizeof(int));
 		cudaMemcpyFromSymbol(host->heapCounter, device->heapCounter, sizeof(int));
-		cudaMemcpyFromSymbol(host->bucketMutex, device->bucketMutex, sizeof(int) * currentState.maxNumBuckets);
-		cudaMemcpyFromSymbol(host->heapMem, device->heapMem, sizeof(int) * currentState.maxNumVoxelBlocks);
-		cudaMemcpyFromSymbol(host->hashEntries, device->hashEntries, sizeof(HashEntry) * currentState.maxNumHashEntries);
-		cudaMemcpyFromSymbol(host->visibleEntries, device->visibleEntries, sizeof(HashEntry) * currentState.maxNumHashEntries);
-		cudaMemcpyFromSymbol(host->voxelBlocks, device->voxelBlocks, sizeof(Voxel) * currentState.maxNumVoxels());
+		cudaMemcpyFromSymbol(host->bucketMutex, device->bucketMutex, sizeof(int) * state.maxNumBuckets);
+		cudaMemcpyFromSymbol(host->heapMem, device->heapMem, sizeof(int) * state.maxNumVoxelBlocks);
+		cudaMemcpyFromSymbol(host->hashEntries, device->hashEntries, sizeof(HashEntry) * state.maxNumHashEntries);
+		cudaMemcpyFromSymbol(host->visibleEntries, device->visibleEntries, sizeof(HashEntry) * state.maxNumHashEntries);
+		cudaMemcpyFromSymbol(host->voxelBlocks, device->voxelBlocks, sizeof(Voxel) * state.num_total_voxel());
 	}
 	else
 		CONSOLE_ERR("COPY MAP called without an ACTIVE map.");
@@ -243,11 +235,11 @@ void VoxelMap::copyMapToDevice()
 	{
 		cudaMemcpyToSymbol(device->entryPtr, host->entryPtr, sizeof(int));
 		cudaMemcpyToSymbol(device->heapCounter, host->heapCounter, sizeof(int));
-		cudaMemcpyToSymbol(device->bucketMutex, host->bucketMutex, sizeof(int) * currentState.maxNumBuckets);
-		cudaMemcpyToSymbol(device->heapMem, host->heapMem, sizeof(int) * currentState.maxNumVoxelBlocks);
-		cudaMemcpyToSymbol(device->hashEntries, host->hashEntries, sizeof(HashEntry) * currentState.maxNumHashEntries);
-		cudaMemcpyToSymbol(device->visibleEntries, host->visibleEntries, sizeof(HashEntry) * currentState.maxNumHashEntries);
-		cudaMemcpyToSymbol(device->voxelBlocks, host->voxelBlocks, sizeof(Voxel) * currentState.maxNumVoxels());
+		cudaMemcpyToSymbol(device->bucketMutex, host->bucketMutex, sizeof(int) * state.maxNumBuckets);
+		cudaMemcpyToSymbol(device->heapMem, host->heapMem, sizeof(int) * state.maxNumVoxelBlocks);
+		cudaMemcpyToSymbol(device->hashEntries, host->hashEntries, sizeof(HashEntry) * state.maxNumHashEntries);
+		cudaMemcpyToSymbol(device->visibleEntries, host->visibleEntries, sizeof(HashEntry) * state.maxNumHashEntries);
+		cudaMemcpyToSymbol(device->voxelBlocks, host->voxelBlocks, sizeof(Voxel) * state.num_total_voxel());
 	}
 	else
 		CONSOLE_ERR("COPY MAP called without an ACTIVE map.");
@@ -261,18 +253,18 @@ void VoxelMap::allocateDeviceMap()
 
 		cudaMalloc((void**) &device->entryPtr, sizeof(int));
 		cudaMalloc((void**) &device->heapCounter, sizeof(int));
-		cudaMalloc((void**) &device->bucketMutex, sizeof(int) * currentState.maxNumBuckets);
-		cudaMalloc((void**) &device->heapMem, sizeof(int) * currentState.maxNumVoxelBlocks);
-		cudaMalloc((void**) &device->hashEntries, sizeof(HashEntry) * currentState.maxNumHashEntries);
-		cudaMalloc((void**) &device->visibleEntries, sizeof(HashEntry) * currentState.maxNumHashEntries);
-		cudaMalloc((void**) &device->voxelBlocks, sizeof(Voxel) * currentState.maxNumVoxels());
+		cudaMalloc((void**) &device->bucketMutex, sizeof(int) * state.maxNumBuckets);
+		cudaMalloc((void**) &device->heapMem, sizeof(int) * state.maxNumVoxelBlocks);
+		cudaMalloc((void**) &device->hashEntries, sizeof(HashEntry) * state.maxNumHashEntries);
+		cudaMalloc((void**) &device->visibleEntries, sizeof(HashEntry) * state.maxNumHashEntries);
+		cudaMalloc((void**) &device->voxelBlocks, sizeof(Voxel) * state.num_total_voxel());
 
 		CONSOLE("===============================");
 		CONSOLE("VOXEL MAP successfully created on DEVICE.");
-		CONSOLE("COUNT(HASH ENTRY) - " + std::to_string(currentState.maxNumHashEntries));
-		CONSOLE("COUNT(HASH BUCKET) - " + std::to_string(currentState.maxNumBuckets));
-		CONSOLE("COUNT(VOXEL BLOCK) - " + std::to_string(currentState.maxNumVoxels()));
-		CONSOLE("SIZE(VOXEL) - " + std::to_string(currentState.voxelSize));
+		CONSOLE("COUNT(HASH ENTRY) - " + std::to_string(state.maxNumHashEntries));
+		CONSOLE("COUNT(HASH BUCKET) - " + std::to_string(state.maxNumBuckets));
+		CONSOLE("COUNT(VOXEL BLOCK) - " + std::to_string(state.num_total_voxel()));
+		CONSOLE("SIZE(VOXEL) - " + std::to_string(state.voxel_size_));
 		CONSOLE("===============================");
 
 		resetMapStruct();
@@ -292,11 +284,11 @@ void VoxelMap::allocateHostMap()
 
 		host->entryPtr = new int[1];
 		host->heapCounter = new int[1];
-		host->bucketMutex = new int[currentState.maxNumBuckets];
-		host->heapMem = new int[currentState.maxNumVoxelBlocks];
-		host->hashEntries = new HashEntry[currentState.maxNumHashEntries];
-		host->visibleEntries = new HashEntry[currentState.maxNumHashEntries];
-		host->voxelBlocks = new Voxel[currentState.maxNumVoxels()];
+		host->bucketMutex = new int[state.maxNumBuckets];
+		host->heapMem = new int[state.maxNumVoxelBlocks];
+		host->hashEntries = new HashEntry[state.maxNumHashEntries];
+		host->visibleEntries = new HashEntry[state.maxNumHashEntries];
+		host->voxelBlocks = new Voxel[state.num_total_voxel()];
 	}
 	else
 	{

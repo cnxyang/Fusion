@@ -45,12 +45,12 @@ void FilterDepth(const DeviceArray2D<unsigned short> & depth,
 		float depthScale, float depthCutoff) {
 
 	dim3 thread(8, 8);
-	dim3 block(divUp(depth.cols, thread.x), divUp(depth.rows, thread.y));
+	dim3 block(div_up(depth.cols, thread.x), div_up(depth.rows, thread.y));
 
 	FilterDepthKernel<<<block, thread>>>(depth, rawDepth, filteredDepth, 1.0 / depthScale, depthCutoff);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }
 
 __global__ void ComputeVMapKernel(const PtrStepSz<float> depth,
@@ -82,12 +82,12 @@ void ComputeVMap(const DeviceArray2D<float> & depth,
 		float depthCutoff) {
 
 	dim3 thread(8, 8);
-	dim3 block(divUp(depth.cols, thread.x), divUp(depth.rows, thread.y));
+	dim3 block(div_up(depth.cols, thread.x), div_up(depth.rows, thread.y));
 
 	ComputeVMapKernel<<<block, thread>>>(depth, vmap, 1.0 / fx, 1.0 / fy, cx, cy, depthCutoff);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }
 
 __global__ void ComputeNMapKernel(PtrStepSz<float4> vmap,
@@ -116,12 +116,12 @@ __global__ void ComputeNMapKernel(PtrStepSz<float4> vmap,
 void ComputeNMap(const DeviceArray2D<float4> & vmap, DeviceArray2D<float4> & nmap) {
 
 	dim3 block(8, 8);
-	dim3 grid(divUp(vmap.cols, block.x), divUp(vmap.rows, block.y));
+	dim3 grid(div_up(vmap.cols, block.x), div_up(vmap.rows, block.y));
 
 	ComputeNMapKernel<<<grid, block>>>(vmap, nmap);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }
 
 __constant__ float gaussKernel[25] = {
@@ -160,24 +160,24 @@ void PyrDownGaussKernel(const PtrStepSz<T> src, PtrStepSz<U> dst) {
 void PyrDownGauss(const DeviceArray2D<float> & src, DeviceArray2D<float> & dst) {
 
 	dim3 thread(8, 8);
-	dim3 block(divUp(dst.cols, thread.x), divUp(dst.rows, thread.y));
+	dim3 block(div_up(dst.cols, thread.x), div_up(dst.rows, thread.y));
 
 	PyrDownGaussKernel<float, float> <<<block, thread>>>(src, dst);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }
 
 void PyrDownGauss(const DeviceArray2D<unsigned char> & src,
 		DeviceArray2D<unsigned char> & dst) {
 
 	dim3 thread(8, 8);
-	dim3 block(divUp(src.cols, thread.x), divUp(src.rows, thread.y));
+	dim3 block(div_up(src.cols, thread.x), div_up(src.rows, thread.y));
 
 	PyrDownGaussKernel<unsigned char, unsigned char> <<<block, thread>>>(src, dst);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }
 
 __global__ void ImageToIntensityKernel(PtrStepSz<uchar3> src, PtrStep<unsigned char> dst) {
@@ -196,12 +196,12 @@ void ImageToIntensity(const DeviceArray2D<uchar3> & rgb,
 		DeviceArray2D<unsigned char> & image) {
 
 	dim3 thread(8, 8);
-	dim3 block(divUp(image.cols, thread.x), divUp(image.rows, thread.y));
+	dim3 block(div_up(image.cols, thread.x), div_up(image.rows, thread.y));
 
 	ImageToIntensityKernel<<<block, thread>>>(rgb, image);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }
 
 __constant__ float gsobel_x3x3[9] = { 1,  0, -1,
@@ -240,12 +240,12 @@ void ComputeDerivativeImage(DeviceArray2D<unsigned char> & image,
 		DeviceArray2D<short> & dx, DeviceArray2D<short> & dy) {
 
     dim3 block(8, 8);
-    dim3 grid(divUp(image.cols, block.x), divUp(image.rows, block.y));
+    dim3 grid(div_up(image.cols, block.x), div_up(image.rows, block.y));
 
     ComputeDerivativeImageKernel<<<grid, block>>>(image, dx, dy);
 
-    SafeCall(cudaDeviceSynchronize());
-    SafeCall(cudaGetLastError());
+    safe_call(cudaDeviceSynchronize());
+    safe_call(cudaGetLastError());
 }
 
 __global__ void ResizeMapKernel(const PtrStepSz<float4> vsrc, const PtrStep<float4> nsrc,
@@ -282,12 +282,12 @@ void ResizeMap(const DeviceArray2D<float4>& vsrc, const DeviceArray2D<float4>& n
 			   DeviceArray2D<float4>& vdst, DeviceArray2D<float4>& ndst) {
 
 	dim3 thread(8, 8);
-	dim3 block(divUp(vdst.cols, thread.x), divUp(vdst.rows, thread.y));
+	dim3 block(div_up(vdst.cols, thread.x), div_up(vdst.rows, thread.y));
 
 	ResizeMapKernel<<<block, thread>>>(vsrc, nsrc, vdst, ndst);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 }
 
 __global__ void forwardProjectKernel(PtrStepSz<float4> src_vmap,
@@ -375,12 +375,12 @@ void RenderImage(const DeviceArray2D<float4> & points,
 				 DeviceArray2D<uchar4> & image) {
 
 	dim3 block(8, 4);
-	dim3 grid(divUp(points.cols, block.x), divUp(points.rows, block.y));
+	dim3 grid(div_up(points.cols, block.x), div_up(points.rows, block.y));
 
 	RenderImageDevice<<<grid, block>>>(points, normals, light_pose, image);
 
-	SafeCall(cudaGetLastError());
-	SafeCall(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
 }
 
 __global__ void depthToImageKernel(PtrStepSz<float> depth, PtrStepSz<uchar4> image) {
@@ -401,12 +401,12 @@ __global__ void depthToImageKernel(PtrStepSz<float> depth, PtrStepSz<uchar4> ima
 void DepthToImage(const DeviceArray2D<float> & depth,
 				  DeviceArray2D<uchar4> & image) {
 	dim3 block(32, 8);
-	dim3 grid(divUp(image.cols, block.x), divUp(image.rows, block.y));
+	dim3 grid(div_up(image.cols, block.x), div_up(image.rows, block.y));
 
 	depthToImageKernel<<<grid, block>>>(depth, image);
 
-	SafeCall(cudaGetLastError());
-	SafeCall(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
 }
 
 __global__ void rgbImageToRgbaKernel(PtrStepSz<uchar3> image, PtrStepSz<uchar4> rgba) {
@@ -423,12 +423,12 @@ __global__ void rgbImageToRgbaKernel(PtrStepSz<uchar3> image, PtrStepSz<uchar4> 
 void RgbImageToRgba(const DeviceArray2D<uchar3> & image,
 				    DeviceArray2D<uchar4> & rgba) {
 	dim3 block(32, 8);
-	dim3 grid(divUp(image.cols, block.x), divUp(image.rows, block.y));
+	dim3 grid(div_up(image.cols, block.x), div_up(image.rows, block.y));
 
 	rgbImageToRgbaKernel<<<grid, block>>>(image, rgba);
 
-	SafeCall(cudaGetLastError());
-	SafeCall(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
 }
 
 __global__ void ForwardWarpingKernel(PtrStepSz<float4> srcVMap,
@@ -462,7 +462,7 @@ void ForwardWarping(const DeviceArray2D<float4> & srcVMap,
 		float cy) {
 
 	dim3 thread(8, 8);
-	dim3 block(divUp(srcVMap.cols, thread.x), divUp(srcVMap.rows, thread.y));
+	dim3 block(div_up(srcVMap.cols, thread.x), div_up(srcVMap.rows, thread.y));
 
 	dstVMap.clear();
 	ForwardWarpingKernel<<<block, thread>>>(srcVMap, srcNMap, dstVMap, dstNMap,

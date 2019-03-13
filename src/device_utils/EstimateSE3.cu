@@ -1,12 +1,15 @@
 #include "DeviceFuncs.h"
 #include <Eigen/Dense>
 #define WarpSize 32
-#define MaxThread 1024
+#define MAX_THREAD 1024
 
-template<int rows, int cols> void inline CreateMatrix(float* host_data, double* host_a, double* host_b) {
+template<int rows, int cols>
+void inline CreateMatrix(float* host_data, double* host_a, double* host_b)
+{
 	int shift = 0;
 	for (int i = 0; i < rows; ++i)
-		for (int j = i; j < cols; ++j) {
+		for (int j = i; j < cols; ++j)
+		{
 			double value = (double) host_data[shift++];
 			if (j == rows)
 				host_b[i] = value;
@@ -15,17 +18,23 @@ template<int rows, int cols> void inline CreateMatrix(float* host_data, double* 
 		}
 }
 
-template<typename T, int size> __device__ inline void WarpReduce(T* val) {
-	#pragma unroll
-	for (int offset = WarpSize / 2; offset > 0; offset /= 2) {
-		#pragma unroll
-		for (int i = 0; i < size; ++i) {
+template<typename T, int size>
+__device__ inline void WarpReduce(T* val)
+{
+#pragma unroll
+	for (int offset = WarpSize / 2; offset > 0; offset /= 2)
+	{
+#pragma unroll
+		for (int i = 0; i < size; ++i)
+		{
 			val[i] += __shfl_down_sync(0xffffffff, val[i], offset);
 		}
 	}
 }
 
-template<typename T, int size> __device__ inline void BlockReduce(T* val) {
+template<typename T, int size>
+__device__ inline void BlockReduce(T* val)
+{
 	static __shared__ T shared[32 * size];
 	int lane = threadIdx.x % warpSize;
 	int wid = threadIdx.x / warpSize;
@@ -46,24 +55,27 @@ template<typename T, int size> __device__ inline void BlockReduce(T* val) {
 		WarpReduce<T, size>(val);
 }
 
-template<typename T, int size> __global__ void Reduce(PtrStep<T> in, T * out, int N) {
+template<typename T, int size>
+__global__ void Reduce(PtrStep<T> in, T * out, int N)
+{
 	T sum[size];
 	memset(sum, 0, sizeof(T) * size);
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 	for (; i < N; i += blockDim.x * gridDim.x)
-	#pragma unroll
+#pragma unroll
 		for (int j = 0; j < size; ++j)
 			sum[j] += in.ptr(i)[j];
 
 	BlockReduce<T, size>(sum);
 
 	if (threadIdx.x == 0)
-	#pragma unroll
+#pragma unroll
 		for (int i = 0; i < size; ++i)
 			out[i] = sum[i];
 }
 
-struct SO3Reduce {
+struct SO3Reduce
+{
 
 	PtrStep<unsigned char> nextImage;
 	PtrStep<unsigned char> lastImage;
@@ -77,8 +89,9 @@ struct SO3Reduce {
 
 	mutable PtrStepSz<float> out;
 
-	__device__ __inline__ bool findCorresp(int & x, int & y, int & u,
-			int & v, float3 & vlastcurr) const {
+	__device__ __inline__ bool findCorresp(int & x, int & y, int & u, int & v,
+					float3 & vlastcurr) const
+					{
 
 		float3 vlast;
 		vlast.x = (x - cx) / fx;
@@ -89,14 +102,16 @@ struct SO3Reduce {
 		u = __float2int_rn(fx * vlastcurr.x / vlastcurr.z + cx);
 		v = __float2int_rn(fy * vlastcurr.y / vlastcurr.z + cy);
 
-		if(u >= 5 && v >= 5 && u < cols - 5 && v < rows - 5 &&
-		   x >= 5 && y >= 5 && x < cols - 5 && y < rows - 5) {
+		if (u >= 5 && v >= 5 && u < cols - 5 && v < rows - 5 && x >= 5 && y >= 5
+						&& x < cols - 5 && y < rows - 5)
+		{
 			return true;
 		} else
 			return false;
 	}
 
-	__device__ __inline__ void GetRow(int & k, float * sum) const {
+	__device__ __inline__ void GetRow(int & k, float * sum) const
+					{
 
 		int y = k / cols;
 		int x = k - y * cols;
@@ -106,9 +121,10 @@ struct SO3Reduce {
 		int u = 0, v = 0;
 		bool found = findCorresp(x, y, u, v, point);
 
-		if(found) {
-			float gx = (float)dIdx.ptr(v)[u] / 9.0f;
-			float gy = (float)dIdy.ptr(v)[u] / 9.0f;
+		if (found)
+		{
+			float gx = (float) dIdx.ptr(v)[u] / 9.0f;
+			float gy = (float) dIdy.ptr(v)[u] / 9.0f;
 			float invz = 1.0f / point.z;
 
 			float3 left;
@@ -118,30 +134,30 @@ struct SO3Reduce {
 			left.z = -(point.x * left.x + point.y * left.y) * invz;
 
 			*(float3*) &row[0] = -cross(left, point);
-			row[3] = -((float)nextImage.ptr(v)[u] - (float)lastImage.ptr(y)[x]);
+			row[3] =
+							-((float) nextImage.ptr(v)[u] - (float) lastImage.ptr(y)[x]);
 		}
 
 		int count = 0;
-		#pragma unroll
+#pragma unroll
 		for (int i = 0; i < 4; ++i)
-			#pragma unroll
+#pragma unroll
 			for (int j = i; j < 4; ++j)
 				sum[count++] = row[i] * row[j];
 
 		sum[count] = (float) found;
 	}
 
-	__device__ __inline__ void operator()() const {
+	__device__ __inline__ void operator()() const
+	{
 
-		float sum[11] = { 0, 0, 0,
-						  0, 0, 0,
-						  0, 0, 0,
-						  0 };
+		float sum[11] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 		float value[11];
 		int i = blockIdx.x * blockDim.x + threadIdx.x;
-		for (; i < N; i += blockDim.x * gridDim.x) {
+		for (; i < N; i += blockDim.x * gridDim.x)
+		{
 			GetRow(i, value);
-			#pragma unroll
+#pragma unroll
 			for (int j = 0; j < 11; ++j)
 				sum[j] += value[j];
 		}
@@ -149,28 +165,23 @@ struct SO3Reduce {
 		BlockReduce<float, 11>(sum);
 
 		if (threadIdx.x == 0)
-			#pragma unroll
+#pragma unroll
 			for (int i = 0; i < 11; ++i)
 				out.ptr(blockIdx.x)[i] = sum[i];
 	}
 };
 
-__global__ void so3StepKernel(SO3Reduce so3) {
+__global__ void so3StepKernel(SO3Reduce so3)
+{
 	so3();
 }
 
 void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
-		     const DeviceArray2D<unsigned char> & lastImage,
-		     const DeviceArray2D<short> & dIdx,
-		     const DeviceArray2D<short> & dIdy,
-		     Matrix3f RcurrInv,
-		     Matrix3f Rlast,
-		     CameraIntrinsics K,
-		     DeviceArray2D<float> & sum,
-		     DeviceArray<float> & out,
-		     float * residual,
-		     double * matrixA_host,
-		     double * vectorB_host)
+				const DeviceArray2D<unsigned char> & lastImage,
+				const DeviceArray2D<short> & dIdx, const DeviceArray2D<short> & dIdy,
+				Matrix3f RcurrInv, Matrix3f Rlast, CameraIntrinsics K,
+				DeviceArray2D<float> & sum, DeviceArray<float> & out, float * residual,
+				double * matrixA_host, double * vectorB_host)
 {
 	int cols = nextImage.cols;
 	int rows = nextImage.rows;
@@ -193,13 +204,13 @@ void SO3Step(const DeviceArray2D<unsigned char> & nextImage,
 
 	so3StepKernel<<<96, 224>>>(so3);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
-	Reduce<float, 11> <<<1, MaxThread>>>(sum, out, 96);
+	Reduce<float, 11> <<<1, MAX_THREAD>>>(sum, out, 96);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
 	float host_data[11];
 	out.download((void*) host_data);
@@ -222,8 +233,8 @@ struct ICPReduce
 	mutable PtrStepSz<float> out;
 
 	__device__ __inline__ bool searchPoint(int& x, int& y, float3& vcurr_g,
-			float3& vlast_g, float3& nlast_g) const
-	{
+					float3& vlast_g, float3& nlast_g) const
+					{
 
 		float3 vcurr_c = make_float3(VMapCurr.ptr(y)[x]);
 		if (isnan(vcurr_c.x) || vcurr_c.z < 1e-3)
@@ -247,12 +258,13 @@ struct ICPReduce
 		float dist = norm(vlast_g - vcurr_g);
 		float sine = norm(cross(ncurr_g, nlast_g));
 
-		return (sine < angleThresh && dist <= distThresh && !isnan(ncurr_c.x) && !isnan(nlast_g.x));
+		return (sine < angleThresh && dist <= distThresh && !isnan(ncurr_c.x)
+						&& !isnan(nlast_g.x));
 //		return (!isnan(sine) && !isnan(dist) && !isnan(ncurr_c.x) && !isnan(nlast_g.x));
 	}
 
 	__device__ __inline__ void getRow(int & i, float * sum) const
-	{
+					{
 		int y = i / cols;
 		int x = i - y * cols;
 
@@ -282,12 +294,8 @@ struct ICPReduce
 
 	__device__ __inline__ void operator()() const
 	{
-		float sum[29] = { 0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0 };
+		float sum[29] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+						0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 		int i = blockIdx.x * blockDim.x + threadIdx.x;
 		float val[29];
@@ -310,20 +318,16 @@ struct ICPReduce
 	}
 };
 
-__global__ void icpStepKernel(const ICPReduce icp) {
+__global__ void icpStepKernel(const ICPReduce icp)
+{
 	icp();
 }
 
-void ICPStep(DeviceArray2D<float4>& nextVMap,
-			 DeviceArray2D<float4>& nextNMap,
-			 DeviceArray2D<float4>& lastVMap,
-			 DeviceArray2D<float4>& lastNMap,
-			 DeviceArray2D<float>& sum,
-			 DeviceArray<float>& out,
-			 Matrix3f R, float3 t,
-			 float* K, float * residual,
-			 double * matrixA_host,
-			 double * vectorB_host)
+void ICPStep(DeviceArray2D<float4>& nextVMap, DeviceArray2D<float4>& nextNMap,
+				DeviceArray2D<float4>& lastVMap, DeviceArray2D<float4>& lastNMap,
+				DeviceArray2D<float>& sum, DeviceArray<float>& out, Matrix3f R,
+				float3 t, float* K, float * residual, double * matrixA_host,
+				double * vectorB_host)
 {
 	int cols = nextVMap.cols;
 	int rows = nextVMap.rows;
@@ -348,13 +352,13 @@ void ICPStep(DeviceArray2D<float4>& nextVMap,
 
 	icpStepKernel<<<96, 224>>>(icp);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
-	Reduce<float, 29> <<<1, MaxThread>>>(sum, out, 96);
+	Reduce<float, 29> <<<1, MAX_THREAD>>>(sum, out, 96);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
 	float host_data[29];
 	out.download((void*) host_data);
@@ -364,7 +368,8 @@ void ICPStep(DeviceArray2D<float4>& nextVMap,
 	residual[1] = host_data[28];
 }
 
-struct Residual {
+struct Residual
+{
 
 	int diff;
 	bool valid;
@@ -401,7 +406,7 @@ struct RGBReduction
 	mutable PtrSz<Residual> RGBResidual;
 
 	__device__ __inline__ int2 FindCorresp(int & k) const
-	{
+					{
 		int y = k / cols;
 		int x = k - y * cols;
 
@@ -409,35 +414,49 @@ struct RGBReduction
 		int2 value = { 0, 0 };
 		res.valid = false;
 
-		if (x >= 5 && x < cols - 5 && y >= 5 && y < rows - 5) {
+		if (x >= 5 && x < cols - 5 && y >= 5 && y < rows - 5)
+		{
 
 			bool valid = true;
-			for (int u = max(y - 2, 0); u < min(y + 2, rows); ++u) {
-				for (int v = max(x - 2, 0); v < min(x + 2, cols); ++v) {
+			for (int u = max(y - 2, 0); u < min(y + 2, rows); ++u)
+			{
+				for (int v = max(x - 2, 0); v < min(x + 2, cols); ++v)
+				{
 					valid = valid && (nextImage.ptr(u)[v] > 0);
 				}
 			}
 
-			if (valid) {
+			if (valid)
+			{
 				short gx = dIdx.ptr(y)[x];
 				short gy = dIdy.ptr(y)[x];
-				if (sqrtf(gx * gx + gy * gy) > 0) {
+				if (sqrtf(gx * gx + gy * gy) > 0)
+				{
 					float4 vcurr = nextVMap.ptr(y)[x];
-					if (!isnan(vcurr.x)) {
+					if (!isnan(vcurr.x))
+					{
 						float3 vcurr_g = Rcurr * vcurr + tcurr;
 						float3 vcurrlast = RlastInv * (vcurr_g - tlast);
-						int u = __float2int_rd(fx * vcurrlast.x / vcurrlast.z + cx + 0.5);
-						int v = __float2int_rd(fy * vcurrlast.y / vcurrlast.z + cy + 0.5);
+						int u = __float2int_rd(
+										fx * vcurrlast.x / vcurrlast.z + cx + 0.5);
+						int v = __float2int_rd(
+										fy * vcurrlast.y / vcurrlast.z + cy + 0.5);
 
-						if (u >= 0 && v >= 0 && u < cols && v < rows) {
+						if (u >= 0 && v >= 0 && u < cols && v < rows)
+						{
 							float4 vlast = lastVMap.ptr(v)[u];
-							if (!isnan(vlast.x) && norm(vlast - vcurr) < 0.1 && lastImage.ptr(v)[u] != 0) {
-								res.last = { u, v };
-								res.curr = { x, y };
+							if (!isnan(vlast.x) && norm(vlast - vcurr) < 0.1
+											&& lastImage.ptr(v)[u] != 0)
+							{
+								res.last =
+								{	u, v};
+								res.curr =
+								{	x, y};
 								res.diff = (int)nextImage.ptr(y)[x] - (int)lastImage.ptr(v)[u];
 								res.valid = true;
 								res.point = make_float3(vlast);
-								value = { 1, res.diff * res.diff };
+								value =
+								{	1, res.diff * res.diff};
 							}
 						}
 					}
@@ -449,11 +468,13 @@ struct RGBReduction
 		return value;
 	}
 
-	__device__ __inline__ void ComputeResidual() const {
+	__device__ __inline__ void ComputeResidual() const
+	{
 
 		int sum[2] = { 0, 0 };
 		int i = blockIdx.x * blockDim.x + threadIdx.x;
-		for (; i < N; i += blockDim.x * gridDim.x) {
+		for (; i < N; i += blockDim.x * gridDim.x)
+		{
 			int2 val = FindCorresp(i);
 			sum[0] += val.x;
 			sum[1] += val.y;
@@ -461,30 +482,33 @@ struct RGBReduction
 
 		BlockReduce<int, 2>(sum);
 
-		if (threadIdx.x == 0) {
+		if (threadIdx.x == 0)
+		{
 			outRes.ptr(blockIdx.x)[0] = sum[0];
 			outRes.ptr(blockIdx.x)[1] = sum[1];
 		}
 	}
 
-	__device__ __inline__ void GetRow(int & k, float * sum) const {
+	__device__ __inline__ void GetRow(int & k, float * sum) const
+					{
 
 		const Residual & res = RGBResidual[k];
 		float row[7] = { 0, 0, 0, 0, 0, 0, 0 };
 
-		if (res.valid) {
+		if (res.valid)
+		{
 
 			float w = sigma + abs(res.diff);
 			w = w < 1e-3 ? 1.0f : 1.0f / w;
 
-			if(sigma < 1e-6)
+			if (sigma < 1e-6)
 				w = 1.0f;
 			w = 1.0f;
 
 			float4 vlast = lastVMap.ptr(res.last.y)[res.last.x];
 			float3 point = RcurrInv * (Rlast * vlast + tlast - tcurr);
-			float gx = (float)dIdx.ptr(res.curr.y)[res.curr.x] / 9.0;
-			float gy = (float)dIdy.ptr(res.curr.y)[res.curr.x] / 9.0;
+			float gx = (float) dIdx.ptr(res.curr.y)[res.curr.x] / 9.0;
+			float gy = (float) dIdy.ptr(res.curr.y)[res.curr.x] / 9.0;
 
 			float3 left;
 			float invz = 1.0f / point.z;
@@ -498,31 +522,29 @@ struct RGBReduction
 		}
 
 		int count = 0;
-		#pragma unroll
+#pragma unroll
 		for (int i = 0; i < 7; ++i)
-			#pragma unroll
+#pragma unroll
 			for (int j = i; j < 7; ++j)
 				sum[count++] = row[i] * row[j];
 
 		sum[count] = (float) res.valid;
 	}
 
-	__device__ __inline__ void operator()() const {
+	__device__ __inline__ void operator()() const
+	{
 
-		float sum[29] = { 0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0 };
+		float sum[29] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+						0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 		int i = blockIdx.x * blockDim.x + threadIdx.x;
 		float value[29];
 
-		for (; i < N; i += blockDim.x * gridDim.x) {
+		for (; i < N; i += blockDim.x * gridDim.x)
+		{
 
 			GetRow(i, value);
-			#pragma unroll
+#pragma unroll
 			for (int j = 0; j < 29; ++j)
 				sum[j] += value[j];
 		}
@@ -530,40 +552,33 @@ struct RGBReduction
 		BlockReduce<float, 29>(sum);
 
 		if (threadIdx.x == 0)
-			#pragma unroll
+#pragma unroll
 			for (int i = 0; i < 29; ++i)
 				out.ptr(blockIdx.x)[i] = sum[i];
 	}
 };
 
-__global__ void ComputeResidualKernel(RGBReduction rgb) {
+__global__ void ComputeResidualKernel(RGBReduction rgb)
+{
 	rgb.ComputeResidual();
 }
 
-__global__ void RgbStepKernel(RGBReduction rgb) {
+__global__ void RgbStepKernel(RGBReduction rgb)
+{
 	rgb();
 }
 
 void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
-			 const DeviceArray2D<unsigned char> & lastImage,
-			 const DeviceArray2D<float4> & nextVMap,
-			 const DeviceArray2D<float4> & lastVMap,
-			 const DeviceArray2D<short> & dIdx,
-			 const DeviceArray2D<short> & dIdy,
-			 Matrix3f Rcurr,
-			 Matrix3f RcurrInv,
-			 Matrix3f Rlast,
-			 Matrix3f RlastInv,
-			 float3 tcurr,
-			 float3 tlast,
-			 float* K,
-			 DeviceArray2D<float> & sum,
-			 DeviceArray<float> & out,
-			 DeviceArray2D<int> & sumRes,
-			 DeviceArray<int> & outRes,
-			 float * residual,
-			 double * matrixA_host,
-			 double * vectorB_host) {
+				const DeviceArray2D<unsigned char> & lastImage,
+				const DeviceArray2D<float4> & nextVMap,
+				const DeviceArray2D<float4> & lastVMap,
+				const DeviceArray2D<short> & dIdx, const DeviceArray2D<short> & dIdy,
+				Matrix3f Rcurr, Matrix3f RcurrInv, Matrix3f Rlast, Matrix3f RlastInv,
+				float3 tcurr, float3 tlast, float* K, DeviceArray2D<float> & sum,
+				DeviceArray<float> & out, DeviceArray2D<int> & sumRes,
+				DeviceArray<int> & outRes, float * residual, double * matrixA_host,
+				double * vectorB_host)
+{
 
 	int cols = nextImage.cols;
 	int rows = nextImage.rows;
@@ -595,28 +610,29 @@ void RGBStep(const DeviceArray2D<unsigned char> & nextImage,
 
 	ComputeResidualKernel<<<96, 224>>>(rgb);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
-	Reduce<int, 2> <<<1, MaxThread>>>(sumRes, outRes, 96);
+	Reduce<int, 2> <<<1, MAX_THREAD>>>(sumRes, outRes, 96);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
 	int res_host[2];
 	outRes.download(res_host);
-	rgb.sigma = sqrt((float) res_host[1] / (res_host[0] == 0 ? 1 : res_host[0]));
+	rgb.sigma = sqrt(
+					(float) res_host[1] / (res_host[0] == 0 ? 1 : res_host[0]));
 	rgb.out = sum;
 
 	RgbStepKernel<<<96, 224>>>(rgb);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
-	Reduce<float, 29> <<<1, MaxThread>>>(sum, out, 96);
+	Reduce<float, 29> <<<1, MAX_THREAD>>>(sum, out, 96);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
 	float host_data[29];
 	out.download((void*) host_data);
@@ -630,13 +646,16 @@ class ResidualSum
 {
 public:
 
-	__device__ __forceinline__ bool associate_points(int& x, int& y, int& u, int& v)
+	__device__ __forceinline__ bool associate_points(int& x, int& y, int& u,
+					int& v)
 	{
 		float3 vertex_curr = make_float3(vmap_curr_.ptr(y)[x]);
 		vertex_curr_last_ = rcurr_ * vertex_curr + tcurr_;
-		u = __float2int_rd(vertex_curr_last_.x / vertex_curr_last_.z * fx_ + cx_ + 0.5f);
-		v = __float2int_rd(vertex_curr_last_.y / vertex_curr_last_.z * fy_ + cy_ + 0.5f);
-		if(u < 0 || v < 0 || u >= width_ || v >= height_)
+		u = __float2int_rd(
+						vertex_curr_last_.x / vertex_curr_last_.z * fx_ + cx_ + 0.5f);
+		v = __float2int_rd(
+						vertex_curr_last_.y / vertex_curr_last_.z * fy_ + cy_ + 0.5f);
+		if (u < 0 || v < 0 || u >= width_ || v >= height_)
 			return false;
 
 		float3 normal_curr = make_float3(nmap_curr_.ptr(y)[x]);
@@ -648,30 +667,35 @@ public:
 		float dist = norm(vertex_curr_last_ - vertex_last_);
 		float angle = norm(cross(normal_curr_last, normal_last_));
 
-		return (dist < dist_thresh_ && angle <= angle_thresh_ && !isnan(normal_curr.x) && !isnan(normal_last_.x));
+		return (dist < dist_thresh_ && angle <= angle_thresh_
+						&& !isnan(normal_curr.x) && !isnan(normal_last_.x));
 	}
 
-	__device__ __forceinline__ bool search_correspondence(int& x, int& y, int& u, int& v)
+	__device__ __forceinline__ bool search_correspondence(int& x, int& y,
+					int& u, int& v)
 	{
 		bool valid = false;
-		if (x >= 5 && x < width_ - 5 && y >= 5 && y < height_ - 5) {
+		if (x >= 5 && x < width_ - 5 && y >= 5 && y < height_ - 5)
+		{
 
 			valid = associate_points(x, y, u, v);
-			for (int j = max(y - 2, 0); j < min(y + 2, height_); ++j) {
-				for (int k = max(x - 2, 0); k < min(x + 2, width_); ++k) {
+			for (int j = max(y - 2, 0); j < min(y + 2, height_); ++j)
+			{
+				for (int k = max(x - 2, 0); k < min(x + 2, width_); ++k)
+				{
 					valid = valid && (image_curr_.ptr(j)[k] > 0);
 				}
 			}
 		}
 
-		if(valid)
+		if (valid)
 		{
 			var_curr_ = image_curr_.ptr(y)[x];
 			var_last_ = image_last_.ptr(v)[u];
 //			if(abs(var_curr_ - var_last_) < var_thresh_)
 //			if(var_curr_ > 0 && var_last_ > 0)
 //			{
-				return true;
+			return true;
 //			}
 		}
 
@@ -688,7 +712,7 @@ public:
 		value[0] = 0;
 		value[1] = 0;
 		value[2] = 0;
-		if(search_correspondence(x, y, u, v))
+		if (search_correspondence(x, y, u, v))
 		{
 			item.valid = true;
 			item.u = u;
@@ -750,7 +774,8 @@ class ComputeWeightMatrix
 {
 public:
 
-	__device__ __forceinline__ void compute_variance_covariance(int& k, float* value)
+	__device__ __forceinline__ void compute_variance_covariance(int& k,
+					float* value)
 	{
 		int y = k / width_;
 		int x = k - y * width_;
@@ -760,7 +785,7 @@ public:
 			value[j] = 0;
 
 		CorrespItem& item = corresp_image_.ptr(y)[x];
-		if(item.valid)
+		if (item.valid)
 		{
 			value[0] = (item.icp_residual - mean_icp_) * (item.icp_residual - mean_icp_);
 			value[1] = (item.rgb_residual - mean_rgb_) * (item.rgb_residual - mean_rgb_);
@@ -817,7 +842,7 @@ public:
 		float tmp1[7] = { 0, 0, 0, 0, 0, 0, 0 };
 		float w = 0;
 
-		if(item.valid)
+		if (item.valid)
 		{
 			float3 vlast = make_float3(vmap_last_.ptr(item.v)[item.u]);
 			float3 nlast = make_float3(nmap_last_.ptr(item.v)[item.u]);
@@ -825,8 +850,8 @@ public:
 			*(float3*) &row_icp[0] = -nlast;
 			*(float3*) &row_icp[3] = cross(nlast, vlast);
 
-			float gx = (float)sobel_x_.ptr(y)[x] / 9.0;
-			float gy = (float)sobel_y_.ptr(y)[x] / 9.0;
+			float gx = (float) sobel_x_.ptr(y)[x] / 9.0;
+			float gy = (float) sobel_y_.ptr(y)[x] / 9.0;
 
 			float3 left;
 			float3 point = rcurrInv_ * (vlast - tcurr_);
@@ -840,14 +865,16 @@ public:
 			row_rgb[6] = -item.rgb_residual;
 
 #pragma unroll
-			for(int i = 0; i < 7; ++i)
+			for (int i = 0; i < 7; ++i)
 			{
 				tmp0[i] = row_icp[i] * sigma_icp_ + row_rgb[i] * cov_icp_rgb_;
 				tmp1[i] = row_icp[i] * cov_icp_rgb_ + row_rgb[i] * sigma_rgb_;
 			}
 
-			w = row_icp[6] * row_icp[6] * sigma_icp_ + 2 * row_icp[6] * row_rgb[6] * cov_icp_rgb_ + row_rgb[6] * row_rgb[6] * sigma_rgb_;
-			w = w < 1e-3 ? 0 : 5.0 / ( 7.0 + w );
+			w = row_icp[6] * row_icp[6] * sigma_icp_
+							+ 2 * row_icp[6] * row_rgb[6] * cov_icp_rgb_
+							+ row_rgb[6] * row_rgb[6] * sigma_rgb_;
+			w = w < 1e-3 ? 0 : 5.0 / (7.0 + w);
 		}
 
 		int count = 0;
@@ -866,12 +893,10 @@ public:
 
 	__device__ __inline__ void operator()()
 	{
-		float sum[29] = { 0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0, 0,
-				   	   	  0, 0, 0, 0 };
+		float sum[29] = { 0, 0, 0, 0, 0, 0, 0,
+						0, 0, 0, 0, 0, 0, 0,
+						0, 0, 0, 0, 0, 0, 0,
+						0, 0, 0, 0, 0, 0, 0, 0 };
 
 		int i = blockIdx.x * blockDim.x + threadIdx.x;
 		float value[29];
@@ -909,15 +934,15 @@ __global__ void compute_jacobian_kernel(ComputeJacobian cj)
 }
 
 void compute_residual_sum(DeviceArray2D<float4>& vmap_curr,
-		DeviceArray2D<float4>& vmap_last, DeviceArray2D<float4>& nmap_curr,
-		DeviceArray2D<float4>& nmap_last,
-		DeviceArray2D<unsigned char>& image_curr,
-		DeviceArray2D<unsigned char>& image_last, Matrix3f rcurr, float3 tcurr,
-		float* K, DeviceArray2D<float>& sum, DeviceArray<float>& out,
-		DeviceArray2D<float> & sumSE3, DeviceArray<float> & outSE3,
-		DeviceArray2D<short>& dIdx, DeviceArray2D<short>& dIdy, Matrix3f rcurrInv,
-		float * residual, double * matrixA_host, double * vectorB_host,
-		DeviceArray2D<CorrespItem>& corresp_image)
+				DeviceArray2D<float4>& vmap_last, DeviceArray2D<float4>& nmap_curr,
+				DeviceArray2D<float4>& nmap_last,
+				DeviceArray2D<unsigned char>& image_curr,
+				DeviceArray2D<unsigned char>& image_last, Matrix3f rcurr, float3 tcurr,
+				float* K, DeviceArray2D<float>& sum, DeviceArray<float>& out,
+				DeviceArray2D<float> & sumSE3, DeviceArray<float> & outSE3,
+				DeviceArray2D<short>& dIdx, DeviceArray2D<short>& dIdy,
+				Matrix3f rcurrInv, float * residual, double * matrixA_host,
+				double * vectorB_host, DeviceArray2D<CorrespItem>& corresp_image)
 {
 	ResidualSum rs;
 	rs.vmap_curr_ = vmap_curr;
@@ -942,17 +967,17 @@ void compute_residual_sum(DeviceArray2D<float4>& vmap_curr,
 
 	compute_residual_sum_kernel<<<96, 224>>>(rs);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
-	Reduce<float, 3> <<<1, MaxThread>>>(sum, out, 96);
+	Reduce<float, 3> <<<1, MAX_THREAD>>>(sum, out, 96);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
 	float host_data[3];
 	out.download((void*) host_data);
-	int num_corresp_ = (int)host_data[2];
+	int num_corresp_ = (int) host_data[2];
 
 	float mean_icp = host_data[0] / host_data[2];
 	float mean_rgb = host_data[1] / host_data[2];
@@ -967,13 +992,13 @@ void compute_residual_sum(DeviceArray2D<float4>& vmap_curr,
 
 	compute_weight_matrix_kernel<<<96, 224>>>(cwm);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
-	Reduce<float, 3> <<<1, MaxThread>>>(sum, out, 96);
+	Reduce<float, 3> <<<1, MAX_THREAD>>>(sum, out, 96);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
 	out.download((void*) host_data);
 
@@ -1007,13 +1032,13 @@ void compute_residual_sum(DeviceArray2D<float4>& vmap_curr,
 
 	compute_jacobian_kernel<<<96, 224>>>(cj);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
-	Reduce<float, 29> <<<1, MaxThread>>>(sumSE3, outSE3, 96);
+	Reduce<float, 29> <<<1, MAX_THREAD>>>(sumSE3, outSE3, 96);
 
-	SafeCall(cudaDeviceSynchronize());
-	SafeCall(cudaGetLastError());
+	safe_call(cudaDeviceSynchronize());
+	safe_call(cudaGetLastError());
 
 	float host_data2[29];
 	outSE3.download((void*) host_data2);

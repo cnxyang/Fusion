@@ -3,7 +3,7 @@
 #include "DeviceFuncs.h"
 #include "Settings.h"
 
-#define DEPTH_SCALE 5000.f
+#define DEPTH_SCALE 1000.f
 #define DEPTH_CUTOFF 3.0f
 
 PointCloud::PointCloud():
@@ -59,7 +59,7 @@ void PointCloud::generateCloud(Frame* frame, bool useRGB)
 	}
 
 	// Upload raw depth onto GPU memory
-	depth_ushort.upload(frame->data.depth.data, frame->data.depth.step);
+//	depth_ushort.upload(frame->data.depth.data, frame->data.depth.step);
 
 	// Upload raw colour onto GPU memory
 	image_raw.upload(frame->data.image.data, frame->data.image.step);
@@ -71,8 +71,12 @@ void PointCloud::generateCloud(Frame* frame, bool useRGB)
 		weight.clear();
 
 	// Do a bilateral filtering before goes into tracking
-	FilterDepth(depth_ushort, depth_float, depth[0], DEPTH_SCALE, DEPTH_CUTOFF);
+//	FilterDepth(depth_ushort, depth_float, depth[0], DEPTH_SCALE, DEPTH_CUTOFF);
 
+	depth[0].upload(frame->data.depth.data, frame->data.depth.step);
+	std::cout << "sdfasd" << std::endl;
+
+	depth_float = depth[0];
 	// Convert RGB images into gray-scale images
 	if(useRGB)
 	{
@@ -111,15 +115,12 @@ void PointCloud::generateCloud(Frame* frame, bool useRGB)
 
 	// Update reference frame
 	this->frame = frame;
+
 }
 
 void PointCloud::downloadFusedMap()
 {
-	cv::Mat img(frame->height(), frame->width(), CV_32FC1);
-	depth_float.download(img.data, img.step);
-	frame->data.depth.release();
-	img.convertTo(frame->data.depth, CV_16UC1, 5000);
-	img.release();
+	depth_float.download(frame->data.depth.data, frame->data.depth.step);
 	frame->data.weight.create(frame->height(), frame->width(), CV_32SC1);
 	weight.download(frame->data.weight.data, frame->data.weight.step);
 }

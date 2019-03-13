@@ -3,6 +3,7 @@
 #include "SophusUtil.h"
 #include "PoseStruct.h"
 #include <unordered_set>
+#include "PointStruct.h"
 
 class KeyPointStruct;
 
@@ -74,6 +75,7 @@ public:
 	} data;
 
 	std::unordered_set<Frame *, std::hash<Frame *>> neighbors;
+	PointStructPtr point_struct;
 };
 
 inline SE3& Frame::pose()

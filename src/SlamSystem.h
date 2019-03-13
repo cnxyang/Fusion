@@ -78,7 +78,7 @@ protected:
 	void checkConstraints();
 	void tryTrackConstraint();
 	void validateKeyPoints();
-	bool needNewKeyFrame(SE3& poseUpdate);
+	bool needNewKeyFrame(SE3 poseUpdate);
 
 	// Sub-routines
 	VoxelMap* map;
@@ -167,6 +167,8 @@ public:
 	Sophus::SE3d first_frame_pose;
 	std::vector<Sophus::SE3d> full_trajectory;
 	std::vector<TexturedPoint> point_cloud;
+
+	std::list<Frame *> keyframe_list;
 };
 
 inline bool SlamSystem::shouldQuit() const

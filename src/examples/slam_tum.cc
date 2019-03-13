@@ -24,14 +24,16 @@ int main(int argc, char** argv)
 	sys.load_groundtruth(interface.get_groundtruth());
 
 	cv::Mat image, depth;
+	cv::Mat image_float, depth_float;
+	cv::Mat intensity;
 
 	while(interface.read_next_images(image, depth))
 	{
 		int id = interface.get_current_id();
 		double ts = interface.get_current_timestamp();
 		cvtColor(image, image, cv::COLOR_BGR2RGB);
-
-		sys.trackFrame(image, depth, id, ts);
+		depth.convertTo(depth_float, CV_32FC1, 1.f / 5000.f);
+		sys.trackFrame(image, depth_float, id, ts);
 	}
 
 	cv::waitKey(1000);
